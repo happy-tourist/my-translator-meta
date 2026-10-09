@@ -36,8 +36,9 @@ context: |
   Runtime: один sibling Git-репозиторий my_translator_app (Flutter lib/ + Rust rust/ + in-process FRB).
 
   Проект: My Translator — продукт Translation Reader (чтение субтитров + изучение слов в контексте).
-  Домены (target): parse/subtitles, reader/cues, reader/highlight, dictionary/entries,
-  translate/offline, settings/languages; опциональный AI — позже и явно.
+  Домены (target): parse/subtitles, reader/cues, reader/highlight, library/folders,
+  library/documents, dictionary/entries, translate/offline, settings/languages;
+  опциональный AI — позже и явно.
 
   Skills roots: .agents/skills/client/ (Flutter UI), .agents/skills/server/ (Rust core),
   .agents/skills/ (openspec-*, align-code, align-implementability-back, align-implementability-front,
@@ -63,8 +64,9 @@ context: |
   - Change-папка: openspec/changes/<slug>/
   - Delta spec: openspec/changes/<slug>/specs/<capability-id>/spec.md
   - Main spec: openspec/specs/<capability-id>/spec.md
-  - <capability-id> — продуктовый путь (reader/cues, dictionary/entries, parse/subtitles, …)
-    из Business Entities в sibling AGENTS.md; неизвестный домен — согласовать ID в proposal, не выдумывать.
+  - <capability-id> — продуктовый путь (reader/cues, library/folders, library/documents,
+    dictionary/entries, parse/subtitles, …) из Business Entities / proposal; неизвестный домен —
+    согласовать ID в proposal, не выдумывать.
   - ЗАПРЕЩЕНО: папка spec = номер задачи / имя change (specs/mt-123/, specs/add-reader-tap/).
   - Пример: задача про тап по слову → change add-word-tap-card, delta specs/reader/tap/spec.md.
   - Контракт Flutter↔Rust менять согласованно: rust/src/api/ → FRB codegen → lib/ (не править generated вручную).
@@ -74,9 +76,12 @@ context: |
   Client skills: .agents/skills/client/ в my_translator_meta.
 
   Проект: my_translator_app — Flutter / Dart (sdk ^3.13), Material, flutter_rust_bridge 2.13,
-  generated lib/src/rust/, widget/integration tests. Тяжёлая логика не в Dart.
-  Архитектура (target): lib/features/* screens + widgets; FRB calls тонкие.
-  Сейчас scaffold: lib/main.dart demo TextField → processText / addNumbers.
+  generated lib/src/rust/, widget/integration tests.
+  User persistence: **Drift** в Flutter `lib/data/` (folders / documents / dictionary; settings later).
+  Compute (parse / tokenize / lemmatize / offline translate) — в Rust; не дублировать NLP в Dart.
+  Архитектура: lib/app shell (Library|Vocab) + lib/features/* + lib/data Drift; FRB calls тонкие (compute).
+  Сейчас: product shell Library + Vocabulary; Drift repos; Rust scaffold API ещё в crate, не home UI.
+  Client Drift skill: `.agents/skills/client/work-with-drift`.
   Тесты: skill `.agents/skills/client/client-work-with-test`; `flutter test` / `integration_test`.
 
   --- App / Rust (тот же sibling app, слой rust/) ---
@@ -85,8 +90,9 @@ context: |
 
   Проект: rust_lib_my_translator_app — Rust edition 2021, cdylib+staticlib, FRB 2.13,
   публичный API в rust/src/api/, generated rust/src/frb_generated.rs (не править вручную).
-  Слои (target): api/ thin → parse / tokenize / lemmatize / dictionary / translate / db (SQLite).
-  Сейчас scaffold: process_text / add_numbers.
+  Слои (target): api/ thin → parse / tokenize / lemmatize / translate (compute-only).
+  User SQLite / rusqlite / rust/src/db для пользовательских данных — **не** канон; persist = Drift.
+  Сейчас compute scaffold: process_text / add_numbers / init_app (не user store).
 
 # -----------------------------------------------------------------------------
 # applyContextFiles — обязательные файлы при /opsx-apply
@@ -136,8 +142,8 @@ rules:
     - '"НЕ в proposal": дублирование сценариев из specs/ — поведение описывать в spec'
     - 'Flutter — Scope: экраны (upload/list, reader, split, vocabulary, settings), жесты тап/выделение, lemma highlight UX'
     - 'Flutter — «НЕ в proposal»: имена Widget/Route, Theme tokens как реализация, GIVEN/WHEN из specs'
-    - 'Rust — Scope: parse/tokenize/lemma/dict/translate/db поведение, FFI surface outcomes'
-    - 'Rust — «НЕ в proposal»: имена модулей/типов вне product language, SQLite schema literals как реализация'
+    - 'Rust — Scope: parse/tokenize/lemma/translate (compute) поведение, FFI surface outcomes; user persist — только если change явно требует Rust store (иначе Drift)'
+    - 'Rust — «НЕ в proposal»: имена модулей/типов вне product language, schema literals (SQLite/Drift) как реализация'
 
   # specs/**/*.md — поведение и трассировка к тестам
   specs:
@@ -154,16 +160,16 @@ rules:
     - 'Spec описывает только поведение ТЕКУЩЕГО change; логика из другого change — одна строка-ссылка в шапке'
     - 'Flutter — Поведение UI: loading/empty/error, word/phrase card, highlight paint, navigation'
     - 'Flutter — «НЕ в specs»: имена .dart, ThemeData константы, implementation constants'
-    - 'Rust — Поведение: parse accept/reject, tokenize/lemma spans, dict add/list/update/remove, translate miss/hit'
+    - 'Rust — Поведение compute: parse accept/reject, tokenize/lemma spans, translate miss/hit; dict CRUD в Rust — только если change явно требует Rust store (иначе Drift / Flutter persist)'
     - 'Rust — «НЕ в specs»: имена internal modules, SQLite table DDL как поведение без product need'
 
   # design.md — как реализовать
   design:
     - 'Указать затронутый слой: Flutter lib/ и/или Rust rust/; согласовать FRB API при cross-layer change'
     - 'Flutter — Точки изменений: lib/ (features/screens/widgets), не lib/src/rust/** (generated)'
-    - 'Flutter — Слои: UI/оркестрация → generated FRB API; тяжёлую логику не дублировать на Dart'
+    - 'Flutter — Слои: UI/оркестрация → Drift (user persist) и/или generated FRB API (compute); NLP/parse/lemma/translate не дублировать на Dart'
     - 'Flutter — Errors: user-visible messaging; RustLib.init failures; file pick/parse errors'
-    - 'Rust — Слои: тонкий rust/src/api/ → parse / tokenize / lemmatize / dictionary / translate / db'
+    - 'Rust — Слои: тонкий rust/src/api/ → parse / tokenize / lemmatize / translate (compute-only); user persist = Drift unless change явно требует Rust store'
     - 'Rust — FRB: менять только api/**; затем codegen; не править frb_generated.rs / lib/src/rust/** вручную'
     - 'Rust — Align FFI types с Flutter callers в том же change или явно dual-step'
     - 'Конкретные файлы, функции, точки врезки в существующий flow'
@@ -203,13 +209,13 @@ rules:
     - 'CRITICAL: таблица SC-ID → тест в spec согласована с фактическими тестами (нет «covered» без метода)'
     - 'CRITICAL: реализация следует решениям design.md (файлы, точки врезки, слой Flutter/Rust)'
     # --- Flutter ---
-    - 'CRITICAL (Flutter): парсинг субтитров / лемматизация / правила словаря продублированы на Dart вопреки design (авторитет должен быть в Rust)'
+    - 'CRITICAL (Flutter): парсинг субтитров / лемматизация / NLP-правила продублированы на Dart вопреки design (compute-авторитет в Rust); user persist через Drift — ок, если так в design'
     - 'CRITICAL (Flutter): ручная правка lib/src/rust/** или вызов без RustLib.init() вопреки design'
     - 'WARNING (Flutter): ошибки FRB/parse не доведены до user-visible messaging где применимо'
     - 'WARNING (Flutter): нет flutter test на новые/изменённые UI/reader/словарь сценарии из tasks (SC-ID)'
     - 'WARNING (Flutter): нет flutter analyze / flutter test прогона из tasks или явного skip'
     # --- Rust ---
-    - 'CRITICAL (Rust): бизнес-логика (parse/lemma/dict/translate/SQLite) в rust_builder/ или только в Dart вопреки design'
+    - 'CRITICAL (Rust): compute (parse/lemma/translate) в rust_builder/ или только в Dart вопреки design; либо rusqlite/user-db в Rust вопреки design Drift'
     - 'CRITICAL (Rust): hand-edit rust/src/frb_generated.rs или смена публичного API без пути api/ + codegen'
     - 'CRITICAL (Rust): FFI types / API расходятся с Flutter callers без явного dual-change'
     - 'WARNING (Rust): нет cargo test на новые/изменённые parse/lemma/dict/translate из tasks'

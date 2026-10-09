@@ -53,9 +53,9 @@ new work, not growing `process_text` forever.
 | FFI surface | `rust/src/api/**/*.rs` | Public FRB API (source of truth); thin exports only |
 | API module list | `rust/src/api/mod.rs` | `pub mod …` for each API file |
 | Demo API (scaffold) | `rust/src/api/simple.rs` | `process_text`, `add_numbers`, `#[frb(init)] init_app` |
-| Internal modules (target) | `rust/src/{parse,tokenize,lemma,dictionary,translate,db,…}/` or sibling `.rs` | Heavy logic; not FRB-exported unless re-exported via `api/` |
+| Internal modules (target) | `rust/src/{parse,tokenize,lemma,translate,…}/` or sibling `.rs` | Heavy **compute**; not FRB-exported unless re-exported via `api/` |
 | Generated Rust FRB | `rust/src/frb_generated.rs` | **Do not hand-edit** |
-| Crate manifest | `rust/Cargo.toml` | Deps (`flutter_rust_bridge`, later `rusqlite`/`diesel`, parsers, …) |
+| Crate manifest | `rust/Cargo.toml` | Deps (`flutter_rust_bridge`, later parsers/NLP — **not** user `rusqlite`) |
 | FRB config (app root) | `flutter_rust_bridge.yaml` | `rust_input` / `rust_root` / `dart_output` — mention only; details → work-with-config / work-with-frb-api (and Flutter bridge → `client/work-with-frb`) |
 | Glue | `rust_builder/` | cargokit/FFI only — not product logic |
 | Rust tests | `rust/` (`cargo test`; unit tests next to modules or `tests/`) | Parser / lemma / dict / translate coverage |
@@ -67,9 +67,10 @@ Allowed dependency direction:
 lib/** (UI)  →  lib/src/rust/api/* (generated)  →  rust/src/api/*  →  rust core modules
 ```
 
-Rust owns parse / tokenize / lemmatize / dictionary / offline translate / SQLite.
-Flutter orchestrates calls and paints. Do not recommend reimplementing that
-logic in Dart.
+Rust owns parse / tokenize / lemmatize / offline translate (**compute**).
+User library/dictionary persistence is **Drift in Flutter `lib/`** — do not
+point agents at `rusqlite` / `rust/src/db` for user rows. Do not recommend
+reimplementing NLP/parse in Dart.
 
 ### Current scaffold (confirmed)
 
@@ -78,8 +79,8 @@ logic in Dart.
 | Crate | `rust_lib_my_translator_app` in `rust/Cargo.toml` |
 | Modules | `lib.rs` → `api` + `frb_generated`; `api/mod.rs` → `simple` only |
 | Demo API | `process_text` → `to_uppercase`; `add_numbers`; `init_app` → `setup_default_user_utils()` |
-| Product modules | **Not in tree yet** (parse, tokenize/lemmatize, dictionary, translate, db) |
-| SQLite / diesel / rusqlite | **Not connected** (target) |
+| Product modules | **Not in tree yet** (parse, tokenize/lemmatize, translate) |
+| User SQLite in Rust | **Not canon** — Drift owns folders/documents/dictionary |
 | Extra Cargo deps beyond FRB | None yet |
 
 ### Target domain modules (product, mostly not in tree yet)
@@ -88,9 +89,9 @@ logic in Dart.
 |---------|------------------------|--------------------|
 | Parse SRT / VTT / ASS | `parse` (or similar) | cues / document DTO export |
 | Tokenize / lemmatize | `tokenize` / `lemma` | tokens + lemma keys for UI |
-| Dictionary CRUD + lemma lookup | `dictionary` + `db` | add/list/remove/lookup |
+| Dictionary lemma keys / NLP handoff (later) | thin compute helpers if needed | **persist CRUD → Flutter Drift**, not Rust db |
 | Offline translate word/phrase | `translate` | result DTO for word/phrase card |
-| Settings / local persistence | `db` (+ settings helpers) | get/set settings |
+| Settings / local persistence | — | **Flutter Drift** (settings later) |
 | Optional AI (later) | Explicit later; do not invent providers from this skill | — |
 | Init / bridge utils | keep `#[frb(init)]` in `api/` | `init_app` only |
 
@@ -103,7 +104,8 @@ Use these rules to pick the layer before naming files.
 | If the change is… | Prefer |
 |-------------------|--------|
 | New / changed method or DTO visible to Flutter | `rust/src/api/**/*.rs` (+ `api/mod.rs`); then **codegen required** |
-| Heavy parse / NLP / dict / translate / SQL logic | new or existing module **outside** `api/`; `api/` only re-exports / wraps |
+| Heavy parse / NLP / translate logic | new or existing module **outside** `api/`; `api/` only re-exports / wraps |
+| User folders / documents / dictionary persist | **Flutter Drift** — redirect to [`client-locate-change-points`](../../client/client-locate-change-points/SKILL.md) |
 | Grow scaffold demo (`to_uppercase` / `add_numbers`) for a product feature | **No** — add target modules + thin `api/`; leave demo alone unless the task is explicitly demo-only |
 | `#[frb(init)]` / default user utils | `rust/src/api/simple.rs` (`init_app`) or a dedicated init API module when the surface grows |
 | Hand-edit `rust/src/frb_generated.rs` or `lib/src/rust/**` | Never — report as wrong target; regenerate after `api/` change |
@@ -140,7 +142,7 @@ implement them from this skill.
 
 - Unit tests for parse / lemma / dict / translate → next to modules or `rust/tests/`; `cargo test` in `rust/`.
 - FFI contract smoke may also need Flutter `integration_test/` / widget tests — Related only; Flutter placement → client skill.
-- `Cargo.toml` — new crates (SQLite, subtitle parsers, etc.) when the task needs them; do not invent versions here beyond noting the need.
+- `Cargo.toml` — new crates (subtitle parsers, NLP, etc.) when the task needs them; do **not** add user-store `rusqlite`/`diesel`; do not invent versions here beyond noting the need.
 - `flutter_rust_bridge.yaml` — rarely for features; only if input/output paths or crate API root change.
 
 ## Domain Hotspots
@@ -151,9 +153,9 @@ implement them from this skill.
 | Bridge init | `init_app` in `api/simple.rs`; Flutter `RustLib.init()` under Related |
 | Subtitle parse (target) | new `rust/src/…` parse module + thin `api/` export |
 | Tokenize / lemmatize / highlight keys (target) | NLP modules + `api/` DTOs for tokens/lemmas |
-| Dictionary CRUD + lemma lookup (target) | dictionary + db modules + `api/` |
+| Dictionary persist CRUD | **Flutter Drift** (`lib/data/`) — not Rust |
 | Offline translate (target) | translate module + `api/` |
-| Settings persistence (target) | db/settings + `api/` |
+| Settings persistence (target) | **Flutter Drift** (later) |
 | Crate deps | `rust/Cargo.toml` |
 | Generated Rust bindings | `rust/src/frb_generated.rs` (read-only; regen after API change) |
 | Rust tests | colocated / `cargo test` in `rust/` |

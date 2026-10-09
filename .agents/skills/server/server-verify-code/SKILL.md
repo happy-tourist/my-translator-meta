@@ -35,9 +35,10 @@ plus DRY / KISS / YAGNI balance.
 **Stack assumptions:** Rust edition **2021**, crate
 **`rust_lib_my_translator_app`** (`cdylib` + `staticlib`),
 **flutter_rust_bridge** **2.13** — public FFI in `rust/src/api/**`, generated
-`rust/src/frb_generated.rs` (never hand-edit). Heavy logic (parse, tokenize,
-lemmatize, dictionary, offline translate, SQLite) lives in Rust modules outside
-thin `api/` exports. Verify with `cargo` in `{app}/rust`.
+`rust/src/frb_generated.rs` (never hand-edit). Heavy **compute** (parse,
+tokenize, lemmatize, offline translate) lives in Rust modules outside thin
+`api/` exports. User persist = Drift in Flutter (not Rust SQLite). Verify with
+`cargo` in `{app}/rust`.
 
 **Out of scope for this skill:** Flutter UI compliance (`lib/` widgets,
 Material, l10n) and `flutter analyze` / `flutter test` — those belong to the
@@ -73,7 +74,7 @@ it does **not** allow skipping skills from this list.
 | `work-with-frb-api` | public FFI surface in `rust/src/api/**`, thin exports, codegen contract |
 | `work-with-parse` | subtitle parse (SRT / VTT / ASS) |
 | `work-with-tokenizematize` | tokenize + lemmatize / wordform match |
-| `work-with-dictionary` | personal dictionary CRUD + lemma lookup + SQLite |
+| `work-with-dictionary` | dictionary domain / lemma keys; persist = Drift (not Rust SQLite) |
 | `work-with-translate` | offline word/phrase translate (and later optional AI providers) |
 
 If a new code skill appears under `.agents/skills/server/` (same kind: how to
@@ -119,8 +120,9 @@ generated files.
 **Always flag in the change set (hard Violations):**
 
 - Hand-edited `rust/src/frb_generated.rs` or `lib/src/rust/**`
-- Business logic (parse / tokenize / lemma / dictionary / translate / SQLite
-  rules) placed in `rust_builder/` (glue / cargokit only)
+- Business logic (parse / tokenize / lemma / translate) placed in
+  `rust_builder/` (glue / cargokit only); or user SQLite (`rusqlite` /
+  `rust/src/db`) added against Drift canon
 - Dart reimplementation of those core rules (authority forked out of Rust) when
   visible in the same change set
 
@@ -256,7 +258,7 @@ include.
 | `rust_builder/**` | glue only; **Violation** if business logic |
 | New parse / SRT / VTT / ASS modules | `work-with-parse` |
 | tokenize / lemma / morphology | `work-with-tokenizematize` |
-| dictionary / SQLite / lemma lookup | `work-with-dictionary` |
+| dictionary / lemma lookup (Drift persist on Flutter) | `work-with-dictionary` |
 | offline / phrase translate | `work-with-translate` |
 | `Cargo.toml`, features, FRB yaml | `work-with-config` |
 | `Result` / error types / `unwrap` on `api/` | `server-work-with-errors` |
@@ -269,9 +271,9 @@ Reminders to **open the skill** (or Built-in) — skill text wins.
 
 - **FRB**: no hand-edits of `frb_generated.rs` / `lib/src/rust/**`; public surface
   only via `rust/src/api/` + codegen; FRB **2.13**.
-- **Layering**: parse / lemma / dict / translate / SQLite stay in Rust modules;
-  `api/` thin; **no** business logic in `rust_builder/`; **no** Dart forks of
-  those rules.
+- **Layering**: parse / lemma / translate stay in Rust modules; `api/` thin;
+  user persist = Drift; **no** business logic in `rust_builder/`; **no** Dart
+  forks of compute rules; **no** user `rusqlite` in Rust.
 - **Errors**: no ignored `Result` / casual `unwrap` on user-facing `api/` for
   expected failures.
 - **Tooling**: `cargo check` + `cargo test` from `{app}/rust`; Clippy when

@@ -67,17 +67,17 @@ Apply always; sibling skills win when they exist and conflict on a detail.
 ### Language and architecture
 
 - **Rust** edition **2021** in crate **`rust_lib_my_translator_app`**.
-- **Heavy logic in Rust** (parse, tokenize, lemmatize, dictionary, offline
-  translate, SQLite). Flutter is UI/orchestration only — do **not** move those
-  rules into Dart or `rust_builder/`.
+- **Heavy compute in Rust** (parse, tokenize, lemmatize, offline translate).
+  Flutter is UI/orchestration + **Drift user persistence** — do **not** move
+  NLP/parse into Dart or `rust_builder/`, and do **not** add user SQLite in Rust.
 - Dependency direction:
 
   ```
-  lib/**  →  lib/src/rust/api/* (generated)  →  rust/src/api/*  →  rust modules
+  lib/** (UI + Drift)  →  lib/src/rust/api/* (generated)  →  rust/src/api/*  →  rust compute modules
   ```
 
 - Optional AI providers later only when explicitly in scope.
-- Prefer growing domain modules (parse / tokenize / dict / translate / db)
+- Prefer growing domain modules (parse / tokenize / translate)
   behind a **thin** `rust/src/api/` export over stuffing all logic into `api/`
   or leaving only scaffold demos once product APIs land.
 
@@ -107,10 +107,11 @@ Apply always; sibling skills win when they exist and conflict on a detail.
 
 ### Modules, persistence, config
 
-- Expected growth: modules outside `api/` (parse, lemma/tokenize, dict,
-  translate, db) with thin export through `api/`.
-- User data (dictionary, subtitles, settings) — SQLite via Rust (target); do not
-  invent a second persistence authority in Flutter or `rust_builder/`.
+- Expected growth: compute modules outside `api/` (parse, lemma/tokenize,
+  translate) with thin export through `api/`.
+- User data (dictionary, library folders/documents, settings) — **Drift in
+  Flutter `lib/`**; do **not** add `rusqlite` / `diesel` / `rust/src/db` for
+  user rows, and do not invent a second persistence authority in `rust_builder/`.
 - Do not hardcode production secrets or API keys in `rust/` (optional AI later
   must use explicit config / secrets handling when in scope).
 - Target product platforms via FRB: **Android, iOS, Web (WASM)**; do not grow

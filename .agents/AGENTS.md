@@ -73,10 +73,11 @@ OpenSpec: [`openspec/config.yaml`](../openspec/config.yaml); артефакты 
 | [`client-work-with-structure`](skills/client/client-work-with-structure/SKILL.md) | Экраны / виджеты / слои / feature folders |
 | [`client-work-with-errors`](skills/client/client-work-with-errors/SKILL.md) | Ошибки UI / вызовы Rust / `RustLib.init` |
 | [`work-with-pages`](skills/client/work-with-pages/SKILL.md) | Reader / словарь / загрузка / настройки (+ shell) |
+| [`work-with-drift`](skills/client/work-with-drift/SKILL.md) | Drift user persist: schema, repos, content store, Web assets |
 | [`work-with-styles`](skills/client/work-with-styles/SKILL.md) | Тема, Material, lemma highlight tokens |
 | [`work-with-localization`](skills/client/work-with-localization/SKILL.md) | Локаль UI (ARB) vs learning language pair |
-| [`work-with-env-deploy`](skills/client/work-with-env-deploy/SKILL.md) | `flutter build` apk/ipa/web; run/devices |
-| [`client-work-with-test`](skills/client/client-work-with-test/SKILL.md) | `flutter test` / `integration_test` |
+| [`work-with-env-deploy`](skills/client/work-with-env-deploy/SKILL.md) | `flutter build` apk/ipa/web; run/devices; Web COOP/COEP |
+| [`client-work-with-test`](skills/client/client-work-with-test/SKILL.md) | `flutter test` / `integration_test` / Drift tests |
 | [`work-with-frb`](skills/client/work-with-frb/SKILL.md) | Generated API, `RustLib.init`, codegen |
 | [`work-with-reader`](skills/client/work-with-reader/SKILL.md) | Тап, подсветка, split scroll |
 
@@ -96,7 +97,7 @@ OpenSpec: [`openspec/config.yaml`](../openspec/config.yaml); артефакты 
 | [`work-with-frb-api`](skills/server/work-with-frb-api/SKILL.md) | Публичный API в `rust/src/api/` + codegen (Rust-сторона) |
 | [`work-with-parse`](skills/server/work-with-parse/SKILL.md) | SRT / VTT / ASS(SSA) |
 | [`work-with-tokenizematize`](skills/server/work-with-tokenizematize/SKILL.md) | Токены / леммы / spans |
-| [`work-with-dictionary`](skills/server/work-with-dictionary/SKILL.md) | CRUD словаря + lookup по лемме |
+| [`work-with-dictionary`](skills/server/work-with-dictionary/SKILL.md) | Lemma keys / NLP handoff; persist CRUD = Drift (Flutter) |
 | [`work-with-translate`](skills/server/work-with-translate/SKILL.md) | Офлайн-перевод слов/фраз |
 
 Runtime-пути в client/server skills (`lib/…`, `rust/…`, `test/…`) — относительно корня `my_translator_app`.

@@ -3,9 +3,9 @@ name: work-with-env-deploy
 description: >-
   Use when running or releasing my_translator_app (Translation Reader):
   flutter pub get, flutter devices / flutter run, flutter build apk /
-  appbundle / ipa / web, FRB codegen before a dirty API, WASM/web notes,
-  rust_builder / cargokit glue, or release verification — Flutter + Rust/FRB
-  toolchain.
+  appbundle / ipa / web, FRB codegen before a dirty API, WASM/web notes
+  (COOP/COEP + Drift Web assets), rust_builder / cargokit glue, or release
+  verification — Flutter + Rust/FRB + Drift toolchain.
 ---
 
 # Work With Env And Deploy
@@ -71,13 +71,25 @@ cargo test
 ```bash
 flutter devices
 flutter run                    # default connected device
-flutter run -d chrome          # Web (WASM)
+flutter run -d chrome          # Web — prefer COOP/COEP flags below
 flutter run -d <deviceId>      # Android / iOS device or emulator
 ```
 
-Startup contract: `main()` must `await RustLib.init()` before `runApp`. If
-init fails on a platform, fix FRB/WASM/native glue — do not bypass init for
-“UI-only” smoke.
+**Web (FRB WASM + Drift):** without COOP/COEP, `RustLib.init` fails
+(`SharedArrayBuffer` / `crossOriginIsolated`). From app root:
+
+```bash
+flutter run -d chrome \
+  --web-header=Cross-Origin-Opener-Policy=same-origin \
+  --web-header=Cross-Origin-Embedder-Policy=require-corp
+```
+
+Drift Web assets (required beside FRB WASM): `web/sqlite3.wasm`,
+`web/drift_worker.js` — see `work-with-drift` / `{app}/AGENTS.md`.
+
+Startup contract: `main()` must `await RustLib.init()` before
+`TranslationReaderApp` (which then opens Drift). If init fails, fix
+FRB/WASM/native glue — do not bypass init for “UI-only” smoke.
 
 ## Release builds (product targets)
 
@@ -92,9 +104,9 @@ Notes:
 
 - **iOS**: needs Apple toolchain and signing; on non-macOS hosts, do not claim
   `ipa` success — report the platform limit.
-- **Web**: uses FRB **WASM** (see `lib/src/rust/frb_generated.web.dart`;
-  scaffold also has `web/pkg/` wasm artifacts). Prefer `flutter build web` /
-  `flutter run -d chrome` over hand-editing `web/pkg/`.
+- **Web**: FRB **WASM** (`lib/src/rust/frb_generated.web.dart`) plus Drift
+  (`web/sqlite3.wasm`, `web/drift_worker.js`). Prefer `flutter build web` /
+  COOP/COEP `flutter run -d chrome` over hand-editing generated wasm packs.
 - **Android**: first build may compile Rust via **cargokit** under
   `rust_builder/` — slow is normal; failures often point at NDK/Rust toolchain,
   not Dart UI.
@@ -155,7 +167,7 @@ Rust-only: `cargo test` in `rust/`.
 ## Anti-patterns
 
 - Hand-editing generated FRB Dart/Rust instead of codegen.
-- Putting parse / NLP / dictionary / SQLite logic into `rust_builder/`.
+- Putting parse / NLP / user-Drift / translate logic into `rust_builder/`.
 - Treating linux/macos/windows desktop builds as required product gate.
 - Claiming iOS `ipa` success without a macOS+signing environment.
 - Skipping `flutter pub get` / analyze / build after glue or API changes.

@@ -3,7 +3,7 @@ name: server-work-with-errors
 description: >-
   Use when adding, changing, reviewing, or debugging Rust error handling in
   my_translator_app (Translation Reader) — Result / anyhow / thiserror at the
-  FRB API boundary, parse / lemmatize / dictionary / translate / SQLite failures,
+  FRB API boundary, parse / lemmatize / translate failures (user persist errors are Flutter/Drift),
   stable error codes or messages for Dart catch, or avoiding panics for expected
   user errors. Not Flutter UI presentation (client-work-with-errors).
 ---
@@ -89,10 +89,10 @@ Import/codegen details → `work-with-frb`. UI mapping → `client-work-with-err
 |--------|---------------------------|---------|
 | Parse (SRT/VTT/ASS) | Unsupported format, corrupt file, unreadable bytes | `Err` with stable code/prefix (`unsupported_format`, `parse_failed`, `empty_cues` only if product treats empty as error — prefer `Ok` + empty) |
 | Tokenize / lemmatize | Unsupported language, empty input, engine failure | `Err` for hard fail; empty token list as `Ok(vec![])` when input was valid but blank |
-| Dictionary | Duplicate lemma policy, missing id, constraint violate | Typed or coded `Err`; not panic |
+| Dictionary (NLP handoff later) | Missing lemma key / bad input to compute | Typed or coded `Err`; not panic — **persist CRUD errors live in Flutter/Drift** |
 | Translate (offline) | Unknown word, missing dict data, engine unavailable | `Err` or structured “not found” — pick one contract and keep it; document in API |
-| SQLite / persistence | I/O, migration, constraint | `Err` with context; never leave DB half-committed without mapping to `Err` |
-| Settings load/save | Corrupt prefs blob, I/O | `Err`; caller keeps prior in-memory defaults on Flutter side |
+| User persistence | I/O, migration, constraint | **Flutter Drift** (not Rust SQLite) — map in client error skill |
+| Settings load/save | Corrupt prefs / I/O | Flutter Drift later; caller keeps prior in-memory defaults |
 | `init_app` | Setup failure | Fail loudly at init (Dart fatal UI); do not half-init |
 
 ## API Boundary (`rust/src/api/`)
@@ -287,15 +287,15 @@ pub fn parse_subtitles(path: String) -> SubtitleDoc {
 | `rust/src/api/mod.rs` | Module exports |
 | `rust/src/parse/` (target) | Parse errors — unsupported / corrupt |
 | `rust/src/` lemma/tokenize modules (target) | NLP failures |
-| `rust/src/` dict / db (target) | CRUD + SQLite errors |
+| Flutter Drift repositories | User persist errors (not Rust) |
 | `rust/src/` translate (target) | Offline miss / unavailable |
 | `rust/src/frb_generated.rs` | GENERATED — never hand-edit |
 | `lib/src/rust/**` | GENERATED Dart — never hand-edit |
 | `{app}/AGENTS.md` | Layering, init order |
 
 Scaffold today has **no** fallible product API — add patterns above with the
-first parse/dict/translate/db surface; do not grow demo `simple.rs` into an
-error framework without real fallible behavior.
+first parse/translate surface; do not grow demo `simple.rs` into an
+error framework without real fallible behavior. User persist errors → Flutter.
 
 ## Related Skills
 

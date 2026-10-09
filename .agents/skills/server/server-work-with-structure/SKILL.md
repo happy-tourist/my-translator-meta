@@ -3,8 +3,9 @@ name: server-work-with-structure
 description: >-
   Use when placing or moving Rust code in my_translator_app (Translation
   Reader): rust/src/api thin FRB surface vs internal parse / tokenize /
-  lemmatize / dictionary / translate / db, frb_generated.rs, lib.rs module
+  lemmatize / translate (compute-only), frb_generated.rs, lib.rs module
   wiring, or deciding whether new logic belongs in api/ vs a domain module.
+  User persistence is Drift in Flutter — not rust/src/db / rusqlite.
 ---
 
 # Work With Structure
@@ -14,14 +15,15 @@ description: >-
 Use this skill when creating or relocating code under `rust/` in
 **my_translator_app** (product: **Translation Reader**).
 
-Rust is the in-process core (parse, NLP, dictionary, offline translate,
-SQLite). Flutter talks only through **flutter_rust_bridge** (FRB): generated
-Dart → thin `rust/src/api/` → internal modules.
+Rust is the in-process **compute** core (parse, NLP, offline translate).
+User persistence (library folders/documents, dictionary) is **Drift** in
+Flutter — do **not** require `rust/src/db` / `rusqlite` for user data.
+Flutter talks to Rust through **flutter_rust_bridge** (FRB): generated Dart →
+thin `rust/src/api/` → internal modules.
 
 Stack (from `{app}/AGENTS.md`): Rust edition `2021`, crate
 `rust_lib_my_translator_app` (`cdylib` + `staticlib`), FRB `2.13.0`,
-`flutter_rust_bridge.yaml` with `rust_input: crate::api`. Persistence
-target: SQLite via Rust (`diesel` / `rusqlite`) — not wired in scaffold yet.
+`flutter_rust_bridge.yaml` with `rust_input: crate::api`. User store = Drift.
 
 Path package root: `{app}/rust/` (resolve `{app}` via
 `docs/projects-map.md` key `app`).
@@ -39,13 +41,12 @@ Skills for this Rust layer live under `.agents/skills/server/` in
 2. Create only the files the feature needs. Do not add empty stubs “for
    later”.
 3. Place code by layer role: **thin FRB surface** (`api/`) vs **domain
-   module** (parse / NLP / dict / translate / db) vs **generated**
-   (`frb_generated.rs`).
+   module** (parse / NLP / translate) vs **generated** (`frb_generated.rs`).
 4. Respect **allowed dependency direction** (see below). Never invert
    layers.
 5. Keep `api/` thin: FRB-friendly types, argument validation at the edge,
-   and calls into internal modules. No SRT grammar, lemma tables, or SQL
-   inside `api/` beyond trivial glue.
+   and calls into internal modules. No SRT grammar or lemma tables inside
+   `api/` beyond trivial glue. No user-SQL / rusqlite in `api/`.
 6. Never hand-edit `rust/src/frb_generated.rs` or
    `lib/src/rust/**`. Change `rust/src/api/` → run FRB codegen.
 7. Do not put business logic in `rust_builder/` (glue / cargokit only).
@@ -86,9 +87,9 @@ not extend for product features; replace or leave unused as real APIs land.
 | FRB public surface | `rust/src/api/` | Thin `#[frb]` functions / types only; one file (or submodule) per product area |
 | Parse | `rust/src/parse/` (or `parse.rs`) | SRT / VTT / ASS(SSA) → cues / timings |
 | Tokenize / lemmatize | `rust/src/tokenize_lemmatize/` **or** `tokenize/` + `lemmatize/` | Tokens + lemmas for tap / highlight |
-| Dictionary | `rust/src/dictionary/` | Vocab CRUD, lemma lookup, context — domain rules |
 | Translate | `rust/src/translate/` | Offline word/phrase translate; later optional AI adapters |
-| Persistence | `rust/src/db/` | SQLite open/migrate/queries; no UI types |
+| Dictionary (NLP helpers only) | optional module later | Lemma-key helpers — **not** user CRUD store |
+| User persistence | **Flutter Drift** (`lib/`) | folders / documents / dictionary — **not** `rust/src/db` |
 | Generated | `rust/src/frb_generated.rs` | **GENERATED** — never hand-edit |
 | Glue (outside src) | `rust_builder/` | cargokit / FFI build only |
 
@@ -106,19 +107,20 @@ trees for this offline core.
 Allowed:
 
 ```text
-Flutter lib/**  (UI / orchestration)
-  → lib/src/rust/api/*          (generated Dart)
+Flutter lib/**  (UI / orchestration + Drift user persist)
+  → Drift DAOs / repositories
+  → lib/src/rust/api/*          (generated Dart, compute)
       → rust/src/api/*          (thin FRB surface)
-          → parse / tokenize_lemmatize / dictionary / translate / db
+          → parse / tokenize_lemmatize / translate
 ```
 
 Also normal:
 
 - `api/` calls one or more internal modules and maps errors/types for FRB.
-- Internal modules may call `db` for persistence and each other when the
-  domain needs it (e.g. dictionary → lemmatize for lemma keys) — prefer
+- Internal modules may call each other when the domain needs it — prefer
   keeping cycles out; see [content.md](content.md).
 - `lib.rs` only declares modules; no business logic there.
+- User CRUD does **not** go through FRB → `db`.
 
 **Forbidden inversions:**
 
@@ -129,7 +131,8 @@ Also normal:
 | Hand-edit `frb_generated.rs` or `lib/src/rust/**` | Regenerate after `api/` changes |
 | Business logic in `rust_builder/` | Glue only |
 | Fat domain code inside `api/simple.rs` (or peers) | Extract to internal module; keep `api/` thin |
-| Parse / lemma / SQL duplicated in Dart | Belongs in Rust |
+| Parse / lemma duplicated in Dart | Belongs in Rust compute |
+| User SQLite / `rust/src/db` for vocab/library | Drift in Flutter |
 
 ## Where New Code Belongs
 
@@ -140,15 +143,15 @@ Decide in this order:
 2. **Subtitle formats / cue model?** → `parse/` (not `api/`, not Dart).
 3. **Token spans / lemmas / word-form match?** → `tokenize_lemmatize/`
    (or split tokenize + lemmatize).
-4. **Vocab add/list/remove / lookup by lemma / context?** → `dictionary/`
-   (+ `db/` when persisting).
+4. **Vocab add/list/remove / lookup by lemma / context (persist)?** →
+   **Flutter Drift** — not Rust `db/` / FRB storage. See
+   `work-with-dictionary` + client `vocab.md`.
 5. **Offline (or later AI) translate?** → `translate/` (+ thin `api/`
    export).
-6. **SQLite schema / migrations / queries?** → `db/` only; dictionary /
-   settings call into it.
+6. **User SQLite schema in Rust?** → **Do not** add for folders/documents/
+   dictionary; persist = Drift unless a future change says otherwise.
 7. **Init / default user utils?** → keep FRB `#[frb(init)]` in `api/`;
-   heavy setup may call `db` or config helpers — not grow demo
-   `simple.rs` forever.
+   do not open a user SQLite from Rust — not grow demo `simple.rs` forever.
 8. **Pure helper used by one domain?** → same domain module; promote to
    a small shared `util` only when a second domain needs it (do not
    invent a grab-bag early).
@@ -160,13 +163,16 @@ Decide in this order:
 - Public functions/types annotated for FRB.
 - Edge validation (empty path, unsupported lang code) that maps cleanly
   to Flutter errors.
-- Orchestration of a single user-facing call: parse file → return cues;
-  lemmatize line → return tokens; add vocab → persist.
+- Orchestration of a single user-facing compute call: parse file → return
+  cues; lemmatize line → return tokens; translate word/phrase → gloss.
 
 **Put in internal modules**
 
-- Parsers, tokenizers, lemma tables/rules, dictionary invariants,
-  translate backends, SQL.
+- Parsers, tokenizers, lemma tables/rules, translate backends.
+
+**Put in Flutter Drift (not Rust)**
+
+- User folders / documents / dictionary_entries persistence.
 
 **Put in generated / glue**
 
@@ -248,15 +254,16 @@ token spans + lemma + gloss for the word card.
 **Highlight** — Rust prepares lemma keys / spans; Flutter only paints.
 Matching `run` / `running` / `ran` lives in NLP + dictionary, not Dart.
 
-**Vocab CRUD** — `api::dictionary` → `dictionary` domain → `db` SQLite.
-Flutter list screens are views over FRB results, not a second source of
-truth.
+**Vocab CRUD** — Drift repositories in Flutter (`dictionary/entries`).
+Rust may later supply lemma keys / gloss for Reader add; **persist is not
+FRB**. Do not add `api::dictionary` + `rusqlite` for user rows without an
+explicit OpenSpec change.
 
 **Offline translate** — `api::translate` → `translate` module (local
 data/rules). Optional AI later stays behind the same module boundary.
 
-**Init** — `#[frb(init)]` in `api/` may open DB / load paths via `db` or
-config helpers after persistence exists.
+**Init** — `#[frb(init)]` in `api/` for FRB runtime only; Drift open lives
+in Flutter `main` / app bootstrap.
 
 ## Creating New Pieces — Checklist
 
@@ -276,11 +283,11 @@ config helpers after persistence exists.
 2. Keep the first feature’s files only — no empty sibling folders.
 3. Call from `api/`, not from Flutter.
 
-**New persistence**
+**New user persistence**
 
-1. Schema/migrations/queries in `db/`.
-2. Dictionary/settings own product rules; they call `db`, not the reverse
-   for business invariants.
+1. Implement in Flutter Drift (`lib/` data layer) — see client structure /
+   OpenSpec `library/*` / `dictionary/entries`.
+2. Do **not** create `rust/src/db` or add `rusqlite` for user CRUD.
 
 **Retiring scaffold demo**
 
@@ -292,17 +299,17 @@ config helpers after persistence exists.
 
 | Domain | Primary paths (target) | Authority |
 |--------|------------------------|-----------|
-| FRB surface | `rust/src/api/` | Thin FFI only; source of truth for contract |
+| FRB surface | `rust/src/api/` | Thin FFI only; source of truth for compute contract |
 | Parse | `rust/src/parse/` | Cue/timing model |
 | Tokenize / lemma | `tokenize_lemmatize/` (or split) | Tap units + highlight keys |
-| Dictionary | `dictionary/` + `db/` | Vocab truth + context |
+| Dictionary persist | Flutter Drift | Vocab rows + context |
 | Translate | `translate/` | Offline (later AI) glosses |
-| Persistence | `db/` | SQLite |
+| Library persist | Flutter Drift | folders / documents |
 | Generated bridge | `frb_generated.rs` + `lib/src/rust/` | Tooling only |
 | Flutter UI | `lib/features/…` | Display / gestures — see client structure skill |
 
-Entity names from AGENTS live as **Rust truth**; Dart holds view-facing
-snapshots only.
+User entities (library, dictionary) — **Drift** truth. Compute entities
+(tokens, cues, gloss) — Rust when APIs land.
 
 ## Common Mistakes
 
@@ -313,7 +320,7 @@ snapshots only.
 | Hand-editing generated FRB files | Edit `api/` → codegen |
 | Internal `use crate::api::…` | Depend on domain modules only |
 | Empty domain folders “for later” | Create on first real file |
-| Putting SQL in `api/` | `db/` behind dictionary/settings |
+| Putting user SQL / rusqlite in Rust | Drift in Flutter `lib/` |
 | Business logic in `rust_builder/` | Leave as glue |
 | Fat `api` that reimplements parsers | Move body to `parse/` / NLP / etc. |
 

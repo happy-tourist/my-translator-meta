@@ -3,12 +3,13 @@ name: client-work-with-test
 description: >-
   Use when planning or writing Flutter tests for my_translator_app (Translation
   Reader): widget tests (`flutter test`), integration tests
-  (`flutter test integration_test`), FRB boundary fakes (prefer UI + fake
-  orchestration; never hand-edit generated `lib/src/rust/**`), loading/error/
-  empty UX, Key-based finders, optional goldens. Harness: `flutter_test`,
-  `integration_test`, `{app}/test/`, `{app}/integration_test/`. Core in
-  SKILL.md; details in topics: widget-tests.md, integration-tests.md,
-  frb-boundary.md, golden.md.
+  (`flutter test integration_test`), Drift repository / reopen tests, FRB
+  boundary fakes (prefer UI + fake orchestration; never hand-edit generated
+  `lib/src/rust/**`), loading/error/empty UX, Key-based finders, optional
+  goldens. Harness: `flutter_test`, `integration_test`, `{app}/test/`,
+  `{app}/integration_test/`. Core in SKILL.md; details in topics:
+  widget-tests.md, integration-tests.md, frb-boundary.md, drift-tests.md,
+  golden.md.
 ---
 
 # Work With Test
@@ -25,9 +26,10 @@ tests stay in `rust/` via `cargo test` — do **not** mix stacks or invent
 Node / browser runners (Jest, Cypress, Playwright, etc.) for this package.
 
 Stack: **Flutter** (`sdk: ^3.13.4`), **`flutter_test`**, **`integration_test`**,
-**flutter_rust_bridge** `2.13.0` (generated Dart under `lib/src/rust/` — never
-hand-edit). No backend; UI ↔ core is local FRB. State-management package is
-not mandated until `{app}/AGENTS.md` adopts one.
+**Drift** (`lib/data/`), **flutter_rust_bridge** `2.13.0` (generated Dart under
+`lib/src/rust/` — never hand-edit). No backend; user persist = Drift; compute =
+local FRB. State-management package is not mandated until `{app}/AGENTS.md`
+adopts one.
 
 Core principle: test user-visible behavior and screen/widget contracts, not
 implementation details. Do not test unconditional rendering, static Theme
@@ -44,6 +46,7 @@ area (do not load every file at once):
 | Widget / unit tests under `test/` | [widget-tests.md](widget-tests.md) |
 | Device/integration tests under `integration_test/` | [integration-tests.md](integration-tests.md) |
 | FRB / RustLib boundary fakes and what not to edit | [frb-boundary.md](frb-boundary.md) |
+| Drift repositories / reopen / test DB helpers | [drift-tests.md](drift-tests.md) |
 | Optional golden / screenshot tests | [golden.md](golden.md) |
 
 ## Bootstrap (harness already in app)
@@ -55,13 +58,11 @@ Test harness lives in **my_translator_app**:
   - Unit/widget: `flutter test`
   - Integration: `flutter test integration_test`
   - Analyze: `flutter analyze`
-- Layout: `test/` (widget/unit), `integration_test/` (full-app / device),
-  optional `test_driver/` for older driver entrypoints
-- Scaffold note (`{app}/AGENTS.md`): `integration_test/simple_test.dart` is
-  **out of sync** with current `lib/main.dart` (expects old
-  `Result: Hello, Tom!` copy). Fix or rewrite that test when touching
-  integration coverage for the home/demo UI — do not treat a red stale test
-  as proof the product is broken.
+- Layout: `test/data/` (Drift repos), `test/features/` (shell/library/vocab),
+  `test/support/test_database.dart`, `integration_test/` (full-app / device)
+- Keep `integration_test/simple_test.dart` aligned with product boot
+  (Library/Vocab shell + Drift) when changing integration coverage — do not
+  assert removed scaffold demo copy.
 
 Do **not** re-bootstrap with Node or web-only runners — use `flutter test`
 and `flutter test integration_test`. Do **not** add mockito/mocktail unless
@@ -226,10 +227,10 @@ void main() {
 }
 ```
 
-Adapt names to the real SUT; while scaffold still uses `MyHomePage` + direct
-`processText` imports, either extract an injectable call site for the test or
-cover behavior via integration with a real bridge →
-[frb-boundary.md](frb-boundary.md), [integration-tests.md](integration-tests.md).
+Adapt names to the real SUT. For Library / Vocab, inject Drift repos /
+`MemoryDocumentContentStore` / `createTestDatabase()` →
+[drift-tests.md](drift-tests.md). For compute FRB call sites, prefer injectable
+fakes → [frb-boundary.md](frb-boundary.md), [integration-tests.md](integration-tests.md).
 
 ## Pumping Widgets
 
@@ -310,14 +311,14 @@ await tester.pumpWidget(MaterialApp(home: HomeScreen(processText: fake.processTe
 // lib/src/rust/api/simple.dart  ← FORBIDDEN
 
 // Asserting private State
-final state = tester.state<_MyHomePageState>(find.byType(MyHomePage));
-expect(state._result, isNotEmpty);
+final state = tester.state<_LibraryScreenState>(find.byType(LibraryScreen));
+expect(state._folders, isNotEmpty);
 
 // Finding only by nested layout types
 expect(find.byType(Padding), findsWidgets);
 
-// Unconditional static chrome
-expect(find.text('Flutter + Rust Demo'), findsOneWidget); // AppBar title never branches
+// Unconditional static chrome with no branching value
+expect(find.text('Translation Reader'), findsOneWidget); // only if title never branches
 
 // Wrong runner / stack
 import 'package:jest/...'; // does not exist — use flutter_test

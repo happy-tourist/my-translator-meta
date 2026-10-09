@@ -18,8 +18,8 @@ Primary shell destination ([shell.md](shell.md)).
 - Source / learning language preferences (what the user reads vs studies).
 - Theme / display prefs if product wants them in-app (otherwise system theme
   from shell is enough).
-- Persist via Rust/SQLite when settings API exists; until then, keep UI
-  structure ready without inventing a second persistence stack in Dart.
+- Persist via Drift when settings land; until then, keep UI structure ready
+  without inventing a second persistence stack beside Drift.
 
 **Later (explicitly optional — do not build until asked)**
 

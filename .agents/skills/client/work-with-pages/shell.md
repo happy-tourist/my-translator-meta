@@ -3,36 +3,34 @@
 Read with the [core pages skill](SKILL.md) when changing `MaterialApp`, theme,
 primary navigation, or shared chrome that every product screen sits inside.
 
-## Target composition
-
-Scaffold today mounts UI from `lib/main.dart` (`MyApp` → `MyHomePage`). Target:
+## Current composition
 
 ```text
 main.dart
-  → await RustLib.init()
-  → runApp(TranslationReaderApp)          # lib/app/
+  → await RustLib.init()   # or fatal _InitFailureApp
+  → runApp(TranslationReaderApp)          # lib/app/app.dart
 
-lib/app/
-  → MaterialApp (title: Translation Reader, theme, home / router)
-  → shell scaffold: AppBar / NavigationBar|Drawer|NavigationRail
-  → Navigator / Router outlet for feature screens
+lib/app/app.dart
+  → open Drift → loading / error+retry / AppShell(database)
+
+lib/app/shell.dart
+  → NavigationBar: Library | Vocabulary
+  → inject Folder/Document/Dictionary repositories
 ```
-
-Suggested files (create only what the change needs):
 
 | File | Role |
 |------|------|
-| `lib/app/app.dart` | `MaterialApp` + theme |
-| `lib/app/shell.dart` (or similar) | Primary destinations + body outlet |
+| `lib/app/app.dart` | `MaterialApp` + Drift open + theme host |
+| `lib/app/shell.dart` | Primary destinations + body outlet |
 | `lib/main.dart` | Init + `runApp` only — no feature markup |
 
-## Primary destinations (target)
+## Primary destinations
 
 | Destination | Opens | Notes |
 |-------------|-------|-------|
-| Library / Upload | [upload.md](upload.md) | Default home after scaffold removal |
+| Library / Upload | [upload.md](upload.md) | Default home (index 0) |
 | Vocabulary | [vocab.md](vocab.md) | Personal dictionary |
-| Settings | [settings.md](settings.md) | Languages; later optional AI |
+| Settings | [settings.md](settings.md) | Languages; later optional AI — not a tab yet |
 
 **Reader** and **Split view** are session screens pushed from a selected
 subtitle document — not usually top-level tabs. Back from Reader returns to
@@ -54,8 +52,8 @@ the library list.
 Until AGENTS / OpenSpec adopts a router package:
 
 - Shell holds an index (or equivalent) for Library / Vocab / Settings.
-- Open Reader with `Navigator.push` (or equivalent) carrying a document id /
-  handle from Rust — not a full parsed tree owned only in Dart.
+- Open Reader later with `Navigator.push` carrying a document id from Drift —
+  not a full parsed tree owned only in Dart. Parse cues via FRB when Reader lands.
 
 When a router is adopted later, keep the same destinations and the same
 «Reader is pushed from library» model; register routes in `lib/app/`, not
@@ -63,6 +61,6 @@ scattered across features.
 
 ## Do not
 
-- Extend `MyHomePage` demo as the long-term home.
+- Dump feature markup into `main.dart`.
 - Duplicate AppBar brand + bottom nav on every feature screen.
 - Port web layout shells, breadcrumbs, or brand-logo leave-mode chrome.

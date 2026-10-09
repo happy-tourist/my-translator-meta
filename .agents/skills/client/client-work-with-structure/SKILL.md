@@ -16,11 +16,11 @@ description: >-
 Use this skill when creating or relocating UI under `lib/` in
 **my_translator_app** (product: **Translation Reader**).
 
-Stack (from `{app}/AGENTS.md`): Flutter / Dart (`lib/`), Rust core (`rust/`),
-**flutter_rust_bridge** generated Dart (`lib/src/rust/` — do not edit by hand).
-No backend. Heavy work (parse, tokenize, lemmatize, dictionary, offline
-translate, SQLite) stays in Rust; Flutter is screens, gestures, and thin FRB
-orchestration.
+Stack (from `{app}/AGENTS.md`): Flutter / Dart (`lib/`), Rust compute (`rust/`),
+**flutter_rust_bridge** generated Dart (`lib/src/rust/` — do not edit by hand),
+**Drift** for user persistence. No backend. Heavy compute (parse, tokenize,
+lemmatize, offline translate) stays in Rust; Flutter is screens, gestures,
+thin FRB orchestration, and Drift data layer (folders / documents / dictionary).
 
 Path package: `package:my_translator_app/...`.
 
@@ -30,9 +30,8 @@ Skills for this client live under `.agents/skills/client/` in
 ## Core Rules
 
 1. Before adding folders, inspect a nearby peer in the **same layer** and match
-   its file name and import style. While the repo is still scaffold
-   (`lib/main.dart` demo), follow the **target** layout in this skill, not the
-   demo dump.
+   its file name and import style. Match the **current** `lib/app` +
+   `lib/data` + `lib/features` layout — do not dump product UI into `main.dart`.
 2. Create only the files the feature needs. Do not add empty stubs “for later”.
 3. Place UI by layer role (route/screen vs reusable widget vs orchestration).
 4. Respect **allowed dependency direction** (see below). Never invert layers.
@@ -40,49 +39,51 @@ Skills for this client live under `.agents/skills/client/` in
 6. Keep `main.dart` thin: `await RustLib.init()` then `runApp`. Shared chrome
    (app bar, nav shell) lives in one app/shell widget — not duplicated on every
    screen.
-7. Keep FRB I/O in a thin orchestration layer (screen state, a dedicated
+7. Keep Drift / FRB I/O in a thin orchestration layer (screen state, a dedicated
    controller/notifier, or a small service class). Prefer widgets that take
-   props/callbacks over calling generated API deep in leaf widgets.
-8. Do **not** reimplement parse / lemma / dictionary / translate rules in Dart.
+   props/callbacks over calling repositories or generated API deep in leaves.
+8. Do **not** reimplement parse / lemma / translate rules in Dart. User persist
+   belongs in Drift (`work-with-drift`), not Rust SQLite.
 9. Do **not** mandate Riverpod, Bloc, Provider, or go_router until
    `{app}/AGENTS.md` (or an OpenSpec change) adopts one. StatefulWidget /
    `ChangeNotifier` / plain async methods are fine; if a package is added later,
    keep the same layer roles.
 
-## Folder Map (`lib`) — target
+## Specialized Topics
 
-Scaffold today is flat (`main.dart` + generated `src/rust/`). Grow toward
-feature folders under `lib/`:
+| Topic | File / skill |
+|-------|----------------|
+| Drift schema / repos / Web | [`work-with-drift`](../work-with-drift/SKILL.md) |
+
+## Folder Map (`lib`) — current + growth
 
 | Layer | Path | Role |
 |-------|------|------|
 | Entry | `lib/main.dart` | `RustLib.init()` + `runApp`; no feature markup |
-| App shell | `lib/app/` | `MaterialApp` / theme / optional router host |
+| App shell | `lib/app/` | `MaterialApp`, Drift open, Library\|Vocab shell |
+| Data (Drift) | `lib/data/` | Database, repositories, document content store |
 | Features | `lib/features/<area>/` | Screen + local widgets + optional controller for one product area |
-| Shared widgets | `lib/widgets/` or `lib/shared/` | Cross-feature UI (word chip chrome, empty states) once reused |
-| Orchestration | beside screen or `…/controllers/` | Loading/error flags, FRB calls, UI-facing models |
+| Shared widgets | `lib/widgets/` or `lib/shared/` | Cross-feature UI once reused |
+| Orchestration | beside screen or `…/controllers/` | Loading/error flags, Drift/FRB calls, UI models |
 | Generated FRB | `lib/src/rust/` | **GENERATED** — never hand-edit |
-| Assets | `assets/` (pubspec) | Images / fonts when needed |
+| Assets | `assets/` (pubspec); Drift Web under `web/` | Images / fonts; `sqlite3.wasm`, `drift_worker.js` |
 
-**Feature areas (target):**
+**Feature areas:**
 
-| Area | Suggested folder | Screens / focus |
-|------|------------------|-----------------|
-| Upload | `features/upload/` | Pick / list subtitle files; hand off to Rust parse |
-| Reader | `features/reader/` | Line list, tap/selection, lemma highlight paint |
-| Split view | `features/split/` or under `reader/` | Original ↔ translation panes, sync scroll |
-| Vocab | `features/vocab/` | Dictionary list / entry detail |
-| Settings | `features/settings/` | Languages; later optional AI provider |
+| Area | Folder | Screens / focus |
+|------|--------|-----------------|
+| Upload / Library | `features/upload/` | Folders + import (`library_screen.dart`) — **present** |
+| Vocab | `features/vocab/` | Dictionary list / add / remove — **present** |
+| Reader | `features/reader/` | Line list, tap/selection, lemma highlight (later) |
+| Split view | `features/split/` or under `reader/` | Original ↔ translation panes (later) |
+| Settings | `features/settings/` | Languages; later optional AI (later) |
 
-Outside `lib/`: `rust/` (authority), `rust_builder/` (glue only), `test/`,
+Outside `lib/`: `rust/` (compute), `rust_builder/` (glue only), `test/`,
 `integration_test/`, platform runners. Do not put business logic in
 `rust_builder/`.
 
 **Not used:** generic `blocks/` / `dialogs/` registry layers unrelated to
 features.
-
-Scaffold leftovers (`MyHomePage` demo TextField / `processText`) — do not
-extend for product features; replace with feature screens as work lands.
 
 ## Dependency Direction
 
@@ -93,8 +94,9 @@ main / app shell
   → features/*/screens (or routes)
       → features/*/widgets  +  shared widgets
       → orchestration (local state / controller)
-          → package:my_translator_app/src/rust/api/*   (generated)
-              → rust/src/api/*  →  rust modules (parse / NLP / dict / db)
+          → lib/data/** repositories (Drift)
+          → package:my_translator_app/src/rust/api/*   (generated, compute)
+              → rust/src/api/*  →  rust modules (parse / NLP / translate)
 ```
 
 Also normal:
@@ -126,8 +128,10 @@ Decide in this order:
    feature needs it.
 3. **Async FRB / session / list loading?** → thin orchestration next to the
    screen (or `controllers/`), not inline business rules in `build()`.
-4. **Parse / tokenize / lemma / dictionary / SQLite / offline translate?** →
-   Rust (`rust/src/…` + thin `rust/src/api/`), then codegen — not Dart.
+4. **Parse / tokenize / lemma / offline translate?** → Rust (`rust/src/…` +
+   thin `rust/src/api/`), then codegen — not Dart.
+4b. **User persist (folders / documents / dictionary / settings)?** → Drift
+   in `lib/` (data layer / repositories) — not Rust SQLite / FRB storage.
 5. **Page-local sheet / dialog?** → Keep in the screen or extract a widget —
    **do not** invent a global dialogs registry.
 
@@ -149,14 +153,15 @@ Decide in this order:
 
 **Put in orchestration**
 
-- FRB calls: parse document, tokenize line, lookup lemma, add/remove vocab,
-  translate word/phrase, load settings.
-- UI-facing loading / error flags and mapped view models (do not mirror full
-  Rust domain graphs in Dart).
+- Drift repository calls: folders / documents / dictionary CRUD, settings later.
+- FRB calls (when compute APIs exist): parse document, tokenize line, translate
+  word/phrase.
+- UI-facing loading / error flags and mapped view models.
 
 **Put in Rust (via FRB)**
 
-- Subtitle parse, NLP, dictionary truth, offline translate, persistence.
+- Subtitle parse, NLP (tokenize/lemma), offline translate — compute only.
+  User persistence is Drift, not Rust SQLite.
 
 ### What NOT to put
 
@@ -166,8 +171,8 @@ Decide in this order:
 | Editing generated `lib/src/rust/**` | Change `rust/src/api/` → codegen |
 | Mandatory Riverpod/Bloc “because another stack had a store” | Match AGENTS; add a package only when chosen |
 | Empty `features/*` folders for unused areas | Add when the first file is needed |
-| Growing the scaffold `MyHomePage` into product | New feature screens |
-| FRB calls inside every decorative child | One orchestration / screen call site |
+| Dumping product UI into `main.dart` | Feature screens under `lib/features/` |
+| FRB / Drift calls inside every decorative child | One orchestration / screen call site |
 
 ## Naming
 
@@ -215,22 +220,22 @@ lib/src/rust/frb_generated.dart
 
 ## Real Composition Examples (target)
 
-**Upload** — screen picks a file path/bytes → orchestration calls Rust parse →
-navigates/opens a reader session with structured cues. No SRT grammar in Dart.
+**Upload / Library** — folders + import via Drift; file picker bytes → Drift
+document store. Reader/parse later via FRB. No SRT grammar in Dart.
 
 **Reader** — screen shows cue lines; tap/selection → orchestration asks Rust
-for token/lemma + translate → shows word/phrase card; “add to vocab” → Rust
-dictionary API. Highlight spans come from Rust-prepared token data; Flutter
-only paints.
+for token/lemma + translate → shows word/phrase card; “add to vocab” → Drift
+dictionary (same store as Vocab UI). Highlight spans from Rust-prepared token
+data; Flutter paints.
 
 **Split view** — two synced scroll views (original / translation). Translation
 text and alignment data from Rust; Flutter owns scroll controllers and layout.
 
-**Vocab** — list/detail screens; CRUD via FRB. No local “source of truth” list
-that diverges from Rust/SQLite.
+**Vocab** — list/add/delete via Drift. Empty state supports in-UI add; Reader
+add is later. No second source of truth in SharedPreferences.
 
-**Settings** — languages (and later optional AI). Persist through Rust when
-storage exists; UI does not invent a parallel prefs schema for core data.
+**Settings** — languages (and later optional AI). Persist via Drift when
+settings land; UI does not invent a parallel prefs schema for core data.
 
 **App shell** — hosts navigation between upload / reader / vocab / settings;
 keeps shared theme. No per-screen duplicate global nav once a shell exists.
@@ -254,47 +259,54 @@ keeps shared theme. No per-screen duplicate global nav once a shell exists.
 **New orchestration**
 
 1. Keep next to the feature; expose loading/error and UI models.
-2. Import generated API from `package:my_translator_app/src/rust/api/...`.
+2. Call Drift repositories for user data; import generated FRB API only for
+   compute (`package:my_translator_app/src/rust/api/...`).
 3. After Rust API changes: run FRB codegen, then update callers/tests.
 
-**New core capability (parse / NLP / dict)**
+**New compute capability (parse / NLP / translate)**
 
 1. Implement in `rust/`; export thin surface in `rust/src/api/`.
 2. Codegen → update Flutter orchestration only.
+
+**New user persist (folders / documents / dictionary / settings)**
+
+1. Implement under `lib/data/` per `work-with-drift`.
+2. Wire screens via constructor-injected repositories — not FRB storage.
 
 ## Domain Anchors
 
 | Domain | Flutter (target) | Authority |
 |--------|------------------|-----------|
-| Upload / file list | `features/upload/` | Rust parse + file handling |
+| Library folders/documents | `features/upload/` + Drift data | Drift persist; Rust parse later |
 | Reader + tap/select | `features/reader/` | Rust tokens / lemmas / translate |
 | Split view | `features/split/` or `reader/` | Rust line pairing; Flutter sync scroll |
-| Vocab | `features/vocab/` | Rust dictionary + SQLite |
-| Settings | `features/settings/` | Rust (target) / local UI until API exists |
-| Word/phrase card | reader widgets | Rust lookup + add |
+| Vocab | `features/vocab/` | Drift dictionary persist |
+| Settings | `features/settings/` | Drift (target) / local UI until wired |
+| Word/phrase card | reader widgets | Rust gloss + Drift add |
 | App chrome | `lib/app/` | Flutter only |
-| FRB contract | `lib/src/rust/` (generated) | `rust/src/api/` |
+| FRB contract | `lib/src/rust/` (generated) | `rust/src/api/` (compute) |
 
-Entity names from AGENTS (Subtitle document, Token/Lemma, Dictionary entry,
-Reader session, Settings) live as **Rust truth**; Dart holds view-facing
-snapshots only.
+User entities (Library folder/document, Dictionary entry, Settings) — **Drift**
+truth. Compute entities (Token/Lemma, parsed cues) — Rust when those APIs land.
 
 ## Common Mistakes
 
 | Mistake | Fix |
 |---------|-----|
-| Growing scaffold `MyHomePage` into the product | Add `features/.../*_screen.dart` |
+| Dumping new UI into `main.dart` | Add `features/.../*_screen.dart` |
 | Parsing subtitles or lemmatizing in Dart | Move to Rust + FRB |
 | Hand-editing generated Dart/Rust FRB files | Edit `rust/src/api/` → codegen |
 | Mandating Riverpod/Bloc without AGENTS decision | Use simple state; adopt package when documented |
 | FRB calls in every small decorative widget | Centralize in orchestration / screen |
 | Empty feature folders “for later” | Create on first real file |
 | Importing a screen from a shared widget | Invert: screen imports widget |
-| Putting SQLite or dict rules in Flutter | Rust persistence / domain |
+| Putting user persist in Rust SQLite / FRB storage | Drift in `lib/` data layer |
+| Reimplementing parse/lemma/translate in Dart | Rust compute + FRB |
 | Treating `rust_builder/` as app logic | Leave as glue |
 
 ## Related Skills
 
+- Drift user persist → `work-with-drift`
 - Mock measurement / Visual Spec → `prepare-mock`
 - Pixel/check vs mock → `verify-mock`
 - Flutter implementability of meta claims → `align-implementability-front`
@@ -308,8 +320,8 @@ For structure-only placement tasks, confirm:
 - [ ] Correct layer (feature screen / widget / orchestration / Rust+FRB)
 - [ ] `*_screen.dart` / clear feature folder (not dumping into `main.dart`)
 - [ ] No new generic `blocks/` or dialogs registry
-- [ ] Dependency direction respected (UI → orchestration → generated FRB → Rust)
-- [ ] No hand-edits under `lib/src/rust/`
-- [ ] Heavy logic not duplicated in Dart
+- [ ] Dependency direction respected (UI → orchestration → Drift and/or FRB → Rust compute)
+- [ ] User persist under `lib/data/`; no hand-edits under `lib/src/rust/` or `*.g.dart`
+- [ ] Heavy compute not duplicated in Dart
 - [ ] No mandatory state-management/router package beyond AGENTS
-- [ ] Upload / reader / vocab / settings / split land under agreed feature areas
+- [ ] Library / vocab / reader / settings / split land under agreed feature areas

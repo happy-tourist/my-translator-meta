@@ -262,8 +262,9 @@ Apply always; sibling skills win when they exist and conflict on a detail.
 ### Language and architecture
 
 - **Dart** + **Flutter** widgets in `lib/`; UI and orchestration only.
-- **Heavy logic in Rust** (parse, tokenize, lemmatize, dictionary, offline
-  translate, SQLite). Do **not** reimplement those rules in Dart.
+- **Heavy compute in Rust** (parse, tokenize, lemmatize, offline translate).
+  User persistence (library / dictionary / settings) → **Drift** in Flutter.
+  Do **not** reimplement NLP/parse rules in Dart.
 - Dependency direction:
 
   ```
@@ -307,16 +308,17 @@ Apply always; sibling skills win when they exist and conflict on a detail.
 
 ### Data and persistence
 
-- User data (dictionary, subtitles, settings) — through Rust (target SQLite),
-  not ad-hoc Flutter-only persistence that forks the source of truth.
+- User data (dictionary, library documents/folders, settings) — through **Drift**
+  in Flutter `lib/`, not Rust SQLite / FRB storage, and not a second ad-hoc store
+  that forks the source of truth.
 - Do not hardcode production secrets or API keys in `lib/`.
 
 ### Severity cues for built-in conventions
 
 | Tier | Examples |
 |------|----------|
-| **Violations** | Hand-edited `lib/src/rust/**`; Dart reimplementation of parse/lemma/dict rules; `runApp` without `RustLib.init()`; empty `catch` on user-facing FRB calls; inventing a parallel FFI client that bypasses generated FRB |
-| **Warnings** | Business logic creeping into widgets; Flutter-only persistence that forks Rust truth; expanding scaffold demo instead of target reader flows; blocking UI with work that belongs in Rust; FRB await/subscribe ordering that risks missing first event |
+| **Violations** | Hand-edited `lib/src/rust/**` or Drift `*.g.dart`; Dart reimplementation of parse/lemma/translate; user persist via Rust SQLite/FRB storage; `runApp` without `RustLib.init()`; empty `catch` on user-facing async; inventing a parallel FFI client that bypasses generated FRB |
+| **Warnings** | Business logic creeping into widgets; second ad-hoc store beside Drift; dumping new UX into `main.dart`; blocking UI with work that belongs in Rust; FRB await/subscribe ordering that risks missing first event |
 | **Recommendations** | Import / member order tidy; `const` where analyzer already hints; mild ThemeData token use; mild DRY/KISS polish |
 
 ## Built-in: DRY / KISS / YAGNI
@@ -397,7 +399,7 @@ Reminders to **open the skill** (or Built-in) — skill text wins.
 
 - **FRB**: no hand-edits under `lib/src/rust/**`; init before `runApp`; call
   generated API only.
-- **Layering**: parse / lemma / dict / translate / SQLite stay in Rust.
+- **Layering**: parse / lemma / translate stay in Rust; user persist = Drift.
 - **Async**: no empty catch on user-facing FRB; no UI-thread heavy work that
   belongs in Rust; watch stream subscribe-before-await gaps when relevant.
 - **Tooling**: `flutter analyze` + `flutter test` from app root.

@@ -48,7 +48,7 @@ Flutter upload chrome alone (`work-with-pages`).
 | Stable parse error kinds | Rust → thin `api/` |
 | Display cue list / empty / error UI | Flutter |
 | Tokenize / lemma / highlight flags | **Next** pipeline — `work-with-tokenizematize` |
-| Persist document / cues (SQLite target) | Rust (other modules) — not this skill’s grammar |
+| Persist document bytes / library rows | Flutter Drift (`library/documents`) — not this skill’s grammar |
 
 Do **not** reimplement SRT/VTT/ASS grammar in Dart. Do **not** put parse logic
 in `rust_builder/` or inflate scaffold `api/simple.rs` into a product parser.

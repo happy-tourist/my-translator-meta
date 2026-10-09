@@ -67,7 +67,7 @@ Load **in this order**:
 
 Treat explicit prohibitions and exceptions as atomic: «не возвращать», «не добавлять», «только для…», «кроме…», «без сети», «stub».
 
-Heavy logic (parse, lemma, dict, translate, SQLite) belongs in **Rust**; Flutter must bind FRB, not reimplement. Flag Rust leaking UI concerns or missing FFI exports when AC puts rules in core as `code-only` / `extra` as appropriate. Authoritative subtitle/NLP/dict truth lives in Rust — do not treat Flutter local string munging as fulfilment of core AC.
+Heavy **compute** (parse, lemma, offline translate) belongs in **Rust**; Flutter must bind FRB, not reimplement. User persistence (library / dictionary) is **Drift in Flutter** — not `rusqlite` / `rust/src/db`. Flag Rust leaking UI concerns or missing FFI exports when AC puts rules in core as `code-only` / `extra` as appropriate. Authoritative subtitle/NLP truth lives in Rust — do not treat Flutter local string munging as fulfilment of compute AC.
 
 A tester's guess is only a lead. Dialog wording is clarification only when it explicitly updates expected behavior relative to the active change.
 
@@ -181,7 +181,7 @@ Find strong untouched analogues for the same domain/flow. Prefer same layer:
 | Core modules (target) | parse / tokenize / lemmatize / dictionary / translate / db under `rust/src/` as they appear |
 | FRB init | `#[frb(init)]` / `init_app` in `api/` |
 | Errors | `Result` types, `thiserror`/`anyhow` patterns if present |
-| Persistence (target) | SQLite via `diesel` / `rusqlite` in Rust — not Flutter |
+| Persistence (user data) | **Drift in Flutter `lib/`** — not `rusqlite` / `rust/src/db` |
 | Tests | `rust/**/tests`, `#[cfg(test)]`, `cargo test` targets |
 | FRB config | `{app}/flutter_rust_bridge.yaml` (`rust_input: crate::api`) |
 | Flutter bind (contrast only) | generated `lib/src/rust/api/*` — read-only evidence of surface, not edit target |

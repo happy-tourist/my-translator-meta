@@ -113,7 +113,7 @@ document load path next to the chosen impl, not in Flutter.
 
 | Setting | Role | Owner |
 |---------|------|--------|
-| Source language | Subtitle / learning content language | Rust settings (+ persist when SQLite lands) |
+| Source language | Subtitle / learning content language | App settings (Drift later) / explicit FRB args |
 | Target language | Gloss language for the card | Same |
 | UI locale (ARB) | App chrome strings | Flutter — **not** this skill |
 
@@ -153,8 +153,8 @@ Translate **produces** gloss data; dictionary **persists** user vocab.
 | Step | Owner |
 |------|--------|
 | Offline gloss for card | `translate` |
-| User taps “Add to vocab” | Flutter → dictionary FRB |
-| Store lemma + translation(s) + context | `dict` (+ SQLite when present) |
+| User taps “Add to vocab” | Flutter → Drift dictionary repository |
+| Store lemma + translation(s) + context | Flutter Drift (`dictionary/entries`) |
 | Refresh highlight marks | Dictionary / lemma match — not translate |
 
 Rules:

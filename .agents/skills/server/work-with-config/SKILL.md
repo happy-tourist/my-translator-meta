@@ -41,7 +41,8 @@ server **`work-with-frb-api`**. Run/build/release → client
 - Touch crate name, `[lib]` `crate-type`, or FRB-related rustc lints
 - Edit `flutter_rust_bridge.yaml` (`rust_input` / `rust_root` / `dart_output`)
 - Diagnose FRB version drift across Dart, Cargo, and CLI
-- Review config before adding SQLite / lemma / translate crates (target stack)
+- Review config before adding lemma / translate crates (compute stack); do **not**
+  add `rusqlite` for user data (persist = Drift in Flutter)
 
 **Not this skill:** inventing product API functions; hand-editing generated
 FRB files; inventing web `.env` / URL config for core; putting business logic
@@ -87,8 +88,9 @@ Notes:
   minor upgrades that break codegen.
 - `[lints.rust] unexpected_cfgs` + `cfg(frb_expand)` is FRB-codegen hygiene —
   keep it when editing Cargo.toml unless FRB docs say otherwise for a bump.
-- No `[features]` yet; add when optional crates (e.g. SQLite, NLP) need
-  compile-time gates.
+- No `[features]` yet; add when optional crates (e.g. NLP, offline translate)
+  need compile-time gates. User persistence is **not** a Cargo/SQLite feature —
+  it is Drift in Flutter.
 
 ### `flutter_rust_bridge.yaml` (app root)
 
@@ -145,7 +147,7 @@ Rules:
 
 ## Cargo: Dependencies And Features
 
-### Adding a dependency (parse / lemma / dict / SQLite / translate)
+### Adding a dependency (parse / lemma / translate)
 
 1. Prefer crates that work on **Android / iOS / WASM** targets when the feature
    is product-facing; flag desktop-only crates explicitly.
@@ -156,6 +158,8 @@ Rules:
 4. Run from `{app}/rust/`: `cargo check` / `cargo test`.
 5. Optional AI / cloud keys later are an explicit product decision — not
    default Cargo/FRB config.
+6. **Do not** add `rusqlite` / `diesel` for user folders/documents/dictionary —
+   that persist path is **Drift** in Flutter (`{app}/AGENTS.md`).
 
 ### Features (when to introduce)
 
@@ -164,13 +168,12 @@ Use `[features]` when a crate is optional, heavy, or platform-gated:
 ```toml
 [features]
 default = []
-# example shape only — add when product needs it:
-# sqlite = ["dep:rusqlite"]
+# example shape only — add when product needs compute crates:
 # lemmatize = ["dep:…"]
-
-[dependencies]
-# rusqlite = { version = "…", optional = true, default-features = false, features = ["…"] }
+# translate = ["dep:…"]
 ```
+
+Do **not** feature-gate user SQLite in Rust; user store = Drift.
 
 Guidelines:
 
@@ -197,8 +200,8 @@ app crate.
 
 ## Persistence / secrets
 
-- Target persistence: **on-device SQLite** via Rust (path/API later) — not a
-  remote `DATABASE_URL`.
+- User persistence: **Drift** in Flutter `lib/` (folders / documents /
+  dictionary) — **not** `rusqlite` / `DATABASE_URL` / `rust/src/db`.
 - Do not invent `.env.example` for core config. If a future change adds
   dart-define / optional AI keys, that is product + deploy skill territory —
   not Cargo/FRB yaml defaults.
@@ -252,18 +255,11 @@ rust_root: rust/
 dart_output: lib/src/rust
 ```
 
-### Feature-gate a future SQLite dep (illustrative)
+### Do not add user-store SQLite in Rust
 
-```toml
-[features]
-default = ["sqlite"]
-sqlite = ["dep:rusqlite"]
-
-[dependencies]
-rusqlite = { version = "0.32", optional = true, default-features = false }
-```
-
-Wire actual versions from product decisions; do not copy this version blindly.
+User library/dictionary persistence is Drift. Skip `rusqlite` / `diesel`
+Cargo examples unless a future OpenSpec change explicitly requires a Rust
+store (compute caches ≠ user CRUD).
 
 ## Common Mistakes
 

@@ -1,44 +1,44 @@
 # Upload / subtitle library
 
 Read with the [core pages skill](SKILL.md) for shell/nav. Folder roles:
-`client-work-with-structure` → `lib/features/upload/`.
+`client-work-with-structure` → `lib/features/upload/`. Persist:
+`work-with-drift` → `lib/data/library/`.
 
 ## Target screens
 
 | Screen | Suggested path | Role |
 |--------|----------------|------|
-| Library / list | `lib/features/upload/library_screen.dart` (name flexible) | Saved / recent subtitle documents |
-| Import / pick | same feature folder (dialog, sheet, or dedicated screen) | Pick SRT / VTT / ASS(SSA) file |
+| Library / list | `lib/features/upload/library_screen.dart` (name flexible) | Folder tree + documents in selected folder |
+| Import / pick | same feature folder (dialog, sheet, or dedicated screen) | Pick SRT / VTT / ASS(SSA) file into a folder |
 
 Default post-scaffold **home** destination in [shell.md](shell.md).
 
 ## UX canon (target)
 
-- Show a list of documents the user can open (title, format, optional duration /
-  cue count when Rust provides them).
-- Affordance to **add / import** a subtitle file (platform file picker).
-- Selecting a row opens **Reader** ([reader.md](reader.md)) for that document.
-- Empty state: clear CTA to import — not the scaffold Rust demo form.
-- Delete / rename — only when Rust persistence API exists; UI stays thin.
+- Navigate **folders** (`library/folders`): create root/nested, open folder, cascade delete with confirm.
+- Inside a selected folder: list child folders + **documents** (`library/documents`); import via platform file picker.
+- Import / delete go through **Drift** in Flutter — do **not** wait for a Rust persistence API.
+- Selecting a document row does **not** open Reader in the Drift-library change (no-op / «Reader later»); Reader open is a later change.
+- Empty state (root or folder): clear CTA to create a folder (and import when inside a folder) — not the scaffold Rust demo form.
 
 ## Layering
 
 ```text
 LibraryScreen
-  → orchestration (list documents, import bytes/path)
-      → FRB: parse / store document (Rust)   # when API exists
-  → Navigator → ReaderScreen(documentId)
+  → orchestration (list folders/documents, import bytes/path, delete)
+      → Drift repositories / DAOs   # user persist source of truth
+  → (later) Navigator → ReaderScreen(documentId)
+  → (later) FRB: parse cues when Reader lands
 ```
 
-- Flutter: pick file, show list, navigate.
-- Rust: parse SRT/VTT/ASS, persist document metadata/cues (SQLite target).
+- Flutter: pick file, Drift CRUD for folders/documents, show list, navigate.
+- Rust (later): parse SRT/VTT/ASS for Reader cues — compute only; **not** document store.
 - Do **not** parse subtitle formats in Dart.
 
-## Scaffold note
+## Current tree
 
-Today there is no upload UI — only `MyHomePage` demo. First product landing
-should replace that demo with this library screen (or a shell whose first tab
-is this screen).
+`lib/features/upload/library_screen.dart` is the Library destination (default
+shell tab). Wire persist through `lib/data/library/*` — see `work-with-drift`.
 
 ## Out of scope here
 

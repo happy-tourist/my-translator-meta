@@ -1,7 +1,8 @@
 # Vocabulary (личный словарь)
 
 Read with the [core pages skill](SKILL.md) for shell/nav. Folder roles:
-`client-work-with-structure` → `lib/features/vocab/`.
+`client-work-with-structure` → `lib/features/vocab/`. Persist:
+`work-with-drift` → `lib/data/dictionary/`.
 
 ## Target screens
 
@@ -10,36 +11,34 @@ Read with the [core pages skill](SKILL.md) for shell/nav. Folder roles:
 | Vocabulary list | `lib/features/vocab/vocabulary_screen.dart` | Entries: lemma, translation, optional context |
 | Entry detail (optional) | same feature folder | Edit notes / see contexts / delete |
 
-Primary shell destination alongside Library and Settings ([shell.md](shell.md)).
+Primary shell destination alongside Library ([shell.md](shell.md)).
 
 ## UX canon (target)
 
-- List dictionary entries stored **locally** (Rust + SQLite target).
+- List dictionary entries stored **locally** via **Drift** (`dictionary/entries`).
 - Show lemma + translation; context (source cue/phrase) when present.
-- Remove entry; edits only when Rust API supports them.
-- Opening an entry may deep-link back to a document/cue **later** — do not
-  invent cross-navigation until OpenSpec says so.
-- Empty state: explain that words are added from Reader word card
-  ([reader.md](reader.md)).
+- **Add** from Vocab UI (lemma + translation + optional context) — empty state has form/CTA add; do **not** require Reader for first entries.
+- Remove entry; validation on empty lemma/translation after trim.
+- Opening an entry may deep-link back to a document/cue **later** — do not invent cross-navigation until OpenSpec says so.
+- **Reader add** (word card → vocab) — later change; highlight still reads the same Drift dictionary when Reader lands.
 
 ## Layering
 
 ```text
 VocabularyScreen
-  → orchestration: list / delete / (optional) update
-      → FRB dictionary API (Rust authority)
+  → orchestration: list / add / delete / (optional) update
+      → Drift dictionary repository   # persist authority
 ```
 
-- Flutter: list UI, confirm delete, search filter **on already-fetched** rows
-  or via Rust query — prefer Rust for large lists when API exists.
-- Do not keep a second source of truth in `SharedPreferences` for the
-  dictionary if SQLite/Rust owns it.
+- Flutter: list UI, add form, confirm delete, search filter on fetched rows.
+- Do not keep a second source of truth in `SharedPreferences`.
+- Do **not** wait for FRB dictionary storage API — persist is Drift, not Rust SQLite.
 
 ## Relationship to Reader
 
-- **Add** happens on the word card in Reader.
-- **Highlight** in Reader reads membership from the same dictionary.
-- Vocab screen is management/review, not the primary add surface.
+- **Add in this change:** Vocab screen in-UI form.
+- **Add later:** Reader word card → same Drift store.
+- **Highlight** in Reader (later) reads membership from the same dictionary.
 
 ## Out of scope
 

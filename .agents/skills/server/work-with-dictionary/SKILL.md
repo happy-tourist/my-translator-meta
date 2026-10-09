@@ -1,48 +1,59 @@
 ---
 name: work-with-dictionary
 description: >-
-  Personal vocabulary CRUD in Rust for Translation Reader (my_translator_app):
-  add / list / update / remove entries keyed by lemma, store translations and
-  optional context phrase/cue, lookup-by-lemma for reader highlight. Use when
-  implementing or changing dictionary domain, SQLite persistence, or thin FRB
-  dictionary API under rust/src/api/. Not Flutter vocab UI chrome (work-with-pages
-  vocab.md) and not cloud sync.
+  Personal vocabulary domain for Translation Reader (my_translator_app): lemma
+  keys, translation/context model, lookup-by-lemma for reader highlight. User
+  CRUD persistence is Drift in Flutter lib/ (not Rust SQLite / FRB storage).
+  Use when clarifying Rust NLP handoff to vocab, lemma-key contracts, or thin
+  FRB compute helpers — not for implementing Drift DAOs (client skills).
 ---
 
 # Work With Dictionary
 
-Use this skill for the **personal vocabulary (dictionary)** in
-**my_translator_app** (product: **Translation Reader**) — Rust core + local
-SQLite target. Flutter only lists/adds via FRB; **Rust owns truth**.
+Use this skill for the **personal vocabulary (dictionary)** domain in
+**my_translator_app** (product: **Translation Reader**).
+
+**Persistence canon (current):** dictionary CRUD (`dictionary/entries`) lives
+in **Drift** on Flutter `lib/`. Rust does **not** own user SQLite
+(`rusqlite` / `diesel` / `rust/src/db` for user data — **not** required).
+FRB storage API for dictionary is **not** part of the Drift-library change.
+
+**Rust role:** NLP lemma keys / tokenize-lemmatize / offline gloss that feed
+highlight and add-from-Reader **later**. Domain *rules* about lemma identity
+may still be documented here; **persist rows = Drift**, not FRB.
 
 **Paths:** this skill lives in **my_translator_meta** at
-`.agents/skills/server/work-with-dictionary/`. Runtime paths (`rust/src/…`)
-are relative to the **my_translator_app** sibling (`../my_translator_app`
-from meta; see `docs/projects-map.md`). Read `{app}/AGENTS.md` before changing
-the crate.
+`.agents/skills/server/work-with-dictionary/`. Runtime paths (`rust/src/…`,
+`lib/…`) are relative to the **my_translator_app** sibling
+(`../my_translator_app` from meta; see `docs/projects-map.md`). Read
+`{app}/AGENTS.md` before changing layers.
 
 Stack: **Rust** edition `2021`, crate `rust_lib_my_translator_app`, public FFI
-in `rust/src/api/`, FRB `2.13.0` (in-process).
+in `rust/src/api/`, FRB `2.13.0` (in-process) for **compute**; user store =
+Drift.
 
 ## Scaffold Honesty
 
-**Today there is no dictionary module and no SQLite.** Scaffold only exposes
-`process_text` / `add_numbers` in `rust/src/api/simple.rs`. Treat everything
-below as the **target contract** to implement when an OpenSpec change asks for
-it — do **not** pretend entries already persist, and do **not** grow the
-demo `simple` API into a fake in-memory “dict” without a real domain module.
+**Today there is no dictionary module in Rust and no rusqlite.** Scaffold only
+exposes `process_text` / `add_numbers` in `rust/src/api/simple.rs`. Product
+vocab persistence is implemented on the **Flutter/Drift** side per OpenSpec
+(`add-drift-library-storage` and main specs after sync). Do **not** grow the
+demo `simple` API into a fake in-memory “dict” or introduce `rust/src/db`
+for user rows unless a future change explicitly reassigns persist to Rust.
 
 ## When to Use
 
-- Add / list / update / remove personal vocabulary entries
-- Lemma as the stable key; translations + optional context (phrase / cue text)
-- Lookup-by-lemma (membership / entry) so Reader can highlight saved words
-- Wire thin FRB exports for dictionary after domain logic exists
-- Introduce SQLite persistence for dictionary rows (when persistence lands)
+- Clarify lemma as the stable key; translations + optional context
+- Lookup-by-lemma contract so Reader can highlight saved words (membership
+  may be checked in Flutter against Drift, or via a future compute helper)
+- Wire thin FRB exports for **NLP/gloss** that feed vocab — not for storing
+  entries
+- Review whether a change wrongly adds rusqlite / FRB CRUD for user dict
 
-**Not this skill:** Flutter vocab list chrome alone → `work-with-pages`
-(`vocab.md`); tokenize/lemmatize algorithms → `work-with-tokenizematize`;
-offline gloss generation → `work-with-translate`; FRB codegen mechanics →
+**Not this skill:** Flutter vocab list/add chrome + Drift DAOs →
+`work-with-pages` (`vocab.md`) / `client-work-with-structure`;
+tokenize/lemmatize algorithms → `work-with-tokenizematize`; offline gloss
+generation → `work-with-translate`; FRB codegen mechanics →
 `work-with-frb-api` / client `work-with-frb`; multi-device or cloud sync
 (out of scope in `{app}/AGENTS.md`).
 
@@ -53,71 +64,58 @@ offline gloss generation → `work-with-translate`; FRB codegen mechanics →
 | **Lemma** | Canonical key (from lemmatizer). Match key for highlight across wordforms (`run` / `running` / `ran`) |
 | **Translation(s)** | One or more gloss strings the user keeps |
 | **Context** | Optional source phrase and/or subtitle cue text at add time |
-| **Ids / timestamps** | Stable entry id + created/updated when persistence exists |
+| **Ids / timestamps** | Stable entry id + created/updated in Drift |
 
 Rules:
 
 - Identity for highlight = **lemma**, not surface form.
 - Surface form may be stored as display/context helper; do not use it as the
   membership key.
-- Duplicate lemma policy must be explicit when implementing (reject vs upsert
-  vs multi-sense rows) — pick one in OpenSpec/design; do not invent silently
-  in Flutter.
+- Duplicate lemma policy = upsert + normalize (trim + case-fold) — see
+  OpenSpec `dictionary/entries` / design D4.
 
-## Operations (target CRUD + lookup)
+## Operations (product CRUD + lookup)
 
-| Op | Intent |
-|----|--------|
-| **Add** | Persist lemma + translation(s) + optional context (from Reader word card) |
-| **List** | Return entries for Vocabulary screen (lemma, translation, context) |
-| **Update** | Change translation(s) and/or context / notes when API supports edit |
-| **Remove** | Delete entry; subsequent lemma lookup misses → highlight clears |
-| **Lookup by lemma** | Membership / entry fetch for Reader highlight flags |
-
-Add is primarily triggered from Reader word card; Vocabulary screen is
-management/review (list / remove / optional update) — see client
-`work-with-pages` / `vocab.md`.
+| Op | Intent | Layer |
+|----|--------|-------|
+| **Add** | Persist lemma + translation(s) + optional context | **Drift** (Vocab UI now; Reader card later) |
+| **List** | Return entries for Vocabulary screen | **Drift** |
+| **Update** | Change translation(s) and/or context | **Drift** when UI supports edit |
+| **Remove** | Delete entry; subsequent lookup misses → highlight clears | **Drift** |
+| **Lookup by lemma** | Membership / entry fetch for Reader highlight | Drift on Flutter; NLP keys from Rust |
 
 ## Layering
 
 ```text
 Flutter (vocab screen / word card)
-  → generated FRB (lib/src/rust/api/…)
-      → rust/src/api/…          # thin: types + call domain
-          → dictionary module   # rules + persistence
-              → SQLite (target)
+  → Drift dictionary repository     # persist authority
+  → (later) FRB tokenize/lemmatize / translate   # compute only
+      → rust/src/api/…              # thin
+          → tokenize_lemmatize / translate
 ```
 
 | Layer | Path (target) | Role |
 |-------|---------------|------|
-| FFI surface | `rust/src/api/` (e.g. `dictionary.rs`) | Thin export only — map args/results |
-| Domain | `rust/src/dictionary/` (or `dict/`) | CRUD rules, lemma key, context attach |
-| Persistence | same domain + db helper | SQLite on device |
+| Persist | Flutter `lib/` Drift tables/DAOs | CRUD + reopen durability |
+| FFI surface | `rust/src/api/` | Thin compute export only — **not** dict storage |
+| NLP | `rust/src/tokenize_lemmatize/` (or peers) | Lemma keys for highlight / tap |
 | Generated | `frb_generated.rs`, `lib/src/rust/**` | **Never** hand-edit |
 
-Heavy logic stays **outside** `api/`. Flutter must not keep a second source of
-truth in `SharedPreferences` when SQLite/Rust owns the dictionary.
+Flutter must not keep a second source of truth in `SharedPreferences` beside
+Drift. Do **not** require `rust/src/db` for dictionary persistence.
 
-Structural pattern: keep the FRB `api/` thin; put create/ensure/migrate and
-domain rules in a dictionary/db module; document the on-device SQLite path;
-never ship/commit the live DB file as source.
+## Persistence (canon)
 
-## Persistence (target — developer decision)
-
-- **Target store:** SQLite on the device, accessed **from Rust**.
-- **Crate not chosen yet:** `diesel` **or** `rusqlite` (or equivalent) —
-  **developer decision** before implementation; do not silently pick one in a
-  drive-by change. Record the choice in OpenSpec/design when adopting.
-- Open / migrate / path resolution live in Rust (app data dir via Flutter→Rust
-  path handoff or Rust-side platform path — decide in design; keep one path).
-- Use temp / in-memory DB in tests — never the developer’s real vocab file.
+- **User store:** Drift in Flutter (Android / iOS / Web).
+- **Do not** add `rusqlite` / `diesel` / `rust/src/db` for personal vocabulary
+  unless a future OpenSpec change explicitly moves persist back to Rust.
+- Dictionary CRUD of the Drift-library change = **Drift, not FRB**.
 
 ## Offline / Sync Scope
 
 - Dictionary is **local-only** and works **offline**.
 - **No cloud sync**, no multi-device merge, no shared decks — out of scope
-  (`{app}/AGENTS.md`). Do not add sync endpoints or accounts “for later”
-  without an explicit change.
+  (`{app}/AGENTS.md`).
 
 ## Related Skills (by name)
 
@@ -125,61 +123,55 @@ never ship/commit the live DB file as source.
 |-------|---------|
 | `work-with-tokenizematize` | Lemma/token production that feeds the dict key + highlight |
 | `work-with-translate` | Offline gloss for word/phrase card before/when adding |
-| `work-with-frb-api` | Thin public `api/` surface + FRB export shape |
-| `server-work-with-errors` | Rust error kinds / Result mapping for dict ops |
-| `server-work-with-test` | `cargo test` for CRUD / lookup / SQLite fixtures |
+| `work-with-frb-api` | Thin public `api/` surface + FRB export shape (compute) |
+| `server-work-with-errors` | Rust error kinds / Result mapping for compute ops |
+| `server-work-with-test` | `cargo test` for NLP / lemma helpers |
 
-Client UI: `work-with-pages` (`vocab.md`), `work-with-reader` (add + highlight),
-`work-with-frb` (codegen / Dart call sites).
+Client UI + Drift: `work-with-pages` (`vocab.md`), `work-with-reader`,
+`client-work-with-structure`.
 
 ## Do
 
-- Put rules and persistence in a dictionary domain module; keep `api/` thin.
-- Key membership and highlight on **lemma** from the lemmatizer pipeline.
-- Persist optional context (phrase / cue) with the entry when provided at add.
-- Cover add → list → lookup → remove (and update if shipped) with
-  `cargo test` → `server-work-with-test`.
-- After public API change: edit `rust/src/api/` → codegen → Dart call sites
-  (`work-with-frb-api` / client `work-with-frb`).
-- Map failures to stable Rust error kinds → `server-work-with-errors`.
+- Keep lemma identity aligned with the lemmatizer pipeline.
+- Persist optional context with the entry when provided at add (Drift).
+- Cover Drift CRUD with Flutter tests (`client-work-with-test`); Rust tests
+  cover NLP helpers when they exist.
+- After public **compute** API change: edit `rust/src/api/` → codegen → Dart
+  call sites.
 
 ## Don't
 
-- Reimplement dictionary rules or lemma match in Dart.
+- Reimplement NLP / lemma production in Dart.
 - Hand-edit `rust/src/frb_generated.rs` or `lib/src/rust/**`.
-- Stuff CRUD into `api/simple.rs` or grow scaffold demo into fake persistence.
-- Choose `diesel` vs `rusqlite` without an explicit developer/OpenSpec decision.
+- Stuff user CRUD into `api/simple.rs` or invent FRB storage for vocab.
+- Introduce `rusqlite` / `rust/src/db` for user dictionary without an
+  explicit OpenSpec change.
 - Add cloud sync, accounts, or shared decks.
 - Commit device DB files or secrets.
 
 ## Checklist
 
-When implementing or changing dictionary:
+When implementing or changing dictionary-related work:
 
-- [ ] Domain module owns CRUD + lemma lookup; `api/` only exports
+- [ ] Persist path is Drift in Flutter (or an explicit future change says otherwise)
 - [ ] Entry fields: lemma key, translation(s), optional context phrase/cue
 - [ ] Lookup-by-lemma supports Reader highlight (same key as lemmatizer)
-- [ ] SQLite path/crate choice documented if persistence is in scope
+- [ ] No rusqlite / `rust/src/db` required for user vocab persist
 - [ ] Offline local-only; no sync surface
-- [ ] Errors via `server-work-with-errors`; tests via `server-work-with-test`
-- [ ] FRB codegen after `api/` change; no hand-edits to generated files
-- [ ] Scaffold honesty: no claims that dict/SQLite already exists unless code does
+- [ ] Scaffold honesty: no claims that Rust owns dict SQLite unless code does
 
 ## Anti-Patterns
 
 ```text
+// FRB dictionary CRUD + rusqlite as user store
+// → Drift in Flutter is persistence authority
+
 // Dart SharedPreferences as second dictionary truth
-// → Rust + SQLite is authority when persistence lands
+// → Drift is the single store
 
 // Highlight by raw string equality in Flutter
-// → lemma key from Rust tokenize/lemmatize + dict lookup
-
-// api/ function with SQL inline and no domain module
-// → thin api/ → dictionary module → db
+// → lemma key from Rust tokenize/lemmatize + Drift membership
 
 // Fake HashMap “dict” left in api/simple forever
-// → real module + persistence when the change asks for product vocab
-
-// “We’ll sync later” tables / user_id columns without a sync change
-// → out of scope
+// → product vocab via Drift (+ NLP modules when compute lands)
 ```

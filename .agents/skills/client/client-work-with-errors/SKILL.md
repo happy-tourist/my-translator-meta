@@ -3,31 +3,39 @@ name: client-work-with-errors
 description: >-
   Use when adding, changing, reviewing, or debugging error handling in
   my_translator_app (Translation Reader) Flutter UI — FRB / Rust call
-  failures, RustLib.init failures, file pick/parse errors, empty vs error
-  states, SnackBar / dialog / inline patterns, async surfacing after await,
-  or mapping exceptions so Rust internals are not shown to users. Flutter
-  Material surfaces; in-process FRB exceptions.
+  failures, RustLib.init failures, Drift / repository persist errors, file
+  pick errors, empty vs error states, SnackBar / dialog / inline patterns,
+  async surfacing after await, or mapping exceptions so Rust/SQLite internals
+  are not shown to users. Flutter Material surfaces; FRB + Drift exceptions.
 ---
 
 # Work With Errors
 
-Use this skill when working with UI and FRB failure paths under `lib/` in
-**my_translator_app** (product: **Translation Reader**).
+Use this skill when working with UI, FRB, and Drift failure paths under `lib/`
+in **my_translator_app** (product: **Translation Reader**).
 
-Stack (from `{app}/AGENTS.md`): Flutter / Dart Material, Rust core via
-**flutter_rust_bridge** 2.13 (`lib/src/rust/` generated). Heavy work fails in
-Rust and surfaces as Dart exceptions / results on the FRB call.
+Stack (from `{app}/AGENTS.md`): Flutter / Dart Material, **Drift** user
+persist (`lib/data/`), Rust compute via **flutter_rust_bridge** 2.13
+(`lib/src/rust/` generated). Compute failures surface as FRB exceptions;
+persist failures surface as Drift / repository validation types.
 
 Failures are orchestration-local `error` + Material surfaces
 (SnackBar / inline / dialog) — not a global toast plugin bus.
+
+## Specialized Topics
+
+| Topic | File |
+|-------|------|
+| Drift / repository persist errors | [drift-persist.md](drift-persist.md) |
 
 ## Core Model
 
 Error handling is **orchestration-local**, not a second global toast bus:
 
-- FRB I/O (parse, tokenize, dictionary, translate, settings) lives in a thin
-  orchestration layer next to the feature (screen state, controller/notifier,
-  or small service) — see `client-work-with-structure`.
+- Async I/O (Drift repositories today; FRB parse/tokenize/translate later) lives
+  in a thin orchestration layer next to the feature (screen state,
+  controller/notifier, or small service) — see `client-work-with-structure`
+  and `work-with-drift`.
 - Failed actions set a UI-facing `String? error` (or typed UI error enum) to a
   **user-safe** message. Never assign raw `e.toString()`, panic text, or
   anyhow backtraces to what the user reads.
@@ -51,9 +59,12 @@ surfaces below.
 | Rust panic across FRB | `PanicException` | **Never** show panic body; generic + debug log |
 | Other FRB bridge issues | `FrbException` subtypes | Generic; log details |
 | `RustLib.init()` failure | any thrown from init | Blocking fatal UI — app cannot run product screens |
+| Drift DB open failure | any from `openAppDatabase()` | Blocking body + **retry** in `TranslationReaderApp` (see [drift-persist.md](drift-persist.md)) |
+| Repository validation | `LibraryValidationException` / `DictionaryValidationException` | Show `message` (user-safe) |
+| Drift / sqlite I/O | Drift / sqlite3 errors | Generic save/load copy; log details |
 | File picker cancel | — | **Not** an error — return silently |
 | Pick/read permission / I/O | `PlatformException` / `FileSystemException` / similar | Short permission or “Couldn’t read file” copy |
-| Parse / format reject (Rust) | usually `AnyhowException` | “Unsupported or invalid subtitle file” (+ format hint if API provides one) |
+| Parse / format reject (Rust, later) | usually `AnyhowException` | “Unsupported or invalid subtitle file” (+ format hint if API provides one) |
 | Empty list / no document | — | **Empty state**, not SnackBar error |
 
 Import FRB exception types from `package:flutter_rust_bridge/flutter_rust_bridge_for_generated.dart`
@@ -81,12 +92,12 @@ Future<void> main() async {
     runApp(InitFailureApp(message: userFacingInitFailure(e)));
     return;
   }
-  runApp(const MyApp());
+  runApp(const TranslationReaderApp());
 }
 ```
 
-- `InitFailureApp`: minimal Material screen — title + short message + no
-  reader/upload chrome that would call Rust.
+- `InitFailureApp` / `_InitFailureApp`: minimal Material screen — title + short
+  message + no Library/Vocab chrome that would call Rust or open Drift.
 - Do **not** proceed to feature screens if init failed.
 - Do **not** surface stack traces or WASM/FFI linker text in the UI.
 
@@ -122,8 +133,8 @@ try {
 }
 ```
 
-Applies to (target): subtitle parse, open document, tokenize/lemmatize for a
-line, dictionary add/list/remove, offline translate, settings load/save.
+Applies to: Drift folder/document/dictionary CRUD today; later FRB subtitle
+parse, tokenize/lemmatize, offline translate, settings load/save.
 
 - Re-throw only when the **caller** must skip a success path (e.g. navigate
   into reader only on successful parse). Otherwise keep the error in
@@ -225,8 +236,9 @@ Reserve for confirms and true blockers. Do not wrap every FRB failure in
 |-----------|---------|
 | Parse / open subtitle | Orchestration sets `error`, optionally re-throws; screen skips navigate-to-reader on failure |
 | Reader tap → translate / lemma | Orchestration or screen method sets error; SnackBar or card error slot |
-| Add/remove dictionary entry | Orchestration sets error; SnackBar or inline on vocab/reader |
-| List vocab / reopen last doc | Orchestration catch sets `error`, keeps list empty or prior data; **no** silent swallow |
+| Add/remove dictionary entry (Drift) | Orchestration sets error; SnackBar or inline on vocab |
+| List vocab / library folders | Orchestration catch sets `error`, keeps list empty or prior data; **no** silent swallow |
+| Drift DB open | `TranslationReaderApp` error+retry — not a feature SnackBar |
 | File picker cancel | No error, no SnackBar |
 | Leave / dispose mid-request | Swallow UI update; do not set a new user error for “cancelled by dispose” |
 | `RustLib.init` | Only in `main` → fatal app; not a feature SnackBar |
@@ -327,26 +339,25 @@ closed” teardown. Document with a one-line comment. Do **not** use empty
 - Hand-editing generated `lib/src/rust/**` to “fix” error types — change
   `rust/src/api/` + codegen instead.
 
-## Key Files (target)
+## Key Files
 
 | Path | Role |
 |------|------|
-| `lib/main.dart` | `RustLib.init` try/catch → product app or `InitFailureApp` |
-| `lib/app/` | `MaterialApp`, theme; optional root messenger |
-| `lib/features/upload/` | Pick/read errors + parse `error` inline |
-| `lib/features/reader/` | Tap/translate/highlight failure surfaces |
+| `lib/main.dart` | `RustLib.init` try/catch → product app or `_InitFailureApp` |
+| `lib/app/app.dart` | Drift open loading / error+retry / shell |
+| `lib/app/shell.dart` | Injects repositories into Library / Vocab |
+| `lib/data/**` | Repositories + validation exceptions |
+| `lib/features/upload/` | Pick/import + folder/document persist errors |
 | `lib/features/vocab/` | Load/add/remove errors + empty state |
-| `lib/features/settings/` | Save/load preference failures |
-| Feature `*_controller.dart` / screen state | Owns `error` / `loading` + FRB try/catch |
-| `lib/src/rust/api/*.dart` | Generated call surface (do not hand-edit) |
+| `lib/features/reader/` | Tap/translate/highlight failure surfaces (later) |
+| `lib/features/settings/` | Save/load preference failures (later) |
+| Feature screen state / controllers | Owns `error` / `loading` + try/catch |
+| `lib/src/rust/api/*.dart` | Generated compute surface (do not hand-edit) |
 | `{app}/AGENTS.md` | Init order, layering |
-
-Scaffold today (`MyHomePage` + `processText`) has **no** error UI — add the
-patterns above when replacing demo calls with product FRB flows; do not grow
-the demo page into an error framework.
 
 ## Related Skills
 
+- Drift persist patterns → `work-with-drift`
 - Layer placement / where orchestration lives → `client-work-with-structure`
 - Flutter implementability of error UX claims → `align-implementability-front`
 - Rust/API error contracts → `align-implementability-back`
@@ -360,6 +371,7 @@ When touching error handling, confirm:
 - [ ] FRB failures mapped; no panic/anyhow dump in UI copy
 - [ ] `mounted` / disposed checks after awaits before UI side effects
 - [ ] Init failure is fatal full-screen, not a SnackBar on a half-started app
+- [ ] Drift open failure uses retry UI; repository validation mapped safely
 - [ ] Picker cancel and empty lists are not shown as errors
 - [ ] One primary Material surface per failure (inline / SnackBar / dialog / fatal)
-- [ ] Generated FRB files untouched; typed Rust errors preferred when API adds them
+- [ ] Generated FRB / Drift `.g.dart` files untouched; typed errors preferred when API adds them

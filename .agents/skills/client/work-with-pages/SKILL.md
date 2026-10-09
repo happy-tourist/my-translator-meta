@@ -2,12 +2,11 @@
 name: work-with-pages
 description: >-
   Use when creating or changing Flutter screens under lib/features/* in
-  my_translator_app (Translation Reader): upload/list, reader (+ word card /
-  highlight), split view, vocabulary, settings, app shell / navigation wiring,
-  or replacing scaffold MyHomePage. Core in SKILL.md; topics in shell.md,
-  upload.md, reader.md, vocab.md, settings.md. Structure / folder roles →
-  client-work-with-structure. Flutter Material screens only — product surfaces
-  (upload, reader, vocab, settings).
+  my_translator_app (Translation Reader): library/upload, reader (+ word card /
+  highlight), split view, vocabulary, settings, app shell / navigation wiring.
+  Core in SKILL.md; topics in shell.md, upload.md, reader.md, vocab.md,
+  settings.md. Structure → client-work-with-structure; Drift persist →
+  work-with-drift. Flutter Material screens only — product surfaces.
 ---
 
 # Work With Pages
@@ -15,12 +14,13 @@ description: >-
 Use this skill when adding or changing **screens** (route-level Flutter widgets)
 in **my_translator_app** (product: **Translation Reader**).
 
-Stack: **Flutter / Dart** (`lib/`), **flutter_rust_bridge** generated API
-(`lib/src/rust/` — do not hand-edit), Rust core (`rust/`).
+Stack: **Flutter / Dart** (`lib/`), **Drift** (`lib/data/`),
+**flutter_rust_bridge** generated API (`lib/src/rust/` — do not hand-edit),
+Rust compute (`rust/`).
 
 Skills for this client live under `.agents/skills/client/` in
 `my_translator_meta`. App canon: `{app}/AGENTS.md`. Folder roles:
-`client-work-with-structure`.
+`client-work-with-structure`. Persist: `work-with-drift`.
 
 ## Specialized Topics
 
@@ -47,7 +47,8 @@ When the task is only about creating or wiring a screen:
   verifying, prefer `flutter analyze` from the app package root.
 - Do not fix IDE diagnostics unrelated to the change.
 - Do not hand-edit `lib/src/rust/**` or `rust/src/frb_generated.rs`.
-- Do not reimplement parse / tokenize / lemma / dictionary / translate in Dart.
+- Do not reimplement parse / tokenize / lemma / translate in Dart; user persist
+  stays in Drift repositories (`work-with-drift`), not FRB storage.
 - Do **not** invent screens outside product surfaces (upload, reader, vocab, settings).
 
 ## Standard Screen Wiring
@@ -66,60 +67,58 @@ When the task is only about creating or wiring a screen:
 
 If the route name or screen placement is unclear, ask the user before editing.
 
-## Current vs Target Screens
+## Current vs Later Screens
 
-### Scaffold today (`lib/main.dart`)
+### Present now
 
-| Widget | Role |
-|--------|------|
-| `MyApp` | `MaterialApp` + demo theme |
-| `MyHomePage` | Demo TextField / «Вызвать Rust» / `processText` + `addNumbers` |
+| Area | Path | Notes |
+|------|------|-------|
+| Shell | `lib/app/` | Drift open + Library \| Vocab — [shell.md](shell.md) |
+| Library / upload | `lib/features/upload/` | Folders + import via Drift — [upload.md](upload.md) |
+| Vocabulary | `lib/features/vocab/` | Dict CRUD via Drift — [vocab.md](vocab.md) |
+| Data | `lib/data/` | Repositories / schema — `work-with-drift` |
 
-No router, no product screens. **Do not extend `MyHomePage` for product UX** —
-replace it with the target map below as features land.
-
-### Target screen map
+### Later (not in tree yet)
 
 | Area | Suggested path | Notes |
 |------|----------------|-------|
-| Shell | `lib/app/` | `MaterialApp`, theme, nav host — [shell.md](shell.md) |
-| Upload / list | `lib/features/upload/` | File pick + saved subtitle list — [upload.md](upload.md) |
 | Reader | `lib/features/reader/` | Cues, tap/selection, highlight, word card — [reader.md](reader.md) |
 | Split view | `lib/features/reader/` or `lib/features/split/` | Original + translation, sync scroll — [reader.md](reader.md) |
-| Vocabulary | `lib/features/vocab/` | Dictionary list / entry — [vocab.md](vocab.md) |
 | Settings | `lib/features/settings/` | Languages; later optional AI — [settings.md](settings.md) |
 
 Entry stays thin:
 
 ```text
 lib/main.dart          → RustLib.init() + runApp(TranslationReaderApp)
-lib/app/…              → MaterialApp + shell / routes
+lib/app/…              → MaterialApp + Drift open + shell
+lib/data/…             → Drift repositories
 lib/features/<area>/   → *Screen + local widgets + optional controller
 lib/src/rust/          → GENERATED FRB (never hand-edit)
 ```
 
 ## Screen Composition
 
-**Screen owns the view; Rust owns parse / NLP / dictionary / offline translate.**
+**Screen owns the view; Drift owns user persist; Rust owns parse / NLP /
+offline translate (when those APIs land).**
 
 - Screens compose widgets and call a thin orchestration layer (screen state,
   `ChangeNotifier`, or small service — package choice not mandated).
-- Import generated API as
-  `package:my_translator_app/src/rust/api/….dart` only after the Rust surface
-  exists; until then, keep UI wired to clear TODO call sites, not fake Dart
-  parsers.
+- Library / Vocab call Drift repositories today. Import generated FRB
+  `package:my_translator_app/src/rust/api/….dart` only for compute surfaces —
+  not for user CRUD.
 - Word card / highlight chrome may live as local reader widgets or move to
   `lib/widgets/` when reused.
 
 Examples (target):
 
-- Upload / list — pick file → Rust parse → open Reader ([upload.md](upload.md)).
+- Upload / library — folders + import via Drift; Reader open later
+  ([upload.md](upload.md)).
 - Reader — render cues/tokens from Rust; tap → word card; lemma highlight from
   dictionary lookup data ([reader.md](reader.md)).
 - Split — two panes, sync scroll; translation lines from Rust, not Dart
   string hacks ([reader.md](reader.md)).
-- Vocab — list/remove entries via Rust dictionary API ([vocab.md](vocab.md)).
-- Settings — languages / prefs; persist via Rust/SQLite when available
+- Vocab — list/add/remove entries via Drift ([vocab.md](vocab.md)).
+- Settings — languages / prefs; persist via Drift when available
   ([settings.md](settings.md)).
 
 Do not put a second app shell inside a feature screen.
@@ -144,7 +143,8 @@ Do not put a second app shell inside a feature screen.
 | Vocabulary | [vocab.md](vocab.md) |
 | Settings | [settings.md](settings.md) |
 | Folder / dependency rules | `client-work-with-structure` |
-| Parse / lemma / dict / translate | Rust `rust/src/` + thin `rust/src/api/` |
+| Drift user persist | `work-with-drift` (`lib/data/`) |
+| Parse / lemma / translate (compute) | Rust `rust/src/` + thin `rust/src/api/` |
 
 ## Verification and Final Response
 
