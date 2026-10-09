@@ -1,0 +1,119 @@
+---
+name: work-with-reader
+description: >-
+  Use when implementing or changing Translation Reader UX: cue/line rendering,
+  word tap, phrase selection, word/phrase card, vocab lemma highlight paint,
+  split view original↔translation, or sync scroll. Not for scaffold demo
+  TextField / processText. Cross-cut: work-with-pages (placement), work-with-frb
+  (API/codegen), work-with-styles (tokens/theme).
+---
+
+# Work With Reader
+
+## Overview
+
+Target **Reader** contracts for **Translation Reader** (`my_translator_app`).
+Scaffold `lib/main.dart` is **not** the reader — do not grow the demo into
+product UX. Documented here is what agents implement toward.
+
+Heavy logic stays in **Rust**; Flutter paints, gestures, and thin FRB
+orchestration. Path package: `package:my_translator_app/...`.
+
+## When to Use
+
+- Cue/line list, tap-to-word, phrase drag-select
+- Word/phrase card (lemma, translate, add to vocab)
+- Vocab highlight by lemma across word forms
+- Split view + synchronized scroll
+- Empty / loading / no-translation reader states
+
+**Not this skill:** file pick/upload-only, vocab list screen CRUD chrome alone,
+settings, FRB codegen mechanics, global `lib/` folder placement — see related
+skills by name.
+
+## Flutter vs Rust
+
+| Concern | Owner |
+|---------|--------|
+| Parse SRT/VTT/ASS → cues | Rust |
+| Tokenize + lemmatize per line | Rust |
+| Dictionary truth + lemma match set | Rust |
+| Offline word/phrase translate | Rust |
+| Token spans / highlight flags for UI | Rust prepares; Flutter paints |
+| Line list, gestures, selection chrome | Flutter |
+| Word/phrase card UI | Flutter |
+| Scroll controllers + sync | Flutter |
+| Line pairing original↔translation | Rust (data); Flutter (layout) |
+
+Do **not** re-tokenize, lemmatize, or invent dictionary match rules in Dart.
+
+## Line Rendering
+
+1. Reader shows **cues as lines** (one cue ≈ one row / block), not a raw blob.
+2. Each line is built from **token spans** from Rust (text + lemma id / offsets
+   + “in vocab” flag). Flutter maps spans to `TextSpan` / custom painter —
+   never split words with naive Dart regex for product highlight/tap.
+3. Long lines wrap; tap hit-testing must still resolve to the correct token
+   (use span geometry from the same token list, not visual-only guesses).
+4. Prefer feature UI under `lib/features/reader/` (see work-with-pages /
+   client-work-with-structure).
+
+## Interactions (summary)
+
+| Gesture | Behavior |
+|---------|----------|
+| Single tap on token | Open **word card** for that token (lemma + translate + add) |
+| Drag / long-press select across tokens | **Phrase** selection → phrase translate card (whole span) |
+| Tap outside / dismiss | Close card; clear transient selection |
+
+Details: [tap.md](tap.md).
+
+## Highlight by Lemma
+
+- Match key = **lemma**, not surface form (`run` / `running` / `ran`).
+- Rust marks which tokens are in the user’s dictionary; Flutter only applies
+  highlight style.
+- After add/remove vocab, refresh marks from Rust (or accept a pushed update) —
+  do not keep a divergent Dart “highlighted lemmas” set as source of truth.
+
+Details: [highlight.md](highlight.md).
+
+## Split View + Sync Scroll
+
+- Top: original cues; bottom: translation cues (or L/R on wide — same rules).
+- Scroll is **line-index aligned**: scrolling so original cue *i* is anchored
+  brings translation cue *i* to the matching anchor (not free pixel mirror when
+  line heights differ).
+- Missing translation for a cue → empty/placeholder row that **keeps index
+  alignment**; do not collapse indices.
+
+Details: [split-scroll.md](split-scroll.md).
+
+## Edge Cases
+
+| Case | Contract |
+|------|----------|
+| Empty file / zero cues | Empty state; no fake lines; no crash on scroll/tap |
+| Long lines | Wrap; token hit-test and highlight still correct |
+| No translation yet | Single-pane OK; split shows placeholders; sync by index |
+| Scroll desync | Re-anchor both panes to same cue index; prefer index over raw `offset` copy |
+| Tokenize pending | Show plain text or skeleton; disable tap until spans ready |
+| Unknown / non-word tap | Ignore or no-op — do not open empty card |
+
+## Related Skills (by name only)
+
+- `work-with-pages` — screen/widget placement
+- `work-with-frb` — FFI surface, codegen, call sites
+- `work-with-styles` — colors/typography for highlight & card
+- `client-work-with-structure` — `lib/` feature map
+
+Canon product scenarios: `{app}/AGENTS.md`.
+
+## Checklist
+
+- [ ] Lines from Rust cues + token spans; no Dart NLP
+- [ ] Tap → word; selection → phrase; card wired via FRB orchestration
+- [ ] Highlight by lemma flags from Rust
+- [ ] Split sync by cue index; placeholders keep alignment
+- [ ] Empty / long / no-translation / desync handled
+- [ ] Not extending scaffold `MyHomePage` demo

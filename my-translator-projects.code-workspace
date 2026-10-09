@@ -1,0 +1,15 @@
+{
+  // Canonical layout: docs/projects-map.md
+  // Uncomment folders after cloning the repo.
+  "folders": [
+    {
+      "name": "my_translator_meta",
+      "path": "."
+    },
+    {
+      "name": "my_translator_app",
+      "path": "../my_translator_app"
+    }
+  ],
+  "settings": {}
+}

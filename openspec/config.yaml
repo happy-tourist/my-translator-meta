@@ -1,0 +1,217 @@
+# =============================================================================
+# OpenSpec — конфигурация экосистемы My Translator (meta: Flutter UI + Rust core)
+# =============================================================================
+# Этот файл читается CLI и slash-командами (/opsx-propose, /opsx-apply и т.д.).
+# Его содержимое автоматически подмешивается в инструкции при создании артефактов
+# в openspec/changes/<задача>/specs/<capability>/spec.md (proposal, specs, design, tasks).
+#
+# Не дублируйте здесь полные правила из docs/ — достаточно ссылок и ключевых фактов.
+# Подробности: https://github.com/Fission-AI/OpenSpec/blob/main/docs/opsx.md
+# =============================================================================
+
+# Схема workflow: какие артефакты создавать и в каком порядке.
+# spec-driven = proposal → specs → design → tasks (стандарт OpenSpec).
+schema: spec-driven
+
+# Канон путей к sibling-репо — docs/projects-map.md (таблица «Пути для OpenSpec / агентов»).
+# Локальные оверрайды: projects-map.local.yaml (см. projects-map.local.yaml.example).
+projectsMap: docs/projects-map.md
+
+# -----------------------------------------------------------------------------
+# context — «паспорт проекта»
+# -----------------------------------------------------------------------------
+# Попадает во ВСЕ артефакты каждой новой задачи.
+# Зачем: чтобы AI не гадал про стек и знал, где искать правила.
+# Обновляйте при смене стека или появлении важных skills/docs.
+# -----------------------------------------------------------------------------
+context: |
+  Language: Russian
+  All artifacts must be written in Russian.
+  Keep OpenSpec structural headings and SHALL/MUST keywords in English.
+
+  Карта путей (обязательно): docs/projects-map.md — таблица «Пути для OpenSpec / агентов».
+  Sibling-путь ../my_translator_app (ключ app) — канон; перекрывается projects-map.local.yaml.
+  Child repo: resolve docs via local project-map.md key my_translator_meta (links my_translator_meta/docs/...);
+  if unresolved, ask user for absolute my_translator_meta path.
+  Runtime: один sibling Git-репозиторий my_translator_app (Flutter lib/ + Rust rust/ + in-process FRB).
+
+  Проект: My Translator — продукт Translation Reader (чтение субтитров + изучение слов в контексте).
+  Домены (target): parse/subtitles, reader/cues, reader/highlight, dictionary/entries,
+  translate/offline, settings/languages; опциональный AI — позже и явно.
+
+  Skills roots: .agents/skills/client/ (Flutter UI), .agents/skills/server/ (Rust core),
+  .agents/skills/ (openspec-*, align-code, align-implementability-back, align-implementability-front,
+  align-meta, align-change, prepare-mock, verify-mock, check-changes, prepare-changes,
+  implement-change, end-implement-change, commit).
+  AGENTS.md — индекс docs/, OpenSpec и .agents/skills/.
+  Пакетный контекст: ../my_translator_app/AGENTS.md.
+  При /opsx-apply: читать applyContextFiles из этого config.yaml помимо contextFiles из CLI.
+  При /opsx-verify: читать verifyContextFiles и следовать rules.verify из этого config.yaml.
+  При /opsx-update (openspec-update-change): следовать rules.update — правки артефактов без запроса подтверждения.
+
+  Сборка: команды `flutter` / `cargo` / FRB codegen запускает агент из каталога sibling app
+  (Rust — из rust/ или с -C rust). Не ждать подтверждения пользователя; при падении — починить.
+
+  Разделение артефактов (не смешивать слои):
+  - proposal — intent: Why / Scope; без деталей реализации.
+  - specs — поведение: GIVEN/WHEN/THEN; трассировка SC-ID → тест (где применимо).
+  - design — реализация: файлы, слои, точки врезки (без чеклиста и без таблицы SC→тест).
+  - tasks — чеклист для apply по design.
+  Main specs после merge: openspec/specs/ (через /opsx-sync).
+
+  Capability paths (обязательно):
+  - Change-папка: openspec/changes/<slug>/
+  - Delta spec: openspec/changes/<slug>/specs/<capability-id>/spec.md
+  - Main spec: openspec/specs/<capability-id>/spec.md
+  - <capability-id> — продуктовый путь (reader/cues, dictionary/entries, parse/subtitles, …)
+    из Business Entities в sibling AGENTS.md; неизвестный домен — согласовать ID в proposal, не выдумывать.
+  - ЗАПРЕЩЕНО: папка spec = номер задачи / имя change (specs/mt-123/, specs/add-reader-tap/).
+  - Пример: задача про тап по слову → change add-word-tap-card, delta specs/reader/tap/spec.md.
+  - Контракт Flutter↔Rust менять согласованно: rust/src/api/ → FRB codegen → lib/ (не править generated вручную).
+
+  --- App / Flutter (projects-map ключ app → ../my_translator_app/, слой lib/) ---
+  Runtime UI: ../my_translator_app/lib/ (AGENTS.md — продукт/стек/домены; project-map.md → my_translator_meta).
+  Client skills: .agents/skills/client/ в my_translator_meta.
+
+  Проект: my_translator_app — Flutter / Dart (sdk ^3.13), Material, flutter_rust_bridge 2.13,
+  generated lib/src/rust/, widget/integration tests. Тяжёлая логика не в Dart.
+  Архитектура (target): lib/features/* screens + widgets; FRB calls тонкие.
+  Сейчас scaffold: lib/main.dart demo TextField → processText / addNumbers.
+  Тесты: skill `.agents/skills/client/client-work-with-test`; `flutter test` / `integration_test`.
+
+  --- App / Rust (тот же sibling app, слой rust/) ---
+  Runtime: ../my_translator_app/rust/ (AGENTS.md; project-map.md → my_translator_meta).
+  Server skills: .agents/skills/server/ в my_translator_meta (имя «server» = Rust core в том же app).
+
+  Проект: rust_lib_my_translator_app — Rust edition 2021, cdylib+staticlib, FRB 2.13,
+  публичный API в rust/src/api/, generated rust/src/frb_generated.rs (не править вручную).
+  Слои (target): api/ thin → parse / tokenize / lemmatize / dictionary / translate / db (SQLite).
+  Сейчас scaffold: process_text / add_numbers.
+
+# -----------------------------------------------------------------------------
+# applyContextFiles — обязательные файлы при /opsx-apply
+# -----------------------------------------------------------------------------
+# Не часть стандартного OpenSpec CLI; используется slash-командой opsx-apply.md.
+# Агент ОБЯЗАН прочитать эти файлы после contextFiles из `openspec instructions apply`.
+# -----------------------------------------------------------------------------
+applyContextFiles:
+  - docs/projects-map.md
+  - docs/README.md
+  - AGENTS.md
+  - .agents/AGENTS.md
+  - ../my_translator_app/AGENTS.md
+
+# -----------------------------------------------------------------------------
+# verifyContextFiles — обязательные файлы при /opsx-verify
+# -----------------------------------------------------------------------------
+# Не часть стандартного OpenSpec CLI; используется slash-командой opsx-verify.md
+# и skill openspec-verify-change. Агент ОБЯЗАН прочитать эти файлы перед проверками
+# по rules.verify (стандарты кода и тестов).
+# -----------------------------------------------------------------------------
+verifyContextFiles:
+  - ../my_translator_app/AGENTS.md
+  - .agents/AGENTS.md
+
+# -----------------------------------------------------------------------------
+# rules — требования к артефактам и slash-командам
+# -----------------------------------------------------------------------------
+# Ключи proposal, specs, design, tasks — файлы в change-папке; подмешиваются
+# в инструкции при создании соответствующего артефакта.
+# Ключ verify — не artifact-файл; инструкции для /opsx-verify (читает skill/command).
+# Ключ update — не artifact-файл; инструкции для /opsx-update (openspec-update-change).
+# Правила Flutter / Rust — в тех же ключах proposal/specs/design без отдельного блока.
+# -----------------------------------------------------------------------------
+rules:
+
+  # proposal.md — intent: зачем, границы; БЕЗ деталей реализации
+  proposal:
+    - 'Секции: Why, Scope, Out of scope, References (issue tracker / docs / sibling AGENTS)'
+    - 'What — опционально; 3–5 bullet summary без реализации'
+    - 'Scope — capability (домен), слои Flutter lib/ и/или Rust rust/, FRB-контракт при необходимости'
+    - 'В Scope явно указать Capability ID (например reader/cues, dictionary/entries, parse/subtitles); при нескольких доменах — перечислить все; неизвестный домен — согласовать ID, не выдумывать'
+    - 'Ссылаться на docs/ и AGENTS.md app, не дублировать правила skills'
+    - 'Явно перечислять scope и out of scope'
+    - '"НЕ в proposal": имена .dart виджетов / Rust fn, пути lib/** / rust/src/**, команды flutter/cargo'
+    - '"НЕ в proposal": технические prerequisite и блокеры — только в design.md'
+    - '"НЕ в proposal": дублирование сценариев из specs/ — поведение описывать в spec'
+    - 'Flutter — Scope: экраны (upload/list, reader, split, vocabulary, settings), жесты тап/выделение, lemma highlight UX'
+    - 'Flutter — «НЕ в proposal»: имена Widget/Route, Theme tokens как реализация, GIVEN/WHEN из specs'
+    - 'Rust — Scope: parse/tokenize/lemma/dict/translate/db поведение, FFI surface outcomes'
+    - 'Rust — «НЕ в proposal»: имена модулей/типов вне product language, SQLite schema literals как реализация'
+
+  # specs/**/*.md — поведение и трассировка к тестам
+  specs:
+    - 'Путь delta: specs/<capability-id>/spec.md; <capability-id> — продуктовый путь (reader/cues, dictionary/entries); не имя change'
+    - 'ЗАПРЕЩЕНО: specs/<номер-задачи>/, specs/<имя-change>/ если это не capability'
+    - 'Несколько capability в одном change — несколько папок (specs/reader/tap/ и specs/dictionary/entries/)'
+    - 'Неизвестный домен — согласовать ID в proposal, не выдумывать feature-папку'
+    - 'Сценарии в формате GIVEN / WHEN / THEN'
+    - 'Delta-specs: ADDED / MODIFIED / REMOVED'
+    - 'Каждому исполняемому тесту — ровно один сценарий `#### Scenario [SC-…]: …` с тем же ID в тесте (Rust cargo test; Flutter flutter test)'
+    - 'В начале spec — таблица трассировки ID → файл/тест (или pending)'
+    - 'Можно: parse outcomes, lemma highlight match, dictionary CRUD, offline gloss, reader tap card, split sync scroll'
+    - 'Нельзя: имена Flutter Widget/классов, Rust internal helper filenames, CSS/Material class names'
+    - 'Spec описывает только поведение ТЕКУЩЕГО change; логика из другого change — одна строка-ссылка в шапке'
+    - 'Flutter — Поведение UI: loading/empty/error, word/phrase card, highlight paint, navigation'
+    - 'Flutter — «НЕ в specs»: имена .dart, ThemeData константы, implementation constants'
+    - 'Rust — Поведение: parse accept/reject, tokenize/lemma spans, dict add/list/update/remove, translate miss/hit'
+    - 'Rust — «НЕ в specs»: имена internal modules, SQLite table DDL как поведение без product need'
+
+  # design.md — как реализовать
+  design:
+    - 'Указать затронутый слой: Flutter lib/ и/или Rust rust/; согласовать FRB API при cross-layer change'
+    - 'Flutter — Точки изменений: lib/ (features/screens/widgets), не lib/src/rust/** (generated)'
+    - 'Flutter — Слои: UI/оркестрация → generated FRB API; тяжёлую логику не дублировать на Dart'
+    - 'Flutter — Errors: user-visible messaging; RustLib.init failures; file pick/parse errors'
+    - 'Rust — Слои: тонкий rust/src/api/ → parse / tokenize / lemmatize / dictionary / translate / db'
+    - 'Rust — FRB: менять только api/**; затем codegen; не править frb_generated.rs / lib/src/rust/** вручную'
+    - 'Rust — Align FFI types с Flutter callers в том же change или явно dual-step'
+    - 'Конкретные файлы, функции, точки врезки в существующий flow'
+    - 'Технические prerequisite и блокеры из explore'
+    - 'Не дублировать чеклист tasks.md — ссылка на tasks'
+    - 'Таблицу трассировки SC-ID → тест держать только в specs/, не в design'
+
+  # tasks.md — чеклист реализации
+  tasks:
+    - 'Дробить по слоям (Flutter / Rust) и модулям; не повторять архитектурные решения — ссылка на design.md'
+    - 'Изучение перед работой (skills, proposal/design/spec фрагменты, аналоги): пунктом в том же ##-блоке, где нужно; НЕ выносить всё чтение в первый «Контекст»-блок'
+    - 'В каждом блоке — только релевантное к шагам блока чтение; общие артефакты change можно кратко упомянуть в первом рабочем блоке'
+    - 'Отдельные пункты на тесты где применимо (Rust: cargo test; Flutter: flutter test / integration_test по SC из Traceability, плюс flutter analyze)'
+    - 'Flutter с UI/reader/словарь сценариями в Scope — обязательно пункты flutter test (skill client-work-with-test); analyze alone недостаточно'
+    - 'НЕ добавлять пункты ручной проверки / manual smoke / «ручной сценарий» — coverage SC в specs Traceability + автотесты + analyze; ручной прогон вне tasks (verify/ops)'
+    - 'Flutter skills при apply: из .agents/skills/client/ (locate/align/verify + topic skills)'
+    - 'Rust skills при apply: из .agents/skills/server/ (locate/align/verify + topic skills)'
+    - 'Cross-layer: сначала Rust API/contract (+ codegen), затем Flutter UI — или явно согласовать порядок'
+    - 'НЕ добавлять в конец tasks.md блоки «закрытие» / «финализация»: openspec validate, /opsx-sync, /opsx-archive, end-implement-change — это отдельные workflow вне чеклиста реализации'
+    - 'Команды flutter/cargo — запускает агент из sibling app; в tasks включать пункты analyze/test/build без пометки «(пользователь)»'
+
+  # /opsx-update — правка существующих planning-артефактов change
+  # Не artifact; skill openspec-update-change читает этот список.
+  update:
+    - 'НЕ спрашивать подтверждение перед записью в существующие planning-артефакты (proposal/specs/design/tasks)'
+    - 'Сразу применять coherence/revision-правки; кратко отчитаться: что изменено, почему, что отклонено/отложено'
+    - 'По-прежнему: не создавать новые артефакты, не изобретать файлы под glob specs, не править runtime-код'
+    - 'При смене intent change — рекомендовать новый change, не «тихо» переписывать цель текущего'
+
+  # /opsx-verify — сверка реализации с постановкой и стандартами Translation Reader
+  # Не artifact; skill/command читает этот список после verifyContextFiles.
+  verify:
+    # --- Постановка (Correctness / Completeness) — CRITICAL при провале ---
+    - 'CRITICAL: реализация в задаче (change) должна соответствовать OpenSpec-документам change — proposal.md, specs (delta), design.md, tasks.md; расхождение кода с артефактами = провал verify'
+    - 'CRITICAL: каждый `### Requirement:` из delta-spec имеет реализацию в коде'
+    - 'CRITICAL: каждый `#### Scenario [SC-…]:` покрыт кодом; если в таблице трассировки не `covered-by-reuse` — есть тест с тем же SC-ID где применимо'
+    - 'CRITICAL: таблица SC-ID → тест в spec согласована с фактическими тестами (нет «covered» без метода)'
+    - 'CRITICAL: реализация следует решениям design.md (файлы, точки врезки, слой Flutter/Rust)'
+    # --- Flutter ---
+    - 'CRITICAL (Flutter): парсинг субтитров / лемматизация / правила словаря продублированы на Dart вопреки design (авторитет должен быть в Rust)'
+    - 'CRITICAL (Flutter): ручная правка lib/src/rust/** или вызов без RustLib.init() вопреки design'
+    - 'WARNING (Flutter): ошибки FRB/parse не доведены до user-visible messaging где применимо'
+    - 'WARNING (Flutter): нет flutter test на новые/изменённые UI/reader/словарь сценарии из tasks (SC-ID)'
+    - 'WARNING (Flutter): нет flutter analyze / flutter test прогона из tasks или явного skip'
+    # --- Rust ---
+    - 'CRITICAL (Rust): бизнес-логика (parse/lemma/dict/translate/SQLite) в rust_builder/ или только в Dart вопреки design'
+    - 'CRITICAL (Rust): hand-edit rust/src/frb_generated.rs или смена публичного API без пути api/ + codegen'
+    - 'CRITICAL (Rust): FFI types / API расходятся с Flutter callers без явного dual-change'
+    - 'WARNING (Rust): нет cargo test на новые/изменённые parse/lemma/dict/translate из tasks'
+    # --- Общее ---
+    - 'SUGGESTION: мелкие отклонения от стиля пакета (lints) без влияния на поведение'
