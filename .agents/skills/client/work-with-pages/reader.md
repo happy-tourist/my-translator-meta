@@ -4,29 +4,37 @@ Read with the [core pages skill](SKILL.md) for navigation. Folder roles:
 `client-work-with-structure` → `lib/features/reader/` (split may live here or
 `lib/features/split/`).
 
-## Target screens / surfaces
+## Screens / surfaces
 
-| Surface | Suggested path | Role |
-|---------|----------------|------|
-| Reader | `lib/features/reader/reader_screen.dart` | Cue list / scrolling text; primary study surface |
-| Word / phrase card | local widget e.g. `word_card.dart` or bottom sheet | Translation, lemma, «add to vocabulary» |
-| Highlight paint | reader widgets + data from Rust | Lemma-matched saved words tinted in text |
-| Split view | `split_reader_screen.dart` or Reader **mode** | Top: original; bottom: translation; sync scroll |
+| Surface | Path | Role |
+|---------|------|------|
+| Reader (cues-first, **present**) | `lib/features/reader/reader_screen.dart` | Cue list + timestamps; `cue_time_format.dart` helper |
+| Word / phrase card (later) | local widget e.g. `word_card.dart` or bottom sheet | Translation, lemma, «add to vocabulary» |
+| Highlight paint (later) | reader widgets + data from Rust | Lemma-matched saved words tinted in text |
+| Split view (later) | `split_reader_screen.dart` or Reader **mode** | Top: original; bottom: translation; sync scroll |
 
 Reader is usually **pushed** from the library ([upload.md](upload.md)), not a
 shell tab.
 
 ## Reader UX canon (target)
 
-- Show subtitle **cues** in order (text; timestamps optional chrome).
+### Cues-first Reader (current product step: `reader/cues`)
+
+- Show subtitle **cues** in order with **required** timestamps start→end
+  (`HH:MM:SS,mmm` from `start_ms` / `end_ms`) and plain `text_lines`.
+- Full-list scroll (no paging). AppBar title = document title; back pops to Library.
+- Open only after successful parse with ≥1 cue; empty / parse fail stays in Library.
+- **Do not** require tokenize / word card / lemma highlight in the cues-first change.
+
+### Later Reader (tokenize / vocab / split — separate changes)
+
 - Text is tappable by **token** (and selectable for multi-word phrases).
 - Tap / selection → open word/phrase card (overlay, sheet, or side panel —
   product choice; keep one pattern).
 - Saved dictionary lemmas are **highlighted** wherever they appear, including
   other word forms — match key is **lemma from Rust**, not raw string equality
   in Dart.
-- Scroll position / open document = reader session (persist later via Rust when
-  specified).
+- Scroll position / open document = reader session (persist later when specified).
 
 ## Word card
 

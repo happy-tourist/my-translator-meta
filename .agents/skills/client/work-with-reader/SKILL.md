@@ -12,9 +12,11 @@ description: >-
 
 ## Overview
 
-Target **Reader** contracts for **Translation Reader** (`my_translator_app`).
-Scaffold `lib/main.dart` is **not** the reader — do not grow the demo into
-product UX. Documented here is what agents implement toward.
+**Reader** contracts for **Translation Reader** (`my_translator_app`).
+**Cues-first** UI is under `lib/features/reader/` (`ReaderScreen` +
+`cue_time_format.dart`): props are already-parsed `CueDto` list + title —
+Library owns load/parse/open. Scaffold demo in older docs is **not** the
+reader — do not grow demo chrome into product UX.
 
 Heavy logic stays in **Rust**; Flutter paints, gestures, and thin FRB
 orchestration. Path package: `package:my_translator_app/...`.
@@ -50,11 +52,14 @@ Do **not** re-tokenize, lemmatize, or invent dictionary match rules in Dart.
 ## Line Rendering
 
 1. Reader shows **cues as lines** (one cue ≈ one row / block), not a raw blob.
-2. Each line is built from **token spans** from Rust (text + lemma id / offsets
-   + “in vocab” flag). Flutter maps spans to `TextSpan` / custom painter —
-   never split words with naive Dart regex for product highlight/tap.
-3. Long lines wrap; tap hit-testing must still resolve to the correct token
-   (use span geometry from the same token list, not visual-only guesses).
+2. **Cues-first (`reader/cues`):** render plain `text_lines` + timestamps
+   (`HH:MM:SS,mmm` start→end). Token spans / tap / highlight are **later**
+   changes — do not invent Dart tokenizers to “prepare” for them.
+3. **When tokenize lands:** each line is built from **token spans** from Rust
+   (text + lemma id / offsets + “in vocab” flag). Flutter maps spans to
+   `TextSpan` / custom painter — never split words with naive Dart regex for
+   product highlight/tap. Long lines wrap; tap hit-testing must still resolve
+   to the correct token (span geometry from the same token list).
 4. Prefer feature UI under `lib/features/reader/` (see work-with-pages /
    client-work-with-structure).
 
@@ -93,7 +98,7 @@ Details: [split-scroll.md](split-scroll.md).
 
 | Case | Contract |
 |------|----------|
-| Empty file / zero cues | Empty state; no fake lines; no crash on scroll/tap |
+| Empty file / zero cues | **Do not open Reader** (Library SnackBar / empty-parse error); in-Reader empty state only if a later change allows opening empty docs |
 | Long lines | Wrap; token hit-test and highlight still correct |
 | No translation yet | Single-pane OK; split shows placeholders; sync by index |
 | Scroll desync | Re-anchor both panes to same cue index; prefer index over raw `offset` copy |

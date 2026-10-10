@@ -33,8 +33,9 @@ lib/app/shell.dart
 | Settings | [settings.md](settings.md) | Languages; later optional AI — not a tab yet |
 
 **Reader** and **Split view** are session screens pushed from a selected
-subtitle document — not usually top-level tabs. Back from Reader returns to
-the library list.
+subtitle document — not top-level tabs. `Navigator.push` from Library covers
+the shell (bottom nav hidden on the Reader route); back pops to the same
+Library folder.
 
 ## Chrome rules
 
@@ -52,8 +53,9 @@ the library list.
 Until AGENTS / OpenSpec adopts a router package:
 
 - Shell holds an index (or equivalent) for Library / Vocab / Settings.
-- Open Reader later with `Navigator.push` carrying a document id from Drift —
-  not a full parsed tree owned only in Dart. Parse cues via FRB when Reader lands.
+- Open Reader with `Navigator.push` after successful FRB parse; pass cues (+
+  document title) into `ReaderScreen`. Bytes come from Drift / content store;
+  do not keep a parallel Dart subtitle parser.
 
 When a router is adopted later, keep the same destinations and the same
 «Reader is pushed from library» model; register routes in `lib/app/`, not

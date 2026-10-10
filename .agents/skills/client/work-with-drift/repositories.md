@@ -24,7 +24,9 @@ UI maps these to short copy (SnackBar / inline) — see
 
 - **Folders:** create (root/nested), list children, cascade delete.
 - **Documents:** import bytes + metadata into a folder, list, delete; format
-  helpers in `document_format.dart`.
+  helpers in `document_format.dart`; **load bytes for Reader open**
+  (`loadBytes(Document)` — native via `storageKey`, Web via Drift `content` →
+  `utf8.encode`).
 - **Dictionary:** add (lemma + translation + optional context), list, remove,
   lookup by lemma (normalized).
 
@@ -44,6 +46,12 @@ Subtitle **bytes** are not always a Drift BLOB-only story:
 
 `DocumentRepository` uses the store, then writes metadata rows. Tests inject
 `MemoryDocumentContentStore` (content vs storageKey modes).
+
+**Read path (Reader open):** `DocumentContentStore.load(storageKey)` (native
+sandbox file; Web path usually reads Drift `content` via
+`DocumentRepository.loadBytes` instead — Web store may throw if called). Do
+**not** change Drift schema for load. Keep `MemoryDocumentContentStore.load`
+so widget tests can open imported fixtures.
 
 ## Injection
 

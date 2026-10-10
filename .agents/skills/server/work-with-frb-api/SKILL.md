@@ -181,22 +181,43 @@ duplicate long Flutter init guidance here.
 
 ## Module Pattern (thin wrapper)
 
-Illustrative — replace body with real domain calls when modules exist:
+Canonical landed example — `rust/src/api/parse.rs` (keep thin; domain in
+`crate::parse`):
 
 ```rust
-// rust/src/api/parse.rs  (target — not in scaffold yet)
-use crate::parse; // domain module when added
+// rust/src/api/parse.rs
+use crate::parse; // domain: rust/src/parse/
 
 pub struct CueDto {
-    pub index: i32,
-    pub start_ms: i64,
-    pub end_ms: i64,
-    pub text: String,
+    pub index: u32,
+    pub start_ms: u64,
+    pub end_ms: u64,
+    pub text_lines: Vec<String>,
 }
 
-pub fn parse_subtitles(content: String, format_hint: Option<String>) -> Result<Vec<CueDto>, String> {
-    let doc = parse::parse_string(&content, format_hint.as_deref())?;
-    Ok(doc.cues.into_iter().map(CueDto::from).collect())
+pub struct ParsedSubtitles {
+    pub format: String, // "srt" | "vtt" | "ass"
+    pub cues: Vec<CueDto>,
+}
+
+/// Typed kind Flutter can switch on (see server-work-with-errors).
+/// OpenSpec `parse/subtitles` / design D2.
+pub enum ParseErrorKind {
+    UnsupportedFormat,
+    Encoding,
+    Empty,
+    Malformed,
+}
+
+pub fn parse_subtitles(
+    bytes: Vec<u8>,
+    format_hint: Option<String>,
+) -> Result<ParsedSubtitles, ParseErrorKind> {
+    let doc = parse::parse_subtitles(&bytes, format_hint.as_deref())?;
+    Ok(ParsedSubtitles {
+        format: doc.format.as_str().into(),
+        cues: doc.cues.into_iter().map(CueDto::from).collect(),
+    })
 }
 ```
 

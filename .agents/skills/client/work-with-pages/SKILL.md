@@ -74,15 +74,16 @@ If the route name or screen placement is unclear, ask the user before editing.
 | Area | Path | Notes |
 |------|------|-------|
 | Shell | `lib/app/` | Drift open + Library \| Vocab — [shell.md](shell.md) |
-| Library / upload | `lib/features/upload/` | Folders + import via Drift — [upload.md](upload.md) |
+| Library / upload | `lib/features/upload/` | Folders + import; open → parse → Reader — [upload.md](upload.md) |
+| Reader (cues-first) | `lib/features/reader/` | Timestamps + plain `text_lines` (`reader/cues`) — [reader.md](reader.md) |
 | Vocabulary | `lib/features/vocab/` | Dict CRUD via Drift — [vocab.md](vocab.md) |
 | Data | `lib/data/` | Repositories / schema — `work-with-drift` |
 
-### Later (not in tree yet)
+### Next / not all in tree yet
 
 | Area | Suggested path | Notes |
 |------|----------------|-------|
-| Reader | `lib/features/reader/` | Cues, tap/selection, highlight, word card — [reader.md](reader.md) |
+| Reader tokenize / word card / highlight | `lib/features/reader/` | Tap, phrase select, lemma paint — [reader.md](reader.md) |
 | Split view | `lib/features/reader/` or `lib/features/split/` | Original + translation, sync scroll — [reader.md](reader.md) |
 | Settings | `lib/features/settings/` | Languages; later optional AI — [settings.md](settings.md) |
 
@@ -98,23 +99,23 @@ lib/src/rust/          → GENERATED FRB (never hand-edit)
 
 ## Screen Composition
 
-**Screen owns the view; Drift owns user persist; Rust owns parse / NLP /
-offline translate (when those APIs land).**
+**Screen owns the view; Drift owns user persist; Rust owns parse (landed) /
+NLP / offline translate (later).**
 
 - Screens compose widgets and call a thin orchestration layer (screen state,
   `ChangeNotifier`, or small service — package choice not mandated).
-- Library / Vocab call Drift repositories today. Import generated FRB
-  `package:my_translator_app/src/rust/api/….dart` only for compute surfaces —
-  not for user CRUD.
+- Library / Vocab call Drift repositories; Library open also calls generated
+  FRB `parseSubtitles`. Import `package:my_translator_app/src/rust/api/….dart`
+  only for compute — not for user CRUD.
 - Word card / highlight chrome may live as local reader widgets or move to
   `lib/widgets/` when reused.
 
 Examples (target):
 
-- Upload / library — folders + import via Drift; Reader open later
+- Upload / library — folders + import via Drift; document tap → parse → Reader
   ([upload.md](upload.md)).
-- Reader — render cues/tokens from Rust; tap → word card; lemma highlight from
-  dictionary lookup data ([reader.md](reader.md)).
+- Reader — cues-first: timestamps + plain text from FRB parse; later tokens /
+  word card / lemma highlight ([reader.md](reader.md)).
 - Split — two panes, sync scroll; translation lines from Rust, not Dart
   string hacks ([reader.md](reader.md)).
 - Vocab — list/add/remove entries via Drift ([vocab.md](vocab.md)).

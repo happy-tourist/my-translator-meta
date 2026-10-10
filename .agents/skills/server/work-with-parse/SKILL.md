@@ -12,13 +12,14 @@ description: >-
 
 ## Overview
 
-Target **subtitle parse** contracts for **Translation Reader**
-(`my_translator_app`). Scaffold Rust today is demo-only (`process_text` /
-`add_numbers`) — **parse is not implemented yet**. Documented here is where and
-how agents implement it.
+**Subtitle parse** for **Translation Reader** (`my_translator_app`) is
+**landed** under `rust/src/parse/` with thin FRB export `rust/src/api/parse.rs`
+(`parse_subtitles` → `ParsedSubtitles` / `ParseErrorKind`). Scaffold demo
+(`process_text` / `add_numbers`) may still exist — do **not** grow it into the
+parser.
 
-Logic lives in a **Rust internal module**; Flutter only displays cues (and
-orchestrates the FRB call). Path package for UI:
+Logic lives in the **Rust internal `parse/` module**; Flutter only displays
+cues and orchestrates the FRB call. Path package for UI:
 `package:my_translator_app/...`. Canon: `{app}/AGENTS.md`.
 
 **Paths:** this skill lives in **my_translator_meta** at
@@ -53,36 +54,34 @@ Flutter upload chrome alone (`work-with-pages`).
 Do **not** reimplement SRT/VTT/ASS grammar in Dart. Do **not** put parse logic
 in `rust_builder/` or inflate scaffold `api/simple.rs` into a product parser.
 
-## Target Placement (scaffold → grow here)
+## Placement (current tree)
 
-Parse is **absent** today. Create modules outside `api/`; keep FFI thin:
+Keep grammar / detect / map **outside** `api/`; FFI stays thin:
 
 ```text
 my_translator_app/rust/src/
   lib.rs                 # `mod parse;` + `pub mod api;`
   parse/
-    mod.rs               # Format enum, parse entry, re-exports
-    cue.rs               # Cue / SubtitleDocument types
-    time.rs              # Timestamp parse → ms (or equivalent)
-    srt.rs
-    vtt.rs
-    ass.rs               # ASS + SSA
+    mod.rs               # Format enum, `parse_subtitles` / `parse_text`, re-exports
+    cue.rs               # Cue / ParsedSubtitles
+    detect.rs            # extension hint + content sniff
+    srt.rs / vtt.rs / ass.rs   # map crate parsers → Cue (lossy where pinned)
     error.rs             # ParseError kinds
+    tests.rs + fixtures/ # unit fixtures (.srt / .vtt / .ass)
   api/
-    parse.rs             # Thin FRB: bytes/path/str in → cues / error out
+    parse.rs             # Thin FRB: bytes + format_hint → ParsedSubtitles / ParseErrorKind
     mod.rs               # `pub mod parse;`
 ```
 
+Timestamps: normalize via the pinned crate’s duration → `u64` ms (no separate
+`time.rs` required). Current pin: **`fasrt` 0.5** (see OpenSpec / Cargo.toml).
+
 Wiring:
 
-1. Implement grammar + tests under `parse/`.
-2. Export only what Flutter needs from `api/parse.rs` (map internal types to
-   FRB-friendly structs).
+1. Change grammar / map / tests under `parse/`.
+2. Export only what Flutter needs from `api/parse.rs` (DTO map).
 3. Codegen / Dart call sites → **`work-with-frb-api`** (and client
    `work-with-frb` for UI binding).
-
-If a parallel **server structure** skill lands, match its folder map; until
-then, prefer `rust/src/parse/` as above.
 
 ## Output Model (FFI-friendly)
 
@@ -101,10 +100,10 @@ Optional later (do not invent until needed): raw format tag, speaker/style
 name, position overrides. Prefer stripping ASS override codes / VTT tags to
 **plain text lines** for reader v1 unless OpenSpec says otherwise.
 
-**Document wrapper (target):** format detected, optional source name/path,
-ordered `Vec<Cue>`. Empty input → empty cue list or a dedicated empty-document
-ok — not a panic; distinguish **empty** vs **malformed** via error policy
-(`server-work-with-errors`).
+**Document wrapper:** detected `format` (`srt` \| `vtt` \| `ass`) + ordered
+`Vec<Cue>`. Reader open-flow (`parse/subtitles` PS-06): **zero cues → hard fail
+`Empty`** (not ok-empty). Distinguish **empty** vs **malformed** via
+`ParseError` / FFI `ParseErrorKind` (`server-work-with-errors`).
 
 Timestamps: normalize all formats to the same integer ms (or a single shared
 type). Do not expose format-specific timestamp strings on the FFI surface.
@@ -119,10 +118,10 @@ type). Do not expose format-specific timestamp strings on the FFI surface.
 
 Detection: extension **hint** + content sniff (`WEBVTT`, `[Script Info]`, SRT-like blocks). Prefer content when they disagree; reject unknown with a stable error kind.
 
-**Crates:** do **not** lock the skill to a specific parser crate. Hand-rolled
-or a well-maintained crate are both fine — **evaluate** license, WASM/FFI
-friendliness, and maintenance before adding a dependency. Prefer small surface
-over pulling a full media stack.
+**Crates:** current product pin is **`fasrt` `=0.5.0`** (map layer in
+`srt`/`vtt`/`ass`). Do not casually swap crates. If evaluating a replacement:
+license, WASM/FFI friendliness, MSRV, and maintenance — prefer small surface
+over a full media stack. Follow OpenSpec when it re-pins.
 
 ## Encoding & Input
 
@@ -130,23 +129,23 @@ over pulling a full media stack.
   line logic.
 - Input to core: `&str` / owned `String` after decode, or `&[u8]` with an
   explicit decode step at the boundary.
-- Non-UTF-8: either reject with a clear encoding error or decode with a
-  documented fallback — pick one policy and test it; do not silently corrupt
-  text.
-- Flutter may pass path or bytes via FRB; **decode + parse stay in Rust**.
+- Non-UTF-8: Reader open-flow uses **strict reject** (`str::from_utf8` →
+  `Encoding`; not `from_utf8_lossy`). Do not silently corrupt text.
+- Flutter passes **bytes** (+ optional `format_hint`); **decode + parse stay in
+  Rust**.
 
 ## Errors
 
-Classify failures for UI mapping (upload screen keeps prior doc; no reader
+Classify failures for UI mapping (Library stays on the folder; no Reader
 navigation on hard fail):
 
 | Kind (illustrative) | When |
 |---------------------|------|
 | `UnsupportedFormat` | Unknown / ambiguous sniff |
 | `Encoding` | Bytes not decodable under policy |
-| `BadTimestamp` | Unparseable or `end < start` |
+| `BadTimestamp` | Unparseable or `end < start` (map to `Malformed` on FFI) |
 | `Malformed` | Truncated block, missing separator, broken ASS field count |
-| `Empty` (optional) | Zero cues — only if product treats empty as error |
+| `Empty` | Zero cues after a successful format path — **hard fail** for Reader open |
 
 Use a typed `ParseError` (or equivalent) in `parse/`; map to FRB-safe messages
 in `api/`. Full error-contract rules → **`server-work-with-errors`**. Flutter

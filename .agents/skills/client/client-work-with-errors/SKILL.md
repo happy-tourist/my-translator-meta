@@ -27,15 +27,16 @@ Failures are orchestration-local `error` + Material surfaces
 | Topic | File |
 |-------|------|
 | Drift / repository persist errors | [drift-persist.md](drift-persist.md) |
+| FRB parse / Library → Reader open | [frb-parse.md](frb-parse.md) |
 
 ## Core Model
 
 Error handling is **orchestration-local**, not a second global toast bus:
 
-- Async I/O (Drift repositories today; FRB parse/tokenize/translate later) lives
-  in a thin orchestration layer next to the feature (screen state,
-  controller/notifier, or small service) — see `client-work-with-structure`
-  and `work-with-drift`.
+- Async I/O (Drift repositories; FRB parse open-flow; tokenize/translate later)
+  lives in a thin orchestration layer next to the feature (screen state,
+  controller/notifier, or small service) — see `client-work-with-structure`,
+  `work-with-drift`, and [frb-parse.md](frb-parse.md).
 - Failed actions set a UI-facing `String? error` (or typed UI error enum) to a
   **user-safe** message. Never assign raw `e.toString()`, panic text, or
   anyhow backtraces to what the user reads.
@@ -64,7 +65,7 @@ surfaces below.
 | Drift / sqlite I/O | Drift / sqlite3 errors | Generic save/load copy; log details |
 | File picker cancel | — | **Not** an error — return silently |
 | Pick/read permission / I/O | `PlatformException` / `FileSystemException` / similar | Short permission or “Couldn’t read file” copy |
-| Parse / format reject (Rust, later) | usually `AnyhowException` | “Unsupported or invalid subtitle file” (+ format hint if API provides one) |
+| Parse / format reject (Rust) | `ParseErrorKind` (generated) | Switch on kind → short Library copy; see [frb-parse.md](frb-parse.md) |
 | Empty list / no document | — | **Empty state**, not SnackBar error |
 
 Import FRB exception types from `package:flutter_rust_bridge/flutter_rust_bridge_for_generated.dart`
@@ -111,8 +112,10 @@ error = null;
 notifyListeners(); // or setState
 
 try {
-  final doc = await parseSubtitles(/* … */);
-  // apply success to UI models
+  final parsed = await parseSubtitles(bytes: bytes, formatHint: hint);
+  // success → navigate / apply models (Library: only if cues.isNotEmpty)
+} on ParseErrorKind catch (kind) {
+  error = messageForParseError(kind); // typed map — frb-parse.md
 } on AnyhowException catch (e) {
   error = mapFrbUserMessage(e.message);
 } on PanicException catch (e) {
@@ -133,8 +136,8 @@ try {
 }
 ```
 
-Applies to: Drift folder/document/dictionary CRUD today; later FRB subtitle
-parse, tokenize/lemmatize, offline translate, settings load/save.
+Applies to: Drift folder/document/dictionary CRUD; Library open/parse
+([frb-parse.md](frb-parse.md)); later tokenize/lemmatize, offline translate.
 
 - Re-throw only when the **caller** must skip a success path (e.g. navigate
   into reader only on successful parse). Otherwise keep the error in
@@ -167,11 +170,11 @@ backtrace frames into the string.
 | User cancels picker | — | Silent return; clear any prior *in-flight* loading only |
 | Permission denied | platform exception | SnackBar or inline: need file access |
 | Read bytes/path fails | I/O | “Couldn’t read the file” |
-| Rust parse rejects | FRB exception | Inline error on upload screen + keep prior document if any |
-| Parse OK but zero cues | empty result | Empty state on reader/upload (“No lines found”), not a red panic |
+| Document open: Rust parse rejects / empty | `ParseErrorKind` | Library SnackBar; **no** Reader push — [frb-parse.md](frb-parse.md) |
+| Import itself | Drift / validation | Keep prior library list; show validation/`message` |
 
-Hand path/bytes to Rust; do not parse SRT/VTT/ASS in Dart. Flutter owns picker
-UX and error chrome only.
+Hand bytes to Rust; do not parse SRT/VTT/ASS in Dart. Flutter owns picker UX,
+Drift persist errors, and open-flow chrome.
 
 ## Display Surfaces
 
@@ -349,7 +352,8 @@ closed” teardown. Document with a one-line comment. Do **not** use empty
 | `lib/data/**` | Repositories + validation exceptions |
 | `lib/features/upload/` | Pick/import + folder/document persist errors |
 | `lib/features/vocab/` | Load/add/remove errors + empty state |
-| `lib/features/reader/` | Tap/translate/highlight failure surfaces (later) |
+| `lib/features/upload/` (open) | Parse/load open failures → [frb-parse.md](frb-parse.md) |
+| `lib/features/reader/` | Cues-first has no FRB calls; tap/translate failures later |
 | `lib/features/settings/` | Save/load preference failures (later) |
 | Feature screen state / controllers | Owns `error` / `loading` + try/catch |
 | `lib/src/rust/api/*.dart` | Generated compute surface (do not hand-edit) |
