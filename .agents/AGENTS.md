@@ -42,7 +42,7 @@ OpenSpec: [`openspec/config.yaml`](../openspec/config.yaml); артефакты 
 | [`check-changes`](skills/check-changes/SKILL.md) | Unstaged app (`lib/` / `rust/`) → add/change/delete/**split** skills + maps/docs/AGENTS/`openspec/config.yaml` |
 | [`prepare-changes`](skills/prepare-changes/SKILL.md) | До propose: чаще всего **один** change (норма); дробить только по нужде; пункты работ + проверяемый результат |
 | [`align-change`](skills/align-change/SKILL.md) | Active change: align-back → align-front → align-meta (субагенты); resume по state; без propose/apply |
-| [`implement-change`](skills/implement-change/SKILL.md) | Активный change: apply → align → verify-mock (**если** макет прикреплён и change про макет) → check-changes → commit; resume — повторный запуск (state) |
+| [`implement-change`](skills/implement-change/SKILL.md) | Активный change: apply → **align** → **verify** → verify-mock (**если** макет) → check-changes → commit → **web-smoke** (Chrome + COOP/COEP); resume — state |
 | [`end-implement-change`](skills/end-implement-change/SKILL.md) | Закрытие change: update → sync-specs → archive → commit (без вопросов) |
 | [`openspec-propose`](skills/openspec-propose/SKILL.md) | Propose: proposal → specs → design → tasks; при ровно одном active change — всегда дописывать в него (новый каталог только по явной просьбе) |
 | [`openspec-new-change`](skills/openspec-new-change/SKILL.md) | Создать change и начать артефакты по схеме |

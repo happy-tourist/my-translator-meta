@@ -84,6 +84,11 @@ flutter run -d chrome \
   --web-header=Cross-Origin-Embedder-Policy=require-corp
 ```
 
+[`implement-change`](../../implement-change/SKILL.md) **обязательно** гоняет этот
+командный шаблон как финальный **web-smoke после commit**, и mid-apply/verify —
+когда нужна проверка Web. Не использовать голый `flutter run -d chrome` в этих
+фазах.
+
 Drift Web assets (required beside FRB WASM): `web/sqlite3.wasm`,
 `web/drift_worker.js` — see `work-with-drift` / `{app}/AGENTS.md`.
 

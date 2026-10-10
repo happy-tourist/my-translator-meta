@@ -2,17 +2,18 @@
 name: check-changes
 description: >-
   Scans unstaged (and untracked) changes in my_translator_app (Flutter lib/ and
-  Rust rust/), then recommends whether to add, update, delete, or split bloated
+  Rust rust/),   then recommends whether to add, update, delete, or split bloated
   skills using a scored bloat checklist (topic files preferred; score ≥5 →
-  mandatory split plan), and whether to fix projects-map / project-map, docs, or
-  AGENTS.md. Use when the user runs check-changes, asks to review unstaged app
-  diffs for skill/docs/agent drift, wants a «что добавить / изменить / удалить /
-  разбить» list, or asks which skills have grown too large to split.
+  mandatory split plan), and whether to fix projects-map / project-map, docs,
+  AGENTS.md, or openspec/config.yaml. Use when the user runs check-changes,
+  asks to review unstaged app diffs for skill/docs/agent drift, wants a
+  «что добавить / изменить / удалить / разбить» list, or asks which skills
+  have grown too large to split.
 ---
 
-# Check Changes — навыки, maps, docs, AGENTS
+# Check Changes — навыки, maps, docs, AGENTS, OpenSpec config
 
-Проверить **незастейдженные** (и untracked) изменения в **одном** runtime-репо `my_translator_app` (`lib/` + `rust/`), сопоставить с каноном skills / projects-map / docs / `AGENTS.md`, выдать: **что добавить**, **изменить**, **удалить**, **разбить**.
+Проверить **незастейдженные** (и untracked) изменения в **одном** runtime-репо `my_translator_app` (`lib/` + `rust/`), сопоставить с каноном skills / projects-map / docs / `AGENTS.md` / `openspec/config.yaml`, выдать: **что добавить**, **изменить**, **удалить**, **разбить**.
 
 Скилл **только анализирует и предлагает** — не правит файлы (для коммита — [`commit`](../commit/SKILL.md)).
 
@@ -40,6 +41,7 @@ Resolve via [`docs/projects-map.md`](../../../docs/projects-map.md).
 | Projects map | `docs/projects-map.md`, local YAML |
 | Child map | `{app}/project-map.md` |
 | AGENTS | meta + `.agents/AGENTS.md` + `{app}/AGENTS.md` |
+| OpenSpec config | `openspec/config.yaml` |
 
 ## Scope diff
 
@@ -61,7 +63,7 @@ Check-Changes Progress:
 - [ ] 1. Resolve paths
 - [ ] 2. Collect unstaged/untracked (app)
 - [ ] 3. Summarize themes (Flutter vs Rust vs bridge)
-- [ ] 4. Map → skills / maps / docs / AGENTS
+- [ ] 4. Map → skills / maps / docs / AGENTS / openspec config
 - [ ] 5. Bloat scoring
 - [ ] 6. Decide add/change/delete/split
 - [ ] 7. Report
@@ -89,9 +91,9 @@ Check-Changes Progress:
 - **Change** — устаревший API/пути относительно diff.
 - **Split** — score ≥3 (обязательно ≥5).
 - **Delete** — домен убран и кода нет; почистить AGENTS.
-- **Maps/docs/AGENTS** — пути, стек Flutter+Rust, индексы skills.
+- **Maps/docs/AGENTS/openspec config** — пути, стек Flutter+Rust, индексы skills, `projectsMap` / context / capability rules в `openspec/config.yaml`.
 
-Не предлагать runtime-правки — только agent/docs/map.
+Не предлагать runtime-правки — только agent/docs/map/openspec config.
 
 ## Report
 
