@@ -46,6 +46,27 @@
 5. Programmatic jumps (tap cue, restore session position) set **both** panes to
    the same index.
 
+## Toggle split — preserve original scroll (RS-10)
+
+Enabling split remounts the original list (`singlePane` → split body). Before
+`setState(splitEnabled: true)`, capture the top-visible anchor from
+`ItemPositionsListener` (`index` + `itemLeadingEdge`); after the first frame
+(when `ItemScrollController.isAttached`), `jumpTo` that anchor on the original
+pane. Then, if translation cues exist, run the usual sync from original.
+Hiding split does not need this dance (single list remount is acceptable).
+
+## Delete chrome (RS-07 / D8)
+
+- **AppBar** actions: split toggle only — **not** Delete.
+- When split is on and translation cues exist **or** a stuck link
+  (`translationDocumentId` without cues): show Delete in a **top chrome strip
+  of the bottom pane** (`readerTranslationDelete` /
+  `readerTranslationDeleteEmpty`), above the cue list or empty content.
+- Keep bottom pane height ≥ Material min tap target (`kMinInteractiveDimension`)
+  when that chrome is shown so the IconButton does not overflow the divider
+  clamp.
+- Stuck-link empty: Delete in chrome first; Load CTA only after unlink.
+
 ## Missing translation
 
 - **MVP:** bottom pane empty until a translation file is loaded; no per-cue
@@ -72,6 +93,8 @@ Avoid copying `controller.offset` blindly between panes.
 | Case | Behavior |
 |------|----------|
 | Empty translation pane (MVP) | Show empty + load CTA; top pane scrolls alone |
+| Show split after scroll | Restore original top-visible cue (RS-10); do not reset to 0 |
+| Delete translation | Bottom-pane top chrome only; AppBar stays toggle-only |
 | One cue only | Sync trivial |
 | Fast fling | Debounce or sync on scroll-end + settle; then time (MVP) or index (target) |
 | Unequal list lengths (MVP) | Expected; nearest `startMs` — do **not** invent Rust pairing |
@@ -85,3 +108,5 @@ Avoid copying `controller.offset` blindly between panes.
 | Inventing a Rust pairing API for MVP split | Two `parseSubtitles` + Flutter `nearestCueIndex` |
 | Continuous pixel-mirror during fling | Settle → time/index match → optional pixel fine-adjust |
 | Sync logic in Rust | Flutter owns scroll; Rust only parse (MVP) or paired lines (target) |
+| Delete translation in AppBar | Bottom-pane top chrome (`readerTranslationDelete*`) |
+| Ignoring remount on Show split | Capture top-visible → post-frame `jumpTo` (RS-10) |

@@ -97,8 +97,19 @@ Delete bottom
 
 ### D6 — Тесты
 - Drift unit: attach / list hides translation / delete translation / cascade.
-- Widget: RS-01…RS-09 по возможности с fake parse/repos (как текущий `reader_screen_test` / library inject `parseSubtitles` + `DocumentRepository`).
+- Widget: RS-01…RS-10 по возможности с fake parse/repos (как текущий `reader_screen_test` / library inject `parseSubtitles` + `DocumentRepository`).
 - Unit helper: `nearestCueIndex(cues, startMs: BigInt)`.
+
+### D7 — Preserve original scroll on Show split (RS-10)
+- **Проблема:** `body: split ? splitBody : singlePane` снимает `ScrollablePositionedList` оригинала с дерева → позиция сбрасывается в начало при toggle.
+- **Выбор:** перед включением split сохранить якорь верхней панели (`ItemPositionsListener` → top-visible `index` + `itemLeadingEdge`); после `setState` / post-frame — `jumpTo` на сохранённый якорь у `_originalScrollController` (когда attached). Затем, если есть translation cues, вызывать `_syncPanes(fromOriginal: true)` как сейчас.
+- **Почему не A (один виджет всегда в дереве):** больше рефакторинга layout; B достаточно для MVP polish.
+- **Не трогать:** persist scroll между перезапусками приложения (out of scope).
+
+### D8 — Delete chrome в верхней зоне нижней панели (RS-07)
+- **Выбор:** убрать `IconButton` Delete из `AppBar.actions`; в режиме split при `_hasTranslationCues || _hasLinkedTranslation` показать полоску/header **сверху нижней панели** (над cue list или над empty+Load) с действием Delete (`readerTranslationDelete` / empty-variant key).
+- **Toggle split** остаётся в AppBar.
+- Stuck-link (link без cues): Delete в той же верхней зоне нижней панели; Load — в empty content ниже header (или только Delete в header, пока link не снят).
 
 ## Risks / Trade-offs
 
@@ -108,6 +119,8 @@ Delete bottom
 | Feedback loop sync A↔B | `_syncing` + sync primarily on settle |
 | Migration Drift на Web/native | одна schema bump; тесты репозитория |
 | Skills канон index vs time-first | MVP time-first зафиксирован здесь + в `split-scroll.md`; target index+pairing — later |
+| Remount list сбрасывает scroll при Show split | D7: capture + post-frame `jumpTo` |
+| Delete в AppBar неочевиден для нижней панели | D8: chrome только в bottom pane top |
 
 ## Migration Plan
 
@@ -117,4 +130,4 @@ Delete bottom
 
 ## Open Questions
 
-Нет блокирующих. Default: divider ratio `0.5`; title скрытого перевода — имя выбранного файла; AppBar toggle split.
+Нет блокирующих. Default: divider ratio `0.5`; title скрытого перевода — имя выбранного файла; AppBar **только** toggle split; Delete — D8 (bottom pane top).

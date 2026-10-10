@@ -8,13 +8,13 @@ Read with the [core pages skill](SKILL.md) for navigation. Folder roles:
 
 | Surface | Path | Role |
 |---------|------|------|
-| Reader (cues-first + split MVP) | `lib/features/reader/reader_screen.dart` | Stateful; single-pane default; AppBar split toggle / delete translation |
+| Reader (cues-first + split MVP) | `lib/features/reader/reader_screen.dart` | Stateful; single-pane default; AppBar split toggle; delete translation in bottom-pane top chrome (D8) |
 | Cue row | `lib/features/reader/cue_row.dart` | Timestamp + `text_lines`; key prefixes for original / translation |
 | Nearest-time helper | `lib/features/reader/nearest_cue_index.dart` | Pure `nearestCueIndex` (`BigInt` `startMs`) |
 | Time format | `lib/features/reader/cue_time_format.dart` | `HH:MM:SS,mmm` |
 | Word / phrase card (later) | local widget e.g. `word_card.dart` or bottom sheet | Translation, lemma, «add to vocabulary» |
 | Highlight paint (later) | reader widgets + data from Rust | Lemma-matched saved words tinted in text |
-| Split view (MVP: `reader/split`) | Reader **mode** (same screen; `scrollable_positioned_list` panes) | Top: original; bottom: loaded translation; time-nearest + alignment settle |
+| Split view (MVP: `reader/split`) | Reader **mode** (same screen; `scrollable_positioned_list` panes) | Top: original; bottom: loaded translation; time-nearest + alignment settle; RS-10 scroll preserve on Show split |
 
 Reader is usually **pushed** from the library ([upload.md](upload.md)), not a
 shell tab.
@@ -71,6 +71,10 @@ Reader without losing scroll when possible.
   nearest `CueDto.startMs` then pixel settle; bottom empty + load until attached.
   Persist hidden linked document via Drift (`DocumentRepository`). Errors map
   like Library open (`ParseErrorKind`).
+- **Delete** translation: bottom-pane top chrome only (not AppBar). AppBar keeps
+  the split toggle. Stuck link without cues: Delete in that chrome, then Load.
+- **Show split:** preserve original scroll (capture top-visible → post-frame
+  `jumpTo`); do not reset the original list to cue 0.
 - **Target (later):** sync **by cue index** when Rust supplies paired lists;
   placeholders keep alignment — see `work-with-reader` / `split-scroll.md`.
 - Toggle Reader ↔ Split from Reader chrome (app bar action or mode switch);

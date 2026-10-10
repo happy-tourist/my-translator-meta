@@ -93,6 +93,10 @@ Details: [highlight.md](highlight.md).
   sync by **nearest `CueDto.startMs`** (`BigInt`), then optional pixel settle —
   empty bottom + load CTA until a translation file is attached; **no** per-cue
   placeholders and **no** Rust pairing API.
+- **AppBar:** split toggle only. **Delete translation** lives in bottom-pane
+  top chrome (not AppBar) when cues or a stuck link exist.
+- **Show split:** remounting the original list resets scroll unless you capture
+  the top-visible anchor and `jumpTo` after layout (RS-10).
 - **Target (later):** line-index aligned when Rust supplies paired lists;
   missing translation → placeholder row that keeps index alignment.
 
@@ -105,6 +109,8 @@ Details: [split-scroll.md](split-scroll.md).
 | Empty file / zero cues | **Do not open Reader** (Library SnackBar / empty-parse error); in-Reader empty state only if a later change allows opening empty docs |
 | Long lines | Wrap; token hit-test and highlight still correct |
 | No translation yet (MVP) | Single-pane OK; split shows empty + load CTA; top scrolls alone |
+| Toggle split on (MVP) | Preserve original top-visible cue across remount; then sync bottom if loaded |
+| Delete translation (MVP) | Bottom-pane top chrome → empty + load; never AppBar Delete |
 | Scroll desync (MVP) | Re-run time-nearest sync from last scrolled pane; avoid raw `offset` copy |
 | Scroll desync (target paired) | Re-anchor both panes to same cue index |
 | Tokenize pending | Show plain text or skeleton; disable tap until spans ready |
@@ -125,5 +131,6 @@ Canon product scenarios: `{app}/AGENTS.md`.
 - [ ] Tap → word; selection → phrase; card wired via FRB orchestration
 - [ ] Highlight by lemma flags from Rust
 - [ ] Split sync: MVP time-nearest (`startMs`) + settle; target index+placeholders when pairing exists
+- [ ] Show split preserves original scroll; Delete in bottom-pane chrome (not AppBar)
 - [ ] Empty / long / no-translation (empty+load MVP) / desync handled
 - [ ] Not extending scaffold `MyHomePage` demo

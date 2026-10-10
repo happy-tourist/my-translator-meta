@@ -29,8 +29,8 @@ Default post-scaffold **home** destination in [shell.md](shell.md).
   `loadLinkedTranslation` → `loadBytes` → `parseSubtitles`. Success with cues →
   pass `translationCues` + id into `ReaderScreen`. Failure / empty cues MUST
   NOT block original open — still pass `translationDocumentId` when linked so
-  Reader can show stuck-link empty (Delete → Load). Linked rows stay hidden in
-  the folder list (`DocumentRepository.listInFolder`).
+  Reader can show stuck-link empty (Delete in bottom-pane chrome → Load).
+  Linked rows stay hidden in the folder list (`DocumentRepository.listInFolder`).
 - Empty state (root or folder): clear CTA to create a folder (and import when inside a folder) — not the scaffold Rust demo form.
 
 ## Layering

@@ -26,3 +26,9 @@
 
 - [x] 4.1 Widget-тесты Reader/Library по SC-ID: RS-01…RS-09 и LD-12/LD-14/LD-16 (где применимо с fake repos/parse) — `flutter test` зелёный
 - [x] 4.2 `flutter analyze` в корне app без ошибок по затронутому коду
+
+## 5. UX polish: scroll preserve + delete chrome
+
+- [x] 5.1 Прочитать `design.md` (D7, D8) и `specs/reader/split/spec.md` (RS-07 обновлённый, RS-10)
+- [x] 5.2 При включении split: сохранить top-visible якорь оригинала и после layout `jumpTo` восстановить (RS-10); не сбрасывать верх в начало; sync низа после restore при наличии translation cues
+- [x] 5.3 Перенести Delete из AppBar в верхнюю зону нижней панели (при cues или stuck link); AppBar оставить только toggle split; обновить/добавить widget-тесты RS-07 / RS-10 — `flutter test` + `flutter analyze` зелёные

@@ -12,14 +12,15 @@
 | RS-04 | Load translation shows cues in bottom | Flutter widget: successful load → bottom list like top |
 | RS-05 | Sync after load by nearest start time | Flutter widget/unit: after load, bottom anchors to nearest `CueDto.startMs` of top anchor |
 | RS-06 | Scroll sync time then pixel on settle | Flutter widget/unit: scroll end → time match then pixel settle; no continuous pixel fight during fling |
-| RS-07 | Delete translation returns to empty | Flutter widget: delete → empty + load; file unlinked |
+| RS-07 | Delete translation returns to empty | Flutter widget: delete in bottom-pane top chrome → empty + load; file unlinked |
 | RS-08 | Failed load shows error in bottom flow | Flutter widget: parse/load fail → visible error; bottom stays empty / no cues |
 | RS-09 | Reopen restores translation in split | Flutter widget: reopen original with linked translation → bottom available after split |
+| RS-10 | Toggle split preserves original scroll | Flutter widget: scroll original, enable split → top pane keeps same cue / position (not jump to start) |
 
 ## ADDED Requirements
 
 ### Requirement: Toggle horizontal split on Reader
-Система SHALL позволять на экране Reader включать и выключать горизонтальное разделение экрана: верхняя область — cues оригинального документа; нижняя — область перевода. По умолчанию Reader MUST открываться в режиме одной панели (без split). При выключении split система MUST сохранять загруженный перевод в рамках текущей сессии Reader (не сбрасывать cues до явного удаления или выхода из Reader).
+Система SHALL позволять на экране Reader включать и выключать горизонтальное разделение экрана: верхняя область — cues оригинального документа; нижняя — область перевода. По умолчанию Reader MUST открываться в режиме одной панели (без split). При выключении split система MUST сохранять загруженный перевод в рамках текущей сессии Reader (не сбрасывать cues до явного удаления или выхода из Reader). При включении split система MUST сохранять позицию прокрутки верхней панели оригинала в рамках текущей сессии Reader (не сбрасывать список оригинала в начало из‑за перестройки layout).
 
 #### Scenario [RS-01]: Toggle split shows empty bottom pane
 - **GIVEN** Reader открыт для оригинального документа без привязанного перевода
@@ -31,6 +32,11 @@
 - **WHEN** пользователь выключает split
 - **THEN** показывается только одна панель с оригиналом, приложение не падает, и при повторном включении split переводные cues снова доступны без повторной загрузки в той же сессии
 
+#### Scenario [RS-10]: Toggle split preserves original scroll
+- **GIVEN** Reader в режиме одной панели, список оригинала прокручен так, что видна не первая реплика
+- **WHEN** пользователь включает режим split
+- **THEN** верхняя панель продолжает показывать ту же (или эквивалентную по индексу/якорю) область оригинала, а не сбрасывается к началу списка
+
 ### Requirement: Resizable split divider
 Система SHALL позволять пользователю изменять относительную высоту верхней и нижней панелей перетаскиванием разделителя в режиме split. Сохранение ratio между перезапусками приложения не требуется.
 
@@ -40,7 +46,7 @@
 - **THEN** относительные высоты верхней и нижней панелей изменяются соответственно жесту
 
 ### Requirement: Load translation into bottom pane
-В пустой нижней панели система SHALL предоставлять действие загрузки файла субтитров с устройства (те же поддерживаемые типы, что и при import в Library). При успешном парсинге система SHALL показать cues перевода в нижней панели в том же представлении, что и оригинал сверху (время start→end и текст), и SHALL сохранить перевод как связанный документ библиотеки (поведение persist — capability `library/documents`). Замена файла без удаления не требуется: пока перевод загружен, система SHALL предоставлять удаление, а не отдельное «заменить». При ошибке загрузки/парсинга перевода система MUST показать заметную ошибку с той же классификацией `ParseErrorKind` (и load fail), что open-flow Library (тексты/ключи — design D5), без показа cues перевода.
+В пустой нижней панели система SHALL предоставлять действие загрузки файла субтитров с устройства (те же поддерживаемые типы, что и при import в Library). При успешном парсинге система SHALL показать cues перевода в нижней панели в том же представлении, что и оригинал сверху (время start→end и текст), и SHALL сохранить перевод как связанный документ библиотеки (поведение persist — capability `library/documents`). Замена файла без удаления не требуется: пока перевод загружен (или есть связанный translation без отображаемых cues), система SHALL предоставлять удаление в **верхней зоне нижней панели** (chrome нижней панели), а не в AppBar, и не отдельное «заменить». При ошибке загрузки/парсинга перевода система MUST показать заметную ошибку с той же классификацией `ParseErrorKind` (и load fail), что open-flow Library (тексты/ключи — design D5), без показа cues перевода.
 
 #### Scenario [RS-04]: Load translation shows cues in bottom
 - **GIVEN** split включён, нижняя панель пуста
@@ -48,9 +54,9 @@
 - **THEN** в нижней панели отображаются cues этого файла (время и текст), аналогично верхней панели
 
 #### Scenario [RS-07]: Delete translation returns to empty
-- **GIVEN** в нижней панели отображаются cues перевода
-- **WHEN** пользователь удаляет перевод
-- **THEN** нижняя панель возвращается в пустое состояние с действием загрузки, и связанный переводный документ больше не привязан к оригиналу
+- **GIVEN** в нижней панели отображаются cues перевода (или доступно удаление связанного перевода)
+- **WHEN** пользователь нажимает удаление в верхней зоне нижней панели
+- **THEN** нижняя панель возвращается в пустое состояние с действием загрузки, связанный переводный документ больше не привязан к оригиналу, и действие удаления не расположено в AppBar
 
 #### Scenario [RS-08]: Failed load shows error in bottom flow
 - **GIVEN** split включён, нижняя панель пуста

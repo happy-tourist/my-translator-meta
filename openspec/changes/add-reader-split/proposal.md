@@ -8,6 +8,7 @@ Reader уже показывает оригинал субтитров одни�
 - Нижняя панель: пустое состояние с загрузкой файла → отображение cues как сверху; удаление перевода; ошибки загрузки/парсинга заметны внизу (как при open в Library).
 - Синхронизация скролла: сначала по ближайшему таймингу (`start`), затем пиксельная подстройка на settle.
 - Переводный файл сохраняется в той же папке, что и оригинал, восстанавливается при повторном открытии; в списке папки виден только оригинал (перевод из нижней панели скрыт); удаление оригинала удаляет и перевод.
+- **UX polish (после MVP):** при включении split верхняя панель MUST сохранять позицию прокрутки оригинала (не сбрасывать в начало); действие удаления перевода — в верхней зоне нижней панели (не в AppBar).
 
 ## Scope
 
@@ -22,7 +23,8 @@ Reader уже показывает оригинал субтитров одни�
 - Замена перевода без удаления (только delete → снова загрузить).
 - Выравнивание по индексу cue как единственный режим (канон skills `split-scroll.md` остаётся target-reference; в этом change — time-first на Flutter).
 - Pairing / align / parallel-lists API в Rust; FRB codegen для этого change; видеоплеер; облачный sync.
-- Persist позиции разделителя и позиции скролла между сессиями приложения.
+- Persist позиции разделителя и позиции скролла между сессиями приложения (внутри одной сессии Reader при toggle split позиция оригинала сохраняется — см. What Changes).
+- Дублирующая кнопка Delete в AppBar (только chrome нижней панели).
 
 ## Capabilities
 
@@ -44,4 +46,4 @@ Reader уже показывает оригинал субтитров одни�
 
 - Sibling app: `../my_translator_app/AGENTS.md` (target: split / sync scroll).
 - Meta: `docs/projects-map.md`; skills `work-with-reader` (split-scroll.md), `work-with-pages` (reader.md), `work-with-drift`.
-- Explore / design decisions D1–D6 (empty+load, persist hidden in folder, cascade, nearest `startMs` → pixel settle-only, delete unlinks+removes file, Library-like errors).
+- Explore / design decisions D1–D8 (empty+load, persist hidden in folder, cascade, nearest `startMs` → pixel settle-only, delete unlinks+removes file, Library-like errors, scroll preserve on toggle, delete in bottom-pane chrome).
