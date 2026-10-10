@@ -39,8 +39,8 @@
 
 ## Impact
 
-- Sibling app: новый FRB batch tokenize cues оригинала (char spans); панель оригинала в Reader получает token hit-test / selection; Rust tokenizer (tokenize-only); сохранение в словарь из Reader через общий Drift-persist (не Rust SQLite).
-- Flutter: словарьный repository доходит до Reader через shell → Library → Reader (сейчас только Vocab); seam для подмены tokenize в widget-тестах.
+- Sibling app (**shipped**): FRB batch `tokenize_cues` (char spans); Reader original pane — token hit-test / selection; Rust tokenizer (tokenize-only); save в словарь из Reader через общий Drift-persist (не Rust SQLite).
+- Flutter (**shipped**): `DictionaryRepository` доходит до Reader через shell → Library → Reader; seam `TokenizeCuesFn` для widget-тестов.
 - Meta: delta `reader/tap` + `dictionary/entries`; skills reader/tokenize — канон поведения (MVP chrome = bottom sheet, не target word-card).
 - Совместимость: Vocab CRUD не ломается; parse/split без изменения контракта парсинга.
 

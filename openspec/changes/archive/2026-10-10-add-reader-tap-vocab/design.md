@@ -1,6 +1,6 @@
 ## Context
 
-See `proposal.md` — Why / Scope. Сейчас (app HEAD): Reader cues-first (`lib/features/reader/`) рендерит plain text (`textLines.join('\n')`); Rust FRB — `api/parse` + scaffold `simple`; `Cargo.toml` без NLP/`panko`; словарь — Drift `DictionaryRepository` + Vocab UI (не Rust SQLite). Tokenize/lemma/translate в runtime отсутствуют — этот change **extends** crate.
+See `proposal.md` — Why / Scope. **Implemented** in sibling app: Rust `tokenize/` + FRB `tokenize_cues` (`panko` 0.2.0); Reader original pane — batch tokenize on open, tap selection, bottom CTA + sheet → Drift `DictionaryRepository` via Shell → Library → Reader. Lemma morph / offline translate / lemma highlight remain out of scope (still absent).
 
 Слои: **Rust** tokenize compute + thin FRB `tokenize_cues`; **Flutter** Reader original pane (paint/gestures/CTA/sheet) → Drift persist. Generated `lib/src/rust/**` не править вручную.
 
@@ -137,20 +137,19 @@ pub fn tokenize_cues(texts: Vec<String>) -> Vec<CueTokensDto>;
 
 ### D8 — DI: DictionaryRepository + Library → Reader (locked)
 
-App HEAD сегодня: `AppShell` держит `DictionaryRepository`, но передаёт его **только** в  
-`VocabularyScreen`; `LibraryScreen` / `ReaderScreen` ctor’ы repo словаря **не** принимают  
-(`ReaderScreen` — только `DocumentRepository` + cues). Для этого change:
+**Pre-change:** `AppShell` держал `DictionaryRepository` только для `VocabularyScreen`;  
+`LibraryScreen` / `ReaderScreen` repo словаря не принимали. **Delivered:**
 
-1. **`AppShell`:** передать `_dictionary` в `LibraryScreen(dictionaryRepository: _dictionary, …)`  
-   (рядом с уже передаваемыми folder/document repos).
-2. **`LibraryScreen`:** новый required ctor param `DictionaryRepository dictionaryRepository`;  
+1. **`AppShell`:** передаёт `_dictionary` в `LibraryScreen(dictionaryRepository: _dictionary, …)`  
+   (рядом с folder/document repos).
+2. **`LibraryScreen`:** required ctor param `DictionaryRepository dictionaryRepository`;  
    в `_openDocument` / `Navigator.push` →  
    `ReaderScreen(…, documentRepository: …, dictionaryRepository: widget.dictionaryRepository, …)`.
-3. **`ReaderScreen`:** новый required ctor param `DictionaryRepository dictionaryRepository`  
+3. **`ReaderScreen`:** required ctor param `DictionaryRepository dictionaryRepository`  
    (тот же стиль injection, что `documentRepository`). Sheet/save использует только его —  
    не создавать `DictionaryRepository(db)` внутри Reader и не ходить в global DI.
-4. **Tests:** `reader_screen_test` / library pumps — передать real/test `DictionaryRepository`  
-   (как Vocab tests); существующие Reader pumps обновить ctor.
+4. **Tests:** `reader_screen_test` / library pumps — real/test `DictionaryRepository`;  
+   Reader pumps обновлены под ctor.
 
 ### D9 — Test seams / Keys (Flutter)
 
