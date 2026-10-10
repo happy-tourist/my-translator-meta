@@ -63,7 +63,7 @@ my_translator_app/rust/src/
   lib.rs                 # `mod parse;` + `pub mod api;`
   parse/
     mod.rs               # Format enum, `parse_subtitles` / `parse_text`, re-exports
-    cue.rs               # Cue / ParsedSubtitles
+    cue.rs               # Cue / ParsedDocument (internal; FRB DTO is api::ParsedSubtitles)
     detect.rs            # extension hint + content sniff
     srt.rs / vtt.rs / ass.rs   # map crate parsers → Cue (lossy where pinned)
     error.rs             # ParseError kinds

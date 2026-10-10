@@ -112,6 +112,8 @@ Notes:
 - **Web**: FRB **WASM** (`lib/src/rust/frb_generated.web.dart`) plus Drift
   (`web/sqlite3.wasm`, `web/drift_worker.js`). Prefer `flutter build web` /
   COOP/COEP `flutter run -d chrome` over hand-editing generated wasm packs.
+  After FRB API/codegen changes, run `flutter_rust_bridge_codegen build-web`
+  so gitignored `web/pkg/` matches Dart content hash (else `RustLib.init` fails).
 - **Android**: first build may compile Rust via **cargokit** under
   `rust_builder/` — slow is normal; failures often point at NDK/Rust toolchain,
   not Dart UI.

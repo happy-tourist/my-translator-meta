@@ -74,7 +74,13 @@ Future<void> main() async {
 3. From app root: flutter_rust_bridge_codegen generate
 4. Update Dart call sites / tests to new generated names
 5. flutter analyze / flutter test; cargo check|test in rust/
+6. Web: flutter_rust_bridge_codegen build-web (refreshes gitignored web/pkg WASM)
 ```
+
+After an API/codegen change, **do not** rely on a stale `web/pkg/` from a previous day —
+`RustLib.init` fails with **content hash** mismatch (Dart vs Rust) until `build-web` runs.
+Keep domain type names distinct from FRB DTOs (e.g. internal `ParsedDocument` vs
+`api::ParsedSubtitles`) so codegen does not merge duplicate keys.
 
 Naming: Rust `snake_case` → Dart `camelCase` with named params
 (`process_text` → `processText(input:)`). Prefer `async` Rust / Dart `Future`
