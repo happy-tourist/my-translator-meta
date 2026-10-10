@@ -56,7 +56,7 @@ updated: "<ISO-8601>"
 | Mock | [`verify-mock`](../verify-mock/SKILL.md) — если gate |
 | Check | [`check-changes`](../check-changes/SKILL.md) |
 | Commit | [`commit`](../commit/SKILL.md) |
-| Web-smoke | [`work-with-env-deploy`](../client/work-with-env-deploy/SKILL.md) — Chrome + COOP/COEP |
+| Web-smoke | [`work-with-env-deploy`](../client/work-with-env-deploy/SKILL.md) — Chrome + `--web-port=5555` + COOP/COEP |
 
 Пути — [`docs/projects-map.md`](../../../docs/projects-map.md).
 
@@ -80,7 +80,7 @@ Implement-Change Progress:
 - [ ] 6. Verify-mock → если gate; иначе SKIPPED
 - [ ] 7. Check-changes → субагент (+ правка)
 - [ ] 8. Commit → субагент (meta + app)
-- [ ] 9. Web-smoke → Chrome с COOP/COEP (после commit)
+- [ ] 9. Web-smoke → Chrome `--web-port=5555` + COOP/COEP (после commit)
 - [ ] 10. Short final report
 ```
 
@@ -88,7 +88,7 @@ Implement-Change Progress:
 
 Блок = `## N. …` в tasks.md. Субагент: следовать apply; только этот блок; `- [x]` сразу; не спрашивать; `HUMAN_BLOCKER` или `OK`. Последовательно (часто rust → flutter → bridge). Parent не пишет продукт-код.
 
-**Web mid-apply:** если блок/design требует проверки Web (Drift Web, FRB WASM, task вроде «flutter run -d chrome») — субагент **сам** запускает Chrome с COOP/COEP из `work-with-env-deploy` (не голый `flutter run -d chrome`).
+**Web mid-apply:** если блок/design требует проверки Web (Drift Web, FRB WASM, task вроде «flutter run -d chrome») — субагент **сам** запускает Chrome с `--web-port=5555` + COOP/COEP из `work-with-env-deploy` (не голый `flutter run -d chrome`).
 
 ### Align (фаза 4)
 
@@ -104,7 +104,7 @@ Implement-Change Progress:
 
 1. Выполнить **только** `client-verify-code` + `server-verify-code` (`flutter analyze` / `flutter test`, `cargo check` / `cargo test` / clippy, conventions).
 2. Затем дословно: **«Добавь и поправь что считаешь нужным»**.
-3. При необходимости Web-проверки tooling — Chrome только с COOP/COEP.
+3. При необходимости Web-проверки tooling — Chrome только с `--web-port=5555` + COOP/COEP.
 4. Вернуть violations/warnings + что поправлено, или `HUMAN_BLOCKER`.
 
 ### Mock / Check
@@ -120,14 +120,14 @@ Implement-Change Progress:
 Parent или субагент из корня app:
 
 ```bash
-flutter run -d chrome \
+flutter run -d chrome --web-port=5555 \
   --web-header=Cross-Origin-Opener-Policy=same-origin \
   --web-header=Cross-Origin-Embedder-Policy=require-corp
 ```
 
-Критерий OK: приложение стартует, `RustLib.init` + Drift open без uncaught exception (как smoke task 2.4). Оставить процессrunning для ручной проверки пользователя, если это финал сессии; иначе зафиксировать успех старта в отчёте.
+Критерий OK: приложение стартует на `http://localhost:5555`, `RustLib.init` + Drift open без uncaught exception (как smoke task 2.4). Оставить процесс running для ручной проверки пользователя, если это финал сессии; иначе зафиксировать успех старта в отчёте.
 
-Не запускать web-smoke без COOP/COEP.
+Не запускать web-smoke без `--web-port=5555` и без COOP/COEP (случайный порт = другой origin = «пустая» Drift БД).
 
 ### Final report
 
@@ -156,4 +156,4 @@ flutter run -d chrome \
 - Не verify-mock без gate.
 - Не archive/PR в этом скилле.
 - Не ослаблять safety commit.
-- Не `flutter run -d chrome` без COOP/COEP headers.
+- Не `flutter run -d chrome` без `--web-port=5555` и без COOP/COEP headers.

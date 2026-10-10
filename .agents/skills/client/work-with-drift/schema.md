@@ -47,8 +47,9 @@ Deps (canon): `drift`, `sqlite3`, `drift_flutter`, `sqlite3_flutter_libs`,
 | `web/sqlite3.wasm` | sqlite3 WASM for Drift Web |
 | `web/drift_worker.js` | Drift worker |
 
-Commit both with Drift Web setup. Chrome run still needs COOP/COEP headers for
-FRB WASM — see `work-with-env-deploy` and `{app}/AGENTS.md`.
+Commit both with Drift Web setup. Chrome run must use fixed `--web-port=5555`
+plus COOP/COEP (same origin → same OPFS/IndexedDB). Random ports look like a
+data wipe — see `work-with-env-deploy` and `{app}/AGENTS.md`.
 
 ## Migrations
 

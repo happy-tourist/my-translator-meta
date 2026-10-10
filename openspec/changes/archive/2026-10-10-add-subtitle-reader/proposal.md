@@ -38,9 +38,9 @@
 
 ## Impact
 
-- Rust: первый продуктовый compute (parse) вместо scaffold-only; тонкий FRB API для Flutter (крейт/toolchain — в `design.md`).
-- Flutter: Library перестаёт показывать «Reader later»; появляется Reader; load bytes документа → FRB → UI (без смены Drift schema).
-- Main specs: появятся `parse/subtitles` и `reader/cues`; обновится `library/documents` (после sync).
+- Rust: первый продуктовый compute (parse) + тонкий FRB API (`api/parse.rs`; крейт/toolchain — в `design.md`).
+- Flutter: Library open-flow → Reader; load bytes → FRB → UI (без смены Drift schema); placeholder «Reader later» снят.
+- Main specs (после sync этого change): новые `parse/subtitles` и `reader/cues`; обновлённый `library/documents`.
 
 ## References
 

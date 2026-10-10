@@ -44,7 +44,8 @@ When the task is only about creating or wiring a screen:
 - Do not install packages (no go_router / Riverpod / Bloc unless AGENTS or an
   OpenSpec change already adopts them).
 - Do not start long-lived `flutter run` unless needed for verification; when
-  verifying, prefer `flutter analyze` from the app package root.
+  verifying, prefer `flutter analyze` from the app package root. If Web run is
+  needed → `work-with-env-deploy` (`--web-port=5555` + COOP/COEP), never a random port.
 - Do not fix IDE diagnostics unrelated to the change.
 - Do not hand-edit `lib/src/rust/**` or `rust/src/frb_generated.rs`.
 - Do not reimplement parse / tokenize / lemma / translate in Dart; user persist

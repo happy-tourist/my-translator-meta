@@ -4,8 +4,8 @@ description: >-
   Use when running or releasing my_translator_app (Translation Reader):
   flutter pub get, flutter devices / flutter run, flutter build apk /
   appbundle / ipa / web, FRB codegen before a dirty API, WASM/web notes
-  (COOP/COEP + Drift Web assets), rust_builder / cargokit glue, or release
-  verification — Flutter + Rust/FRB + Drift toolchain.
+  (fixed --web-port=5555 + COOP/COEP + Drift Web assets), rust_builder /
+  cargokit glue, or release verification — Flutter + Rust/FRB + Drift toolchain.
 ---
 
 # Work With Env And Deploy
@@ -71,23 +71,31 @@ cargo test
 ```bash
 flutter devices
 flutter run                    # default connected device
-flutter run -d chrome          # Web — prefer COOP/COEP flags below
+flutter run -d chrome          # Web — NEVER alone; use fixed-port + COOP/COEP below
 flutter run -d <deviceId>      # Android / iOS device or emulator
 ```
 
-**Web (FRB WASM + Drift):** without COOP/COEP, `RustLib.init` fails
-(`SharedArrayBuffer` / `crossOriginIsolated`). From app root:
+**Web (FRB WASM + Drift):** from app root, **always** use the canonical local
+command (fixed port + COOP/COEP):
 
 ```bash
-flutter run -d chrome \
+flutter run -d chrome --web-port=5555 \
   --web-header=Cross-Origin-Opener-Policy=same-origin \
   --web-header=Cross-Origin-Embedder-Policy=require-corp
 ```
 
+| Flag | Why |
+|------|-----|
+| `--web-port=5555` | Stable origin `http://localhost:5555`. Browser Drift (OPFS/IndexedDB) is **per origin** (scheme+host+**port**). A random Flutter port looks like a wipe — empty Library on a new port. |
+| COOP/COEP headers | Without them `RustLib.init` fails (`SharedArrayBuffer` / `crossOriginIsolated`). |
+
+Canon local URL: **`http://localhost:5555`**. Do not change the port without an
+explicit user override (and expect a separate empty DB).
+
 [`implement-change`](../../implement-change/SKILL.md) **обязательно** гоняет этот
 командный шаблон как финальный **web-smoke после commit**, и mid-apply/verify —
-когда нужна проверка Web. Не использовать голый `flutter run -d chrome` в этих
-фазах.
+когда нужна проверка Web. Не использовать голый `flutter run -d chrome` (без
+`--web-port=5555` и без COOP/COEP) в этих фазах.
 
 Drift Web assets (required beside FRB WASM): `web/sqlite3.wasm`,
 `web/drift_worker.js` — see `work-with-drift` / `{app}/AGENTS.md`.
@@ -111,9 +119,10 @@ Notes:
   `ipa` success — report the platform limit.
 - **Web**: FRB **WASM** (`lib/src/rust/frb_generated.web.dart`) plus Drift
   (`web/sqlite3.wasm`, `web/drift_worker.js`). Prefer `flutter build web` /
-  COOP/COEP `flutter run -d chrome` over hand-editing generated wasm packs.
-  After FRB API/codegen changes, run `flutter_rust_bridge_codegen build-web`
-  so gitignored `web/pkg/` matches Dart content hash (else `RustLib.init` fails).
+  COOP/COEP + `--web-port=5555` `flutter run -d chrome` over hand-editing
+  generated wasm packs. After FRB API/codegen changes, run
+  `flutter_rust_bridge_codegen build-web` so gitignored `web/pkg/` matches Dart
+  content hash (else `RustLib.init` fails).
 - **Android**: first build may compile Rust via **cargokit** under
   `rust_builder/` — slow is normal; failures often point at NDK/Rust toolchain,
   not Dart UI.
@@ -168,7 +177,8 @@ flutter test
 flutter build apk          # or appbundle / web / ipa as relevant
 ```
 
-Web smoke: `flutter run -d chrome` or `flutter build web`.
+Web smoke: canonical Chrome command above (`--web-port=5555` + COOP/COEP),
+or `flutter build web`.
 Rust-only: `cargo test` in `rust/`.
 
 ## Anti-patterns
@@ -179,6 +189,8 @@ Rust-only: `cargo test` in `rust/`.
 - Claiming iOS `ipa` success without a macOS+signing environment.
 - Skipping `flutter pub get` / analyze / build after glue or API changes.
 - Committing secrets, `build/`, `rust/target/`, or `.dart_tool/`.
+- `flutter run -d chrome` **without** `--web-port=5555` (Drift “lost” across runs).
+- `flutter run -d chrome` **without** COOP/COEP headers.
 
 ## Related
 

@@ -1,6 +1,6 @@
 ## Context
 
-См. `proposal.md` — Why. Сейчас в sibling `my_translator_app`: Library + Drift documents уже импортируют `.srt`/`.vtt`/`.ass`/`.ssa`; tap показывает «Reader later». Rust — scaffold FRB (`process_text` / `add_numbers`); модуля `parse/` нет. Канон: compute в Rust, user bytes в Drift; skills `work-with-parse`, `work-with-reader`, `work-with-frb-api`, client `work-with-pages` / `work-with-frb`.
+См. `proposal.md` — Why. **Реализовано** в sibling `my_translator_app`: Library + Drift по-прежнему хранят байты; tap → `loadBytes` → FRB `parse_subtitles` → Reader или SnackBar. Rust: `rust/src/parse/` + thin `api/parse.rs` (`fasrt` 0.5); Flutter: `lib/features/reader/`, open-flow в `library_screen.dart`. Канон: compute в Rust, user bytes в Drift; skills `work-with-parse`, `work-with-reader`, `work-with-frb-api`, client `work-with-pages` / `work-with-frb`.
 
 ## Goals / Non-Goals
 
@@ -82,7 +82,7 @@ pub fn parse_subtitles(bytes: Vec<u8>, format_hint: Option<String>)
 ### D5 — Flutter open flow
 Точка врезки: `lib/features/upload/library_screen.dart` (`_onDocumentTap`).
 1. Loading на время load+parse: нестирающий list overlay / modal progress (не полный wipe папки как при `_reload`); не открывать Reader, пока parse не успешен.
-2. Load document bytes через **`DocumentRepository` helper** (предпочтительно), внутри — `DocumentContentStore.load` / Web-ветка: native — sandbox по `storageKey`; Web — `utf8.encode(doc.content!)`. Сейчас у store нет `load` — **добавить** thin read (+ `MemoryDocumentContentStore`) в том же change; schema Drift не менять. `LibraryScreen` уже имеет `documentRepository` — отдельный inject store в экран не обязателен.
+2. Load document bytes через **`DocumentRepository.loadBytes`**, внутри — `DocumentContentStore.load` / Web-ветка: native — sandbox по `storageKey`; Web — `utf8.encode(doc.content!)`. Thin read (+ `MemoryDocumentContentStore`) добавлен в этом change; schema Drift не менялась. `LibraryScreen` использует `documentRepository` — отдельный inject store в экран не нужен.
 3. Generated FRB `parse_subtitles(bytes, format_hint)` с `format_hint: doc.format` (`srt` \| `vtt` \| `ass`).
 4. Success → `Navigator.of(context).push` Reader (`lib/features/reader/`) с уже разобранными cues (+ title). Push идёт поверх `AppShell` (bottom nav скрыт на маршруте Reader) — так и задумано; back → `pop` возвращает в ту же папку Library.
 5. Fail (load или parse) → существующий `_showError` / `SnackBar(key: libraryErrorSnack)` со стабильным user-facing текстом по kind (см. таблицу ниже); **не** push Reader.
@@ -126,7 +126,7 @@ Flutter передаёт **`Vec<u8>`** (предпочтительно); **stric
 | ASS override codes в тексте | `plain_text().normalize()` в map-слое |
 | Web `allowMalformed` при store | PS-05 доказывать в Rust unit; open передаёт bytes/encode без повторного lossy decode в Dart |
 | Импортированные битые файлы остаются в Library | UX: ошибка на open; validate-on-import later |
-| Нет `contentStore.load` сегодня | Добавить read path в Flutter tasks (3.x); schema Drift не трогать |
+| Read path для open | `DocumentContentStore.load` + `DocumentRepository.loadBytes`; schema Drift не трогали |
 
 ## Migration Plan
 

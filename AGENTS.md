@@ -49,7 +49,8 @@
 Типичные команды (из корня app, если не указано иное):
 
 - Dart/Flutter: `flutter pub get` / `flutter analyze` / `flutter test` / `flutter run` / `flutter build apk|ipa|web`
+- Web run (канон): `flutter run -d chrome --web-port=5555` + COOP/COEP headers — см. `.agents/skills/client/work-with-env-deploy` (случайный порт = другой origin Drift)
 - Rust: `cargo check` / `cargo test` в `rust/`
-- FRB: `flutter_rust_bridge_codegen generate` (CLI ≈ 2.13)
+- FRB: `flutter_rust_bridge_codegen generate` (CLI ≈ 2.13); после API — ещё `build-web` для `web/pkg`
 
 Скилл [`commit`](.agents/skills/commit/SKILL.md): незакоммиченные изменения в meta + app → stage → commit на `main`/`master` → **всегда push** (запуск скилла = разрешение на push).

@@ -85,8 +85,9 @@ app: ../my_translator_app
 Команды из каталога пакета (ключ `app`):
 
 - Flutter: `flutter pub get`, `flutter analyze`, `flutter test`, `flutter run`, `flutter build apk|ipa|web`
+- Web run (канон): `flutter run -d chrome --web-port=5555` + COOP/COEP — skill `work-with-env-deploy` (порт входит в origin Drift)
 - Rust: `cargo check`, `cargo test` в `{app}/rust/`
-- FRB: `flutter_rust_bridge_codegen generate` (CLI ≈ 2.13)
+- FRB: `flutter_rust_bridge_codegen generate` (CLI ≈ 2.13); после API — `build-web`
 
 Команды запускает **агент** из каталога sibling-репо. Не ждать подтверждения пользователя; при падении — починить до завершения задачи.
 

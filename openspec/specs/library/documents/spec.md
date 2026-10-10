@@ -45,13 +45,21 @@
 - **WHEN** пользователь удаляет этот документ
 - **THEN** документ исчезает из списка папки, соседние документы и папки остаются
 
-### Requirement: Document row does not open Reader yet
-Система SHALL NOT требовать экран Reader при выборе документа: tap по документу MAY быть no-op или кратким сообщением «Reader later», без перехода в parse/reader flow (Reader — отдельная capability).
+### Requirement: Open document from folder into Reader
+Система SHALL при выборе документа в папке загружать его содержимое из локального хранилища библиотеки, запрашивать парсинг субтитров и при успехе открывать Reader с разобранными cues. Import по-прежнему не обязан валидировать содержимое; проверка выполняется при открытии.
 
-#### Scenario [LD-08]: Tap document without Reader
-- **GIVEN** в папке есть импортированный документ
-- **WHEN** пользователь выбирает документ
-- **THEN** приложение не падает и не требует Rust parse API; Reader не является обязательным следующим шагом
+#### Scenario [LD-10]: Open document opens Reader after successful parse
+- **GIVEN** в папке есть импортированный документ с валидным содержимым субтитров (хотя бы одна реплика)
+- **WHEN** пользователь выбирает этот документ
+- **THEN** открывается Reader с репликами документа
+
+### Requirement: Failed open shows error without leaving Library
+При ошибке загрузки содержимого, парсинга, encoding или нуле реплик система SHALL оставаться в Library (в текущей папке), SHALL показать пользователю заметную ошибку (SnackBar / эквивалент) и MUST NOT открывать Reader.
+
+#### Scenario [LD-11]: Failed open stays in Library with visible error
+- **GIVEN** в папке есть импортированный документ, содержимое которого не парсится успешно или даёт ноль реплик
+- **WHEN** пользователь выбирает этот документ
+- **THEN** пользователь остаётся в Library, видит ошибку открытия, и Reader не открывается
 
 ### Requirement: Persist across app restart
 Система SHALL сохранять импортированные документы и их привязку к папкам между перезапусками приложения на поддерживаемых платформах (включая Web / browser storage через Drift).
@@ -80,5 +88,6 @@
 | LD-05 | Delete one document | unit: delete removes only that doc |
 | LD-06 | Documents survive restart | integration (close/reopen DB) + verify/ops Web same-origin restart |
 | LD-07 | Import ASS/SSA file | unit: `.ssa`/`.ass` → format `ass` |
-| LD-08 | Tap document without Reader | widget: no Reader/parse dependency |
 | LD-09 | Web import stores content | unit (fake platform) or verify/ops Web: content persisted |
+| LD-10 | Open document opens Reader after successful parse | Flutter widget: tap valid doc → Reader |
+| LD-11 | Failed open stays in Library with visible error | Flutter widget: tap bad/empty → error, no Reader |

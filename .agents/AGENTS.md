@@ -42,7 +42,7 @@ OpenSpec: [`openspec/config.yaml`](../openspec/config.yaml); артефакты 
 | [`check-changes`](skills/check-changes/SKILL.md) | Unstaged app (`lib/` / `rust/`) → add/change/delete/**split** skills + maps/docs/AGENTS/`openspec/config.yaml` |
 | [`prepare-changes`](skills/prepare-changes/SKILL.md) | До propose: чаще всего **один** change (норма); дробить только по нужде; пункты работ + проверяемый результат |
 | [`align-change`](skills/align-change/SKILL.md) | Active change: align-back → align-front → align-meta (субагенты); resume по state; без propose/apply |
-| [`implement-change`](skills/implement-change/SKILL.md) | Активный change: apply → **align** → **verify** → verify-mock (**если** макет) → check-changes → commit → **web-smoke** (Chrome + COOP/COEP); resume — state |
+| [`implement-change`](skills/implement-change/SKILL.md) | Активный change: apply → **align** → **verify** → verify-mock (**если** макет) → check-changes → commit → **web-smoke** (Chrome `--web-port=5555` + COOP/COEP); resume — state |
 | [`end-implement-change`](skills/end-implement-change/SKILL.md) | Закрытие change: update → sync-specs → archive → commit (без вопросов) |
 | [`openspec-propose`](skills/openspec-propose/SKILL.md) | Propose: proposal → specs → design → tasks; при ровно одном active change — всегда дописывать в него (новый каталог только по явной просьбе) |
 | [`openspec-new-change`](skills/openspec-new-change/SKILL.md) | Создать change и начать артефакты по схеме |
@@ -76,7 +76,7 @@ OpenSpec: [`openspec/config.yaml`](../openspec/config.yaml); артефакты 
 | [`work-with-drift`](skills/client/work-with-drift/SKILL.md) | Drift user persist: schema, repos, content store, Web assets |
 | [`work-with-styles`](skills/client/work-with-styles/SKILL.md) | Тема, Material, lemma highlight tokens |
 | [`work-with-localization`](skills/client/work-with-localization/SKILL.md) | Локаль UI (ARB) vs learning language pair |
-| [`work-with-env-deploy`](skills/client/work-with-env-deploy/SKILL.md) | `flutter build` apk/ipa/web; run/devices; Web COOP/COEP |
+| [`work-with-env-deploy`](skills/client/work-with-env-deploy/SKILL.md) | `flutter build` apk/ipa/web; run/devices; Web `--web-port=5555` + COOP/COEP |
 | [`client-work-with-test`](skills/client/client-work-with-test/SKILL.md) | `flutter test` / `integration_test` / Drift tests |
 | [`work-with-frb`](skills/client/work-with-frb/SKILL.md) | Generated API, `RustLib.init`, codegen |
 | [`work-with-reader`](skills/client/work-with-reader/SKILL.md) | Тап, подсветка, split scroll |
