@@ -21,7 +21,16 @@ Default post-scaffold **home** destination in [shell.md](shell.md).
 - Selecting a document row **opens Reader** after `loadBytes` + FRB
   `parseSubtitles` succeed; on parse/load failure stay in the folder and show a
   SnackBar (`libraryErrorSnack`) — do **not** push Reader. Injectable
-  `ParseSubtitlesFn` on `LibraryScreen` keeps widget tests off the real FFI.
+  `ParseSubtitlesFn` (shared typedef in
+  `lib/data/library/parse_subtitles_fn.dart`) keeps widget tests off the real
+  FFI; parse copy lives in `parse_error_messages.dart`.
+- **Linked translation restore (`reader/split` / LD-16):** if
+  `doc.translationDocumentId != null`, best-effort
+  `loadLinkedTranslation` → `loadBytes` → `parseSubtitles`. Success with cues →
+  pass `translationCues` + id into `ReaderScreen`. Failure / empty cues MUST
+  NOT block original open — still pass `translationDocumentId` when linked so
+  Reader can show stuck-link empty (Delete → Load). Linked rows stay hidden in
+  the folder list (`DocumentRepository.listInFolder`).
 - Empty state (root or folder): clear CTA to create a folder (and import when inside a folder) — not the scaffold Rust demo form.
 
 ## Layering
@@ -30,8 +39,12 @@ Default post-scaffold **home** destination in [shell.md](shell.md).
 LibraryScreen
   → orchestration (list folders/documents, import bytes/path, delete)
       → Drift repositories / DAOs   # user persist source of truth
-  → on document tap: loadBytes → FRB parse_subtitles → Navigator.push(ReaderScreen)
-  → on fail: SnackBar; no Reader route
+  → on document tap: loadBytes → FRB parseSubtitles → (optional linked translation)
+      → Navigator.push(ReaderScreen(
+            originalCues, originalDocumentId, documentRepository,
+            translationCues?, translationDocumentId?, parseSubtitles?))
+  → original fail: SnackBar; no Reader route
+  → translation fail: ignore; still push Reader with original (+ link id if any)
 ```
 
 - Flutter: pick file, Drift CRUD for folders/documents, show list, open-flow orchestration, Reader UI.

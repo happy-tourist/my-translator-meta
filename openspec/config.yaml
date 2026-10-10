@@ -36,7 +36,7 @@ context: |
   Runtime: один sibling Git-репозиторий my_translator_app (Flutter lib/ + Rust rust/ + in-process FRB).
 
   Проект: My Translator — продукт Translation Reader (чтение субтитров + изучение слов в контексте).
-  Домены (target): parse/subtitles, reader/cues, reader/highlight, library/folders,
+  Домены (target): parse/subtitles, reader/cues, reader/split, reader/highlight, library/folders,
   library/documents, dictionary/entries, translate/offline, settings/languages;
   опциональный AI — позже и явно.
 

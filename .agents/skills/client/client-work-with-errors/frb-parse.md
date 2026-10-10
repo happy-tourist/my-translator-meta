@@ -1,21 +1,28 @@
 # FRB parse / Library open errors
 
-Read with the [core errors skill](SKILL.md). Open flow lives in Library
-orchestration (`lib/features/upload/library_screen.dart`), not inside
-`ReaderScreen`.
+Read with the [core errors skill](SKILL.md). **Original** open flow lives in
+Library orchestration (`lib/features/upload/library_screen.dart`). Reader may
+also call the same FRB parse when loading a translation in split
+(`reader_screen.dart`) — same typed mapping, different SnackBar key
+(`readerTranslationErrorSnack`).
 
 ## Contract
 
 1. `DocumentRepository.loadBytes(doc)` (Drift / content store).
 2. FRB `parseSubtitles(bytes:, formatHint:)` → `ParsedSubtitles`.
-3. Success with ≥1 cue → `Navigator.push(ReaderScreen)`.
-4. Any hard fail → stay on Library folder; SnackBar (`libraryErrorSnack`);
-   **no** Reader route.
+3. Success with ≥1 cue → `Navigator.push(ReaderScreen)` (plus best-effort linked
+   translation cues/id — translation fail must not block original).
+4. Hard fail on **original** → stay on Library folder; SnackBar
+   (`libraryErrorSnack`); **no** Reader route.
 
-Inject `ParseSubtitlesFn` on `LibraryScreen` in widget tests — do not hit real
-FFI from `flutter test` unless an integration harness requires it.
+Inject `ParseSubtitlesFn` (`lib/data/library/parse_subtitles_fn.dart`) on
+`LibraryScreen` / `ReaderScreen` in widget tests — do not hit real FFI from
+`flutter test` unless an integration harness requires it.
 
 ## Map `ParseErrorKind` (prefer typed switch)
+
+Shared helper: `messageForParseError` in
+`lib/data/library/parse_error_messages.dart` (Library + Reader).
 
 | Kind | User copy (EN, Library style) |
 |------|-------------------------------|
@@ -24,8 +31,9 @@ FFI from `flutter test` unless an integration harness requires it.
 | `empty` | No subtitle cues found in this file |
 | `malformed` | Could not parse this subtitle file |
 
-Catch `on ParseErrorKind` **before** `PanicException` / bare `catch`. Do **not**
-scrape free-form anyhow strings when the typed enum is on the bridge.
+Catch `on ParseErrorKind` **before** `AnyhowException` / `PanicException` /
+bare `catch`. Do **not** scrape free-form anyhow strings when the typed enum
+is on the bridge.
 
 ## Other failures on open
 

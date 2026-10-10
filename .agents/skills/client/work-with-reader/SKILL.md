@@ -13,10 +13,13 @@ description: >-
 ## Overview
 
 **Reader** contracts for **Translation Reader** (`my_translator_app`).
-**Cues-first** UI is under `lib/features/reader/` (`ReaderScreen` +
-`cue_time_format.dart`): props are already-parsed `CueDto` list + title —
-Library owns load/parse/open. Scaffold demo in older docs is **not** the
-reader — do not grow demo chrome into product UX.
+**Cues-first** UI is under `lib/features/reader/`: Stateful `ReaderScreen`
+(optional split), `cue_row.dart`, `cue_time_format.dart`,
+`nearest_cue_index.dart`. Ctor takes already-parsed `originalCues` + title +
+`originalDocumentId` + injected `DocumentRepository` (optional translation
+cues/id, `ParseSubtitlesFn`, file picker). Library owns open/parse of the
+original (+ best-effort linked translation). Scaffold demo in older docs is
+**not** the reader — do not grow demo chrome into product UX.
 
 Heavy logic stays in **Rust**; Flutter paints, gestures, and thin FRB
 orchestration. Path package: `package:my_translator_app/...`.
@@ -45,7 +48,7 @@ skills by name.
 | Line list, gestures, selection chrome | Flutter |
 | Word/phrase card UI | Flutter |
 | Scroll controllers + sync | Flutter |
-| Line pairing original↔translation | Rust (data); Flutter (layout) |
+| Line pairing original↔translation | Target: Rust (paired data); MVP (`reader/split`): Flutter time-nearest on two parse results — no Rust pairing API |
 
 Do **not** re-tokenize, lemmatize, or invent dictionary match rules in Dart.
 
@@ -86,11 +89,12 @@ Details: [highlight.md](highlight.md).
 ## Split View + Sync Scroll
 
 - Top: original cues; bottom: translation cues (or L/R on wide — same rules).
-- Scroll is **line-index aligned**: scrolling so original cue *i* is anchored
-  brings translation cue *i* to the matching anchor (not free pixel mirror when
-  line heights differ).
-- Missing translation for a cue → empty/placeholder row that **keeps index
-  alignment**; do not collapse indices.
+- **MVP (`reader/split`):** two independent cue lists (two `parseSubtitles`);
+  sync by **nearest `CueDto.startMs`** (`BigInt`), then optional pixel settle —
+  empty bottom + load CTA until a translation file is attached; **no** per-cue
+  placeholders and **no** Rust pairing API.
+- **Target (later):** line-index aligned when Rust supplies paired lists;
+  missing translation → placeholder row that keeps index alignment.
 
 Details: [split-scroll.md](split-scroll.md).
 
@@ -100,8 +104,9 @@ Details: [split-scroll.md](split-scroll.md).
 |------|----------|
 | Empty file / zero cues | **Do not open Reader** (Library SnackBar / empty-parse error); in-Reader empty state only if a later change allows opening empty docs |
 | Long lines | Wrap; token hit-test and highlight still correct |
-| No translation yet | Single-pane OK; split shows placeholders; sync by index |
-| Scroll desync | Re-anchor both panes to same cue index; prefer index over raw `offset` copy |
+| No translation yet (MVP) | Single-pane OK; split shows empty + load CTA; top scrolls alone |
+| Scroll desync (MVP) | Re-run time-nearest sync from last scrolled pane; avoid raw `offset` copy |
+| Scroll desync (target paired) | Re-anchor both panes to same cue index |
 | Tokenize pending | Show plain text or skeleton; disable tap until spans ready |
 | Unknown / non-word tap | Ignore or no-op — do not open empty card |
 
@@ -119,6 +124,6 @@ Canon product scenarios: `{app}/AGENTS.md`.
 - [ ] Lines from Rust cues + token spans; no Dart NLP
 - [ ] Tap → word; selection → phrase; card wired via FRB orchestration
 - [ ] Highlight by lemma flags from Rust
-- [ ] Split sync by cue index; placeholders keep alignment
-- [ ] Empty / long / no-translation / desync handled
+- [ ] Split sync: MVP time-nearest (`startMs`) + settle; target index+placeholders when pairing exists
+- [ ] Empty / long / no-translation (empty+load MVP) / desync handled
 - [ ] Not extending scaffold `MyHomePage` demo

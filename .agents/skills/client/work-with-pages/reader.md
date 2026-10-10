@@ -8,10 +8,13 @@ Read with the [core pages skill](SKILL.md) for navigation. Folder roles:
 
 | Surface | Path | Role |
 |---------|------|------|
-| Reader (cues-first, **present**) | `lib/features/reader/reader_screen.dart` | Cue list + timestamps; `cue_time_format.dart` helper |
+| Reader (cues-first + split MVP) | `lib/features/reader/reader_screen.dart` | Stateful; single-pane default; AppBar split toggle / delete translation |
+| Cue row | `lib/features/reader/cue_row.dart` | Timestamp + `text_lines`; key prefixes for original / translation |
+| Nearest-time helper | `lib/features/reader/nearest_cue_index.dart` | Pure `nearestCueIndex` (`BigInt` `startMs`) |
+| Time format | `lib/features/reader/cue_time_format.dart` | `HH:MM:SS,mmm` |
 | Word / phrase card (later) | local widget e.g. `word_card.dart` or bottom sheet | Translation, lemma, «add to vocabulary» |
 | Highlight paint (later) | reader widgets + data from Rust | Lemma-matched saved words tinted in text |
-| Split view (later) | `split_reader_screen.dart` or Reader **mode** | Top: original; bottom: translation; sync scroll |
+| Split view (MVP: `reader/split`) | Reader **mode** (same screen; `scrollable_positioned_list` panes) | Top: original; bottom: loaded translation; time-nearest + alignment settle |
 
 Reader is usually **pushed** from the library ([upload.md](upload.md)), not a
 shell tab.
@@ -26,7 +29,10 @@ shell tab.
 - Open only after successful parse with ≥1 cue; empty / parse fail stays in Library.
 - **Do not** require tokenize / word card / lemma highlight in the cues-first change.
 
-### Later Reader (tokenize / vocab / split — separate changes)
+### Later Reader (tokenize / vocab — separate changes)
+
+Split view file-load + time sync is **current** (capability `reader/split`) —
+see [Split view](#split-view) below; do not treat split as “later” in this file.
 
 - Text is tappable by **token** (and selectable for multi-word phrases).
 - Tap / selection → open word/phrase card (overlay, sheet, or side panel —
@@ -60,20 +66,25 @@ Reader without losing scroll when possible.
 
 - Two panes: **original** and **translation**, typically stacked (mobile) or
   side-by-side (wide) — prefer stacked first unless a mock says otherwise.
-- **Sync scroll**: scrolling one pane keeps the other aligned **by cue/line**,
-  not by raw pixel guess alone when cue indices exist.
-- Translation lines come from Rust (offline / later AI) — Flutter does not
-  invent a second parser.
+- **MVP (`reader/split`):** translation = second subtitle file → same FRB
+  `parseSubtitles` as Library open (not offline word-translate / AI). Sync by
+  nearest `CueDto.startMs` then pixel settle; bottom empty + load until attached.
+  Persist hidden linked document via Drift (`DocumentRepository`). Errors map
+  like Library open (`ParseErrorKind`).
+- **Target (later):** sync **by cue index** when Rust supplies paired lists;
+  placeholders keep alignment — see `work-with-reader` / `split-scroll.md`.
 - Toggle Reader ↔ Split from Reader chrome (app bar action or mode switch);
-  same document session.
+  same document session. Inject `DocumentRepository` (+ optional parse fn for
+  tests) into Reader like Library — do not parse SRT in widgets.
 
 ## Layering
 
 ```text
-ReaderScreen / SplitReaderScreen
-  → widgets: cue list, token span, word card, pane scrollables
-  → orchestration: load document, request tokens/highlights, translate, dict add
-      → FRB api (parse already done; tokenize/lemmatize/dict/translate)
+ReaderScreen (single-pane or split mode; optional split_*.dart widgets)
+  → widgets: cue list, pane scrollables, empty+load, divider; later token/card
+  → orchestration: Library open + Reader attach/parse translation via
+      DocumentRepository + parseSubtitles; later tokenize/dict/translate
+      → FRB api (parse reuse; tokenize/lemmatize/dict/translate later)
 ```
 
 ## Do not

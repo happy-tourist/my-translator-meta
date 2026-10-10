@@ -22,11 +22,22 @@ UI maps these to short copy (SnackBar / inline) — see
 
 ### Typical ops
 
-- **Folders:** create (root/nested), list children, cascade delete.
+- **Folders:** create (root/nested), list children, cascade delete. Before bulk
+  document delete in a folder subtree, clear `translationDocumentId` self-FK
+  links so SQLite FK checks do not fail.
 - **Documents:** import bytes + metadata into a folder, list, delete; format
   helpers in `document_format.dart`; **load bytes for Reader open**
   (`loadBytes(Document)` — native via `storageKey`, Web via Drift `content` →
   `utf8.encode`).
+- **Reader translation link (MVP `reader/split` / `library/documents`):**
+  nullable `translationDocumentId` on original; `listInFolder` / watch must
+  hide satellite translation rows; `attachTranslation`,
+  `detachAndDeleteTranslation`, cascade on original delete,
+  `loadLinkedTranslation` — see OpenSpec LD-12…LD-16. One translation slot per
+  original (attach while linked → validation error; delete first).
+- **Shared parse seams (Library + Reader):**
+  `lib/data/library/parse_subtitles_fn.dart` (`ParseSubtitlesFn`),
+  `lib/data/library/parse_error_messages.dart` (`messageForParseError`).
 - **Dictionary:** add (lemma + translation + optional context), list, remove,
   lookup by lemma (normalized).
 
@@ -56,5 +67,7 @@ so widget tests can open imported fixtures.
 ## Injection
 
 Prefer constructing repos once in `AppShell` (or tests) and passing into
-`LibraryScreen` / `VocabularyScreen`. Optional constructor overrides enable
-fakes without a global service locator.
+`LibraryScreen` / `VocabularyScreen`, and into `ReaderScreen` when split
+translation load/persist/delete is in scope (`DocumentRepository` + optional
+parse fn). Optional constructor overrides enable fakes without a global
+service locator.

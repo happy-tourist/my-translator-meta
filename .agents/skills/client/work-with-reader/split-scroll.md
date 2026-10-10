@@ -3,10 +3,39 @@
 ## Layout
 
 - Two panes: **original** cues and **translation** cues.
-- Same cue **index** on both sides (Rust pairing / parallel lists).
-- Flutter owns two scrollables + sync logic; Rust owns texts and alignment data.
+- Flutter owns two scrollables + sync logic.
+- **Target (later):** same cue **index** on both sides when Rust supplies
+  paired / parallel lists.
+- **MVP (capability `reader/split`, change `add-reader-split`):** independent
+  cue lists from two `parseSubtitles` calls; sync by nearest Dart
+  `CueDto.startMs` (`BigInt`; Rust domain field is `start_ms`), then optional
+  pixel settle — **no** Rust pairing / align API.
+
+## Implementation anchors (MVP present)
+
+| Piece | Path / dep |
+|-------|------------|
+| Sync helper | `lib/features/reader/nearest_cue_index.dart` (`nearestCueIndex`) |
+| Shared cue row | `lib/features/reader/cue_row.dart` (`CueRow`, key prefixes) |
+| Pane lists | `scrollable_positioned_list` → `ItemScrollController` + `ItemPositionsListener` |
+| Orchestration | `ReaderScreen` (`lib/features/reader/reader_screen.dart`) StatefulWidget |
 
 ## Sync rules
+
+### MVP — time-first (`reader/split`)
+
+1. **Primary key = nearest `CueDto.startMs`**, not raw pixel `offset` and not
+   cue index. Compare as `BigInt`; do **not** truncate via `toInt()`.
+2. Arm sync only on **user** scroll (`ScrollUpdateNotification.dragDetails` /
+   scroll-start from drag); on settle (`ScrollEndNotification`) — or after load
+   / enabling split with translation — read the top-visible anchor from
+   `ItemPositionsListener`; map via `nearestCueIndex`; `scrollTo` that index;
+   then **pixel settle** with `jumpTo(index, alignment: sourceLeadingEdge)`
+   (mirror viewport alignment — not continuous offset copy).
+3. Guard with a `_syncing` flag so A↔B listeners do not loop.
+4. Do **not** require Rust parallel lists or placeholder rows for unequal lengths.
+
+### Target — index-first (when pairing exists)
 
 1. **Primary key = cue index**, not raw pixel `offset`.
 2. When the user scrolls pane A, determine the **anchor cue** (e.g. first fully
@@ -19,20 +48,21 @@
 
 ## Missing translation
 
-- Cue *i* without translation → placeholder row at index *i* (empty / “—” /
-  muted). **Do not** drop the row (that shifts indices and breaks sync).
+- **MVP:** bottom pane empty until a translation file is loaded; no per-cue
+  placeholders required (lists may differ in length; time-nearest still works).
+- **Target (paired lists):** cue *i* without translation → placeholder row at
+  index *i* (empty / “—” / muted). **Do not** drop the row (that shifts indices).
 - Single-pane mode when split is off: no second controller required.
 
 ## Desync recovery
 
-Symptoms: panes show different cue indices after fast fling, layout change, or
-keyboard/inset.
+Symptoms: panes drift after fast fling, layout change, or keyboard/inset.
 
 Recovery:
 
-1. Read anchor index from the pane that received the last user scroll (or the
-   original pane as default authority).
-2. Jump the other pane to that index (correct for extent / max scroll).
+1. **MVP:** re-run time-nearest sync from the pane that received the last user
+   scroll (or the original pane as default authority).
+2. **Target:** jump the other pane to the same cue index (correct for extent).
 3. Optional: after font scale / rotate, re-run anchor sync once layout settles.
 
 Avoid copying `controller.offset` blindly between panes.
@@ -41,16 +71,17 @@ Avoid copying `controller.offset` blindly between panes.
 
 | Case | Behavior |
 |------|----------|
-| Empty document | Both panes empty state; controllers idle |
-| One cue only | Sync trivial; still shared index 0 |
-| Fast fling | Debounce or sync on scroll-end + settle; then index align |
-| Unequal list lengths (bug) | Treat as data error; do not invent cues in Flutter — fix Rust pairing |
+| Empty translation pane (MVP) | Show empty + load CTA; top pane scrolls alone |
+| One cue only | Sync trivial |
+| Fast fling | Debounce or sync on scroll-end + settle; then time (MVP) or index (target) |
+| Unequal list lengths (MVP) | Expected; nearest `startMs` — do **not** invent Rust pairing |
+| Unequal lengths after pairing (target) | Data error — fix Rust pairing, not Flutter invent cues |
 
 ## Anti-patterns
 
 | Avoid | Prefer |
 |-------|--------|
-| `translationController.jumpTo(original.offset)` | Jump by cue index / item scroll API |
-| Collapsing missing translations | Placeholder rows |
-| Independent free scroll with no link | Always index-linked in split mode |
-| Sync logic in Rust | Flutter scroll; Rust only supplies parallel lines |
+| `translationController.jumpTo(original.offset)` | Jump by nearest time (MVP) or cue index (target) / item scroll API |
+| Inventing a Rust pairing API for MVP split | Two `parseSubtitles` + Flutter `nearestCueIndex` |
+| Continuous pixel-mirror during fling | Settle → time/index match → optional pixel fine-adjust |
+| Sync logic in Rust | Flutter owns scroll; Rust only parse (MVP) or paired lines (target) |
