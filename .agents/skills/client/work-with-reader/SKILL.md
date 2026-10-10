@@ -17,9 +17,10 @@ description: >-
 (optional split), `cue_row.dart`, `cue_time_format.dart`,
 `nearest_cue_index.dart`. Ctor takes already-parsed `originalCues` + title +
 `originalDocumentId` + injected `DocumentRepository` (optional translation
-cues/id, `ParseSubtitlesFn`, file picker). Library owns open/parse of the
-original (+ best-effort linked translation). Scaffold demo in older docs is
-**not** the reader — do not grow demo chrome into product UX.
+cues/id, `initialReadingAnchor`, `ParseSubtitlesFn`, file picker). Library
+owns open/parse of the original (+ best-effort linked translation + reading
+anchor). Scaffold demo in older docs is **not** the reader — do not grow demo
+chrome into product UX.
 
 Heavy logic stays in **Rust**; Flutter paints, gestures, and thin FRB
 orchestration. Path package: `package:my_translator_app/...`.
@@ -95,8 +96,12 @@ Details: [highlight.md](highlight.md).
   placeholders and **no** Rust pairing API.
 - **AppBar:** split toggle only. **Delete translation** lives in bottom-pane
   top chrome (not AppBar) when cues or a stuck link exist.
-- **Show split:** remounting the original list resets scroll unless you capture
-  the top-visible anchor and `jumpTo` after layout (RS-10).
+- **Show / Hide split:** remounting the original list resets scroll — capture
+  the top-visible anchor and `jumpTo` after layout on **both** directions
+  (RS-10, RS-11).
+- **Reading resume (RS-12 / LD-17):** Library loads `ReadingAnchor` and passes
+  `initialReadingAnchor`; Reader restores after layout; persist on user settle
+  / dispose (skip while `_syncing` unless forced pop).
 - **Target (later):** line-index aligned when Rust supplies paired lists;
   missing translation → placeholder row that keeps index alignment.
 
@@ -109,7 +114,8 @@ Details: [split-scroll.md](split-scroll.md).
 | Empty file / zero cues | **Do not open Reader** (Library SnackBar / empty-parse error); in-Reader empty state only if a later change allows opening empty docs |
 | Long lines | Wrap; token hit-test and highlight still correct |
 | No translation yet (MVP) | Single-pane OK; split shows empty + load CTA; top scrolls alone |
-| Toggle split on (MVP) | Preserve original top-visible cue across remount; then sync bottom if loaded |
+| Toggle split Show/Hide (MVP) | Preserve original top-visible cue across remount; on Show with translation, sync bottom after restore |
+| Reopen document (MVP) | Resume original pane at saved `startMs` + alignment; fail must not block open |
 | Delete translation (MVP) | Bottom-pane top chrome → empty + load; never AppBar Delete |
 | Scroll desync (MVP) | Re-run time-nearest sync from last scrolled pane; avoid raw `offset` copy |
 | Scroll desync (target paired) | Re-anchor both panes to same cue index |
@@ -131,6 +137,7 @@ Canon product scenarios: `{app}/AGENTS.md`.
 - [ ] Tap → word; selection → phrase; card wired via FRB orchestration
 - [ ] Highlight by lemma flags from Rust
 - [ ] Split sync: MVP time-nearest (`startMs`) + settle; target index+placeholders when pairing exists
-- [ ] Show split preserves original scroll; Delete in bottom-pane chrome (not AppBar)
+- [ ] Show **and** Hide split preserve original scroll; Delete in bottom-pane chrome (not AppBar)
+- [ ] Reading anchor: restore on open; save on settle/dispose (not while syncing)
 - [ ] Empty / long / no-translation (empty+load MVP) / desync handled
 - [ ] Not extending scaffold `MyHomePage` demo

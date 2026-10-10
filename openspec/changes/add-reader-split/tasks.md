@@ -32,3 +32,11 @@
 - [x] 5.1 Прочитать `design.md` (D7, D8) и `specs/reader/split/spec.md` (RS-07 обновлённый, RS-10)
 - [x] 5.2 При включении split: сохранить top-visible якорь оригинала и после layout `jumpTo` восстановить (RS-10); не сбрасывать верх в начало; sync низа после restore при наличии translation cues
 - [x] 5.3 Перенести Delete из AppBar в верхнюю зону нижней панели (при cues или stuck link); AppBar оставить только toggle split; обновить/добавить widget-тесты RS-07 / RS-10 — `flutter test` + `flutter analyze` зелёные
+
+## 6. Resume + Hide-split scroll preserve
+
+- [x] 6.1 Прочитать `design.md` (D7 обновлённый, D9–D11) и specs: `reader/split` (RS-11, RS-12), `library/documents` (LD-17); skills `work-with-drift`, `work-with-reader` / `split-scroll.md`
+- [x] 6.2 Drift: nullable `lastReadStartMs` + `lastReadAlignment` на `Documents`, bump `schemaVersion` + migration; `DocumentRepository.saveReadingAnchor` / load при open — unit-тест LD-17 зелёный
+- [x] 6.3 `_toggleSplit`: capture+`jumpTo` и при **Hide** (RS-11), не только Show; при Show с translation — sync низа после restore
+- [x] 6.4 Reader: optional initial reading anchor; после layout restore (`nearestCueIndex` + `jumpTo`); settle/pop → `saveReadingAnchor` (не писать при `_syncing`); Library open передаёт якорь — RS-12
+- [x] 6.5 Widget/unit тесты RS-11, RS-12 (+ LD-17 если ещё не в 6.2); `flutter test` + `flutter analyze` зелёные

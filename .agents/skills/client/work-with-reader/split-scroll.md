@@ -46,14 +46,29 @@
 5. Programmatic jumps (tap cue, restore session position) set **both** panes to
    the same index.
 
-## Toggle split — preserve original scroll (RS-10)
+## Toggle split — preserve original scroll (RS-10, RS-11)
 
-Enabling split remounts the original list (`singlePane` → split body). Before
-`setState(splitEnabled: true)`, capture the top-visible anchor from
+Enabling **or hiding** split remounts the original list. Before
+`setState` on either direction, capture the top-visible anchor from
 `ItemPositionsListener` (`index` + `itemLeadingEdge`); after the first frame
 (when `ItemScrollController.isAttached`), `jumpTo` that anchor on the original
-pane. Then, if translation cues exist, run the usual sync from original.
-Hiding split does not need this dance (single list remount is acceptable).
+pane. On Show with translation cues, run the usual sync from original.
+Do **not** treat Hide as a no-op for scroll — the single-pane list is a new
+widget tree and will land at cue 0 without capture+restore.
+
+## Reading resume (RS-12 / LD-17)
+
+Persist the **original** pane position only (not translation scroll):
+
+| Piece | Contract |
+|-------|----------|
+| Columns | `Documents.lastReadStartMs` (nullable int), `lastReadAlignment` (nullable real, clamp `0.0…1.0`) |
+| Repo | `ReadingAnchor` + `DocumentRepository.saveReadingAnchor` / `loadReadingAnchor` |
+| Open | Library best-effort `loadReadingAnchor` → pass `initialReadingAnchor` into `ReaderScreen` (fail must not block open) |
+| Restore | After layout / `ItemScrollController.isAttached`: `nearestCueIndex` by `startMs` → `jumpTo`; if split already has cues, sync bottom from original |
+| Save | On user scroll settle (original pane) and on dispose/pop (`force: true` so mid-sync pop still writes). Skip settle writes while `_syncing`. Failures must not block UI (D10) |
+
+Do **not** write the translation pane’s scroll as the resume key.
 
 ## Delete chrome (RS-07 / D8)
 
@@ -94,6 +109,8 @@ Avoid copying `controller.offset` blindly between panes.
 |------|----------|
 | Empty translation pane (MVP) | Show empty + load CTA; top pane scrolls alone |
 | Show split after scroll | Restore original top-visible cue (RS-10); do not reset to 0 |
+| Hide split after scroll | Same capture+`jumpTo` (RS-11); do not reset to 0 |
+| Reopen from Library | Restore saved `startMs` + alignment on original (RS-12); fail → open at top |
 | Delete translation | Bottom-pane top chrome only; AppBar stays toggle-only |
 | One cue only | Sync trivial |
 | Fast fling | Debounce or sync on scroll-end + settle; then time (MVP) or index (target) |
@@ -109,4 +126,6 @@ Avoid copying `controller.offset` blindly between panes.
 | Continuous pixel-mirror during fling | Settle → time/index match → optional pixel fine-adjust |
 | Sync logic in Rust | Flutter owns scroll; Rust only parse (MVP) or paired lines (target) |
 | Delete translation in AppBar | Bottom-pane top chrome (`readerTranslationDelete*`) |
-| Ignoring remount on Show split | Capture top-visible → post-frame `jumpTo` (RS-10) |
+| Ignoring remount on Show/Hide split | Capture top-visible → post-frame `jumpTo` (RS-10 / RS-11) |
+| Persisting translation-pane scroll as resume | Persist original `startMs` + alignment only (RS-12) |
+| Blocking open / settle on save/load fail | Best-effort; assert-log; continue (D10) |

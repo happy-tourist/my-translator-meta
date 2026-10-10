@@ -6,7 +6,7 @@ Read with [SKILL.md](SKILL.md).
 
 | Piece | Path | Role |
 |-------|------|------|
-| Tables | `lib/data/database/tables.dart` | `Folders`, `Documents` (incl. nullable `translationDocumentId` for `reader/split`), `DictionaryEntries` |
+| Tables | `lib/data/database/tables.dart` | `Folders`, `Documents` (nullable `translationDocumentId`; `lastReadStartMs` / `lastReadAlignment` for resume), `DictionaryEntries` |
 | DB class | `lib/data/database/app_database.dart` | `@DriftDatabase`, `schemaVersion`, `driftDatabase(...)` |
 | Generated | `lib/data/database/app_database.g.dart` | **GENERATED** — never hand-edit |
 | Open helper | `lib/data/database/database_provider.dart` | `openAppDatabase()` + readiness `SELECT 1` |
@@ -56,6 +56,7 @@ data wipe — see `work-with-env-deploy` and `{app}/AGENTS.md`.
 Bump `schemaVersion` and add a Drift `MigrationStrategy` when altering tables.
 Do not silently wipe user data in product builds without an OpenSpec decision.
 
-**Present (`reader/split`):** `schemaVersion` **2** — `onUpgrade` from `< 2`
-adds nullable `Documents.translationDocumentId` (self-FK → `Documents.id`) via
-`migrator.addColumn`. Regenerate `.g.dart` after table edits.
+**Present (`reader/split`):** `schemaVersion` **3** —
+`onUpgrade` from `< 2` adds nullable `Documents.translationDocumentId`
+(self-FK → `Documents.id`); from `< 3` adds nullable `lastReadStartMs` +
+`lastReadAlignment` (reading resume). Regenerate `.g.dart` after table edits.

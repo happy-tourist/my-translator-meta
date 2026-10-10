@@ -1,6 +1,6 @@
 ## Purpose
 
-Позволяет на экране Reader включить горизонтальное разделение: сверху оригинал субтитров, снизу догруженный переводный трек с синхронным скроллом по таймингу и пиксельной подстройкой, чтобы сверять перевод при чтении.
+Позволяет на экране Reader включить горизонтальное разделение: сверху оригинал субтитров, снизу догруженный переводный трек с синхронным скроллом по таймингу и пиксельной подстройкой, чтобы сверять перевод при чтении. Позиция оригинала не сбрасывается при переключении split и восстанавливается при повторном открытии документа (persist — `library/documents`).
 
 ## Traceability
 
@@ -15,12 +15,14 @@
 | RS-07 | Delete translation returns to empty | Flutter widget: delete in bottom-pane top chrome → empty + load; file unlinked |
 | RS-08 | Failed load shows error in bottom flow | Flutter widget: parse/load fail → visible error; bottom stays empty / no cues |
 | RS-09 | Reopen restores translation in split | Flutter widget: reopen original with linked translation → bottom available after split |
-| RS-10 | Toggle split preserves original scroll | Flutter widget: scroll original, enable split → top pane keeps same cue / position (not jump to start) |
+| RS-10 | Show split preserves original scroll | Flutter widget: scroll original, enable split → top pane keeps same cue / position (not jump to start) |
+| RS-11 | Hide split preserves original scroll | Flutter widget: scroll in split top, disable split → single pane keeps same cue / position |
+| RS-12 | Reopen resumes at saved original anchor | Flutter widget: reopen original with saved reading anchor → list shows that region (not start) |
 
 ## ADDED Requirements
 
 ### Requirement: Toggle horizontal split on Reader
-Система SHALL позволять на экране Reader включать и выключать горизонтальное разделение экрана: верхняя область — cues оригинального документа; нижняя — область перевода. По умолчанию Reader MUST открываться в режиме одной панели (без split). При выключении split система MUST сохранять загруженный перевод в рамках текущей сессии Reader (не сбрасывать cues до явного удаления или выхода из Reader). При включении split система MUST сохранять позицию прокрутки верхней панели оригинала в рамках текущей сессии Reader (не сбрасывать список оригинала в начало из‑за перестройки layout).
+Система SHALL позволять на экране Reader включать и выключать горизонтальное разделение экрана: верхняя область — cues оригинального документа; нижняя — область перевода. По умолчанию Reader MUST открываться в режиме одной панели (без split). При выключении split система MUST сохранять загруженный перевод в рамках текущей сессии Reader (не сбрасывать cues до явного удаления или выхода из Reader). При **включении и выключении** split система MUST сохранять позицию прокрутки верхней панели оригинала в рамках текущей сессии Reader (не сбрасывать список оригинала в начало из‑за перестройки layout). Persist режима split on/off между сессиями приложения не требуется.
 
 #### Scenario [RS-01]: Toggle split shows empty bottom pane
 - **GIVEN** Reader открыт для оригинального документа без привязанного перевода
@@ -32,10 +34,15 @@
 - **WHEN** пользователь выключает split
 - **THEN** показывается только одна панель с оригиналом, приложение не падает, и при повторном включении split переводные cues снова доступны без повторной загрузки в той же сессии
 
-#### Scenario [RS-10]: Toggle split preserves original scroll
+#### Scenario [RS-10]: Show split preserves original scroll
 - **GIVEN** Reader в режиме одной панели, список оригинала прокручен так, что видна не первая реплика
 - **WHEN** пользователь включает режим split
 - **THEN** верхняя панель продолжает показывать ту же (или эквивалентную по индексу/якорю) область оригинала, а не сбрасывается к началу списка
+
+#### Scenario [RS-11]: Hide split preserves original scroll
+- **GIVEN** Reader в режиме split, верхняя панель прокручена так, что видна не первая реплика оригинала
+- **WHEN** пользователь выключает режим split
+- **THEN** единственная панель оригинала продолжает показывать ту же (или эквивалентную по индексу/якорю) область, а не сбрасывается к началу списка
 
 ### Requirement: Resizable split divider
 Система SHALL позволять пользователю изменять относительную высоту верхней и нижней панелей перетаскиванием разделителя в режиме split. Сохранение ratio между перезапусками приложения не требуется.
@@ -83,3 +90,11 @@
 - **GIVEN** оригинал ранее получил связанный перевод через нижнюю панель, приложение снова открывает этот оригинал в Reader
 - **WHEN** пользователь включает split
 - **THEN** нижняя панель показывает cues сохранённого перевода (не пустое состояние загрузки)
+
+### Requirement: Resume reading position when reopening original
+Если у оригинального документа сохранён якорь чтения (поведение persist — capability `library/documents`), система SHALL при открытии Reader прокрутить панель оригинала к реплике с ближайшим временем начала к сохранённому якорю (сравнение `CueDto.startMs` как `BigInt`) и применить сохранённое alignment при наличии. Если сохранённого якоря нет или список cues пуст, Reader MUST открываться с начала списка. При наличии cues перевода в сессии система SHOULD выровнять нижнюю панель по времени относительно восстановленного якоря верха (как после load / sync). Persist режима split и divider не требуется.
+
+#### Scenario [RS-12]: Reopen resumes at saved original anchor
+- **GIVEN** пользователь ранее читал оригинал не с первой реплики, якорь чтения сохранён, приложение снова открывает этот оригинал в Reader
+- **WHEN** Reader отображает cues оригинала
+- **THEN** список оригинала показывает область сохранённого якоря (не сбрасывается к началу списка)

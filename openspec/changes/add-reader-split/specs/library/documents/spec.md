@@ -9,6 +9,7 @@
 | LD-15 | Delete original cascades translation | unit: delete original removes linked translation too |
 | LD-10 | Open document opens Reader after successful parse | Flutter widget: tap valid doc without translation → Reader |
 | LD-16 | Open original loads linked translation for Reader | Flutter widget/unit: open with link → Reader session has translation cues available |
+| LD-17 | Persist and load reading anchor for original | unit/widget: save anchor → reopen → Reader gets same startMs (+ alignment) |
 | LD-05 | Delete one document | unit: delete visible doc without translation still works |
 
 ## MODIFIED Requirements
@@ -40,7 +41,7 @@
 - **THEN** оригинал и связанный перевод удаляются из хранилища, и перевод не остаётся сиротой в папке
 
 ### Requirement: Open document from folder into Reader
-Система SHALL при выборе видимого документа в папке загружать его содержимое из локального хранилища библиотеки, запрашивать парсинг субтитров и при успехе открывать Reader с разобранными cues. Если у документа есть связанный сохранённый перевод, система SHALL также загрузить и распарсить перевод (при успехе) и передать его в сессию Reader для нижней панели split. Import по-прежнему не обязан валидировать содержимое; проверка оригинала выполняется при открытии. Сбой загрузки/парсинга **перевода** при успешном оригинале MUST NOT блокировать открытие Reader с оригиналом (ошибка перевода — в контексте Reader / split при необходимости).
+Система SHALL при выборе видимого документа в папке загружать его содержимое из локального хранилища библиотеки, запрашивать парсинг субтитров и при успехе открывать Reader с разобранными cues. Если у документа есть связанный сохранённый перевод, система SHALL также загрузить и распарсить перевод (при успехе) и передать его в сессию Reader для нижней панели split. Если у документа сохранён якорь чтения, система SHALL передать его в сессию Reader для восстановления позиции (см. `reader/split` RS-12 и requirement Persist reading anchor ниже). Import по-прежнему не обязан валидировать содержимое; проверка оригинала выполняется при открытии. Сбой загрузки/парсинга **перевода** при успешном оригинале MUST NOT блокировать открытие Reader с оригиналом (ошибка перевода — в контексте Reader / split при необходимости).
 
 #### Scenario [LD-10]: Open document opens Reader after successful parse
 - **GIVEN** в папке есть импортированный документ с валидным содержимым субтитров (хотя бы одна реплика) без перевода
@@ -69,3 +70,11 @@
 - **GIVEN** оригинал имеет сохранённый связанный перевод
 - **WHEN** пользователь удаляет перевод в нижней панели Reader
 - **THEN** переводный документ и его байты удалены, связь снята, оригинал остаётся видимым в папке
+
+### Requirement: Persist reading anchor for original document
+Система SHALL хранить на **оригинальном** документе якорь последней позиции чтения: время начала якорной реплики (`start` в миллисекундах) и относительное alignment видимой строки (если известно). Система MUST обновлять якорь при завершении жеста прокрутки оригинала в Reader (settle) и при выходе из Reader (pop), если позиция известна. Якорь MUST переживать перезапуск приложения на поддерживаемых платформах. При открытии оригинала система SHALL отдавать сохранённый якорь в сессию Reader (если есть). Если cues после парсинга пусты или якоря нет — поведение как open без resume. При несовпадении сохранённого `start` с текущими cues потребитель (Reader) использует ближайшую реплику по времени. Persist режима split и divider не требуется. Скрытый translation-документ не обязан хранить отдельный якорь чтения.
+
+#### Scenario [LD-17]: Persist and load reading anchor for original
+- **GIVEN** оригинал открыт в Reader и пользователь остановился на реплике с известным `start` (не начало файла)
+- **WHEN** якорь сохранён (после settle и/или выхода из Reader) и пользователь снова открывает этот оригинал из папки
+- **THEN** в сессию Reader передаётся сохранённый якорь (`start` и alignment при наличии), и он доступен для восстановления позиции списка

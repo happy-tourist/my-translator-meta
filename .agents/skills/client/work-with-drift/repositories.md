@@ -35,6 +35,11 @@ UI maps these to short copy (SnackBar / inline) — see
   `detachAndDeleteTranslation`, cascade on original delete,
   `loadLinkedTranslation` — see OpenSpec LD-12…LD-16. One translation slot per
   original (attach while linked → validation error; delete first).
+- **Reading resume (LD-17 / RS-12):** `ReadingAnchor` (`startMs`, optional
+  `alignment`); `saveReadingAnchor` / `loadReadingAnchor` on the **original**
+  document only. Clamp alignment to `0.0…1.0`. Library open loads best-effort
+  and passes `initialReadingAnchor` into `ReaderScreen`; persist failures must
+  not block UI.
 - **Shared parse seams (Library + Reader):**
   `lib/data/library/parse_subtitles_fn.dart` (`ParseSubtitlesFn`),
   `lib/data/library/parse_error_messages.dart` (`messageForParseError`).

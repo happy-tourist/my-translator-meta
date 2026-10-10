@@ -31,6 +31,8 @@ Default post-scaffold **home** destination in [shell.md](shell.md).
   NOT block original open — still pass `translationDocumentId` when linked so
   Reader can show stuck-link empty (Delete in bottom-pane chrome → Load).
   Linked rows stay hidden in the folder list (`DocumentRepository.listInFolder`).
+- **Reading anchor (LD-17 / RS-12):** best-effort `loadReadingAnchor(doc.id)` →
+  pass `initialReadingAnchor` into `ReaderScreen`. Fail must not block open.
 - Empty state (root or folder): clear CTA to create a folder (and import when inside a folder) — not the scaffold Rust demo form.
 
 ## Layering
@@ -42,9 +44,11 @@ LibraryScreen
   → on document tap: loadBytes → FRB parseSubtitles → (optional linked translation)
       → Navigator.push(ReaderScreen(
             originalCues, originalDocumentId, documentRepository,
-            translationCues?, translationDocumentId?, parseSubtitles?))
+            translationCues?, translationDocumentId?,
+            initialReadingAnchor?, parseSubtitles?))
   → original fail: SnackBar; no Reader route
   → translation fail: ignore; still push Reader with original (+ link id if any)
+  → reading-anchor fail: ignore; still push Reader (open at top)
 ```
 
 - Flutter: pick file, Drift CRUD for folders/documents, show list, open-flow orchestration, Reader UI.

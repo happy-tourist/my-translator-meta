@@ -14,7 +14,7 @@ Read with the [core pages skill](SKILL.md) for navigation. Folder roles:
 | Time format | `lib/features/reader/cue_time_format.dart` | `HH:MM:SS,mmm` |
 | Word / phrase card (later) | local widget e.g. `word_card.dart` or bottom sheet | Translation, lemma, «add to vocabulary» |
 | Highlight paint (later) | reader widgets + data from Rust | Lemma-matched saved words tinted in text |
-| Split view (MVP: `reader/split`) | Reader **mode** (same screen; `scrollable_positioned_list` panes) | Top: original; bottom: loaded translation; time-nearest + alignment settle; RS-10 scroll preserve on Show split |
+| Split view (MVP: `reader/split`) | Reader **mode** (same screen; `scrollable_positioned_list` panes) | Top: original; bottom: loaded translation; time-nearest + alignment settle; RS-10/11 scroll preserve on Show **and** Hide; RS-12 resume via `initialReadingAnchor` |
 
 Reader is usually **pushed** from the library ([upload.md](upload.md)), not a
 shell tab.
@@ -40,7 +40,8 @@ see [Split view](#split-view) below; do not treat split as “later” in this f
 - Saved dictionary lemmas are **highlighted** wherever they appear, including
   other word forms — match key is **lemma from Rust**, not raw string equality
   in Dart.
-- Scroll position / open document = reader session (persist later when specified).
+- Reading resume for the original pane is **current** (LD-17 / RS-12) — see
+  Split view below; do not treat scroll persist as “later” for the original.
 
 ## Word card
 
@@ -73,8 +74,11 @@ Reader without losing scroll when possible.
   like Library open (`ParseErrorKind`).
 - **Delete** translation: bottom-pane top chrome only (not AppBar). AppBar keeps
   the split toggle. Stuck link without cues: Delete in that chrome, then Load.
-- **Show split:** preserve original scroll (capture top-visible → post-frame
-  `jumpTo`); do not reset the original list to cue 0.
+- **Show / Hide split:** preserve original scroll (capture top-visible →
+  post-frame `jumpTo`); do not reset the original list to cue 0 (RS-10, RS-11).
+- **Reading resume:** optional `initialReadingAnchor` from Library; restore
+  after layout; save on settle/dispose via `DocumentRepository.saveReadingAnchor`
+  (RS-12 / LD-17).
 - **Target (later):** sync **by cue index** when Rust supplies paired lists;
   placeholders keep alignment — see `work-with-reader` / `split-scroll.md`.
 - Toggle Reader ↔ Split from Reader chrome (app bar action or mode switch);
