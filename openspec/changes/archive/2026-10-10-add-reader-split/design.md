@@ -1,6 +1,6 @@
 ## Context
 
-См. `proposal.md` — Why. В sibling `my_translator_app`: `ReaderScreen` (Stateful) с split toggle, Drift `Documents.translationDocumentId`, sync time-first. **Gap:** Hide split remount сбрасывает scroll в 0; reading progress не persist между open. Skills: `work-with-reader` / `split-scroll.md`, `work-with-drift`, `work-with-pages` (reader.md), `work-with-frb`.
+См. `proposal.md` — Why. В sibling `my_translator_app` реализовано: `ReaderScreen` (Stateful) с split toggle, Drift `Documents.translationDocumentId`, sync time-first, preserve scroll на Show/Hide (D7), reading anchor persist/restore (D9–D11). Skills: `work-with-reader` / `split-scroll.md`, `work-with-drift`, `work-with-pages` (reader.md), `work-with-frb`.
 
 ## Goals / Non-Goals
 
