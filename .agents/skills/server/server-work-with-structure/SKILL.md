@@ -86,7 +86,7 @@ not extend for product features; replace or leave unused as real APIs land.
 | Crate root | `rust/src/lib.rs` | `pub mod api;` + internal `mod`s + `mod frb_generated;` |
 | FRB public surface | `rust/src/api/` | Thin `#[frb]` functions / types only; one file (or submodule) per product area |
 | Parse | `rust/src/parse/` (or `parse.rs`) | SRT / VTT / ASS(SSA) → cues / timings |
-| Tokenize / lemmatize | `rust/src/tokenize_lemmatize/` **or** `tokenize/` + `lemmatize/` | Tokens + lemmas for tap / highlight |
+| Tokenize (shipped) / lemmatize (later) | `rust/src/tokenize/` (+ later `lemmatize/`) | Word spans for tap; morph keys later |
 | Translate | `rust/src/translate/` | Offline word/phrase translate; later optional AI adapters |
 | Dictionary (NLP helpers only) | optional module later | Lemma-key helpers — **not** user CRUD store |
 | User persistence | **Flutter Drift** (`lib/`) | folders / documents / dictionary — **not** `rust/src/db` |
@@ -141,8 +141,9 @@ Decide in this order:
 1. **New FFI entry the UI must call?** → thin function in `rust/src/api/`
    (new `api/<area>.rs` + `api/mod.rs` export), then FRB codegen.
 2. **Subtitle formats / cue model?** → `parse/` (not `api/`, not Dart).
-3. **Token spans / lemmas / word-form match?** → `tokenize_lemmatize/`
-   (or split tokenize + lemmatize).
+3. **Token spans?** → `tokenize/` (shipped). **Lemmas / word-form match?** →
+   later `lemmatize/` (do not invent a combined `tokenize_lemmatize/` unless a
+   change consolidates them).
 4. **Vocab add/list/remove / lookup by lemma / context (persist)?** →
    **Flutter Drift** — not Rust `db/` / FRB storage. See
    `work-with-dictionary` + client `vocab.md`.

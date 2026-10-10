@@ -1,51 +1,81 @@
-# Tap and Phrase Selection
+# Tap selection + add to vocabulary (MVP)
 
-## Word tap
+Canon for capability `reader/tap`. **MVP chrome = bottom CTA + modal bottom
+sheet**, not an instant word-card / offline-translate card. Morph lemma
+highlight and FRB translate remain later ([highlight.md](highlight.md),
+`work-with-translate`).
 
-1. Hit-test against **Rust token spans** for the cue (offsets / span ids), not
-   against a single undifferentiated `String`.
-2. Resolve: surface form, lemma id, cue/context id.
-3. Orchestration calls Rust: lookup / offline translate for that lemma (and
-   surface if needed).
-4. Show **word card**: lemma, translation(s), context snippet, **Add to vocab**.
-5. Add → Rust dictionary API → refresh highlight marks for the open document.
+## Preconditions
 
-## Phrase selection
+1. On Reader open, Flutter batch-tokenizes **original** cues once:
+   `texts = originalCues.map((c) => c.textLines.join('\n'))` → injectable
+   `tokenizeCues` (default FRB `tokenizeCues`). Cache in state; rebuilds only
+   read the cache.
+2. Display string for paint **and** tokenize must match (`join('\n')`).
+3. Char spans are Unicode scalar indices. Slice with `cueCharSlice` /
+   `runes` (`cue_char_slice.dart`) — **not** Dart UTF-16 `substring`.
+4. Translation pane: plain text only (no token Keys / selection).
 
-1. User selects a contiguous range of tokens (drag or platform select).
-2. Selection is a list of token ids / start–end within the cue (or across cues
-   only if product later allows — default: **within one cue**).
-3. Orchestration sends the phrase string (and optional token ids) to Rust
-   translate-phrase; do not translate token-by-token in Dart and concatenate.
-4. Show **phrase card**: full phrase, translation, optional “add phrase” if API
-   supports it; avoid forcing a single-lemma add for multi-word spans unless
-   Rust defines that behavior.
+## Selection state machine (original pane)
 
-## Word / phrase card
+State: `activeCueIndex` + inclusive token range `[start, end]` (`tokenIndex`
+from DTO). Empty → no CTA.
 
-| UI | Data source |
-|----|-------------|
-| Headword / phrase text | Selection / token surface |
-| Lemma | Rust |
-| Translation | Rust offline (later: optional AI — explicit only) |
-| Add / remove vocab | Rust dictionary |
-| Loading / error | Flutter orchestration flags |
+| Tap (tokens ready, same cue) | Result |
+|------------------------------|--------|
+| Selection empty → token `T` | Select `[T,T]`; show CTA |
+| Adjacent outside range (`T == S-1` or `T == E+1`) | Expand to include `T` |
+| Inside multi-token range | Shrink to `[T,T]` |
+| Same single selected token again | No-op; CTA stays |
+| Gap (non-adjacent) | Reset to `[T,T]` + ~300ms flash on new anchor |
+| Other original cue | Clear previous; start `[T,T]` there (no gap flash) |
 
-Card is Flutter chrome; no dictionary writes in Dart-only storage.
+- Gestures: **tap only** (no drag / long-press phrase select in MVP).
+- Per-token hit targets (`GestureDetector` / span); Keys
+  `readerCueToken_${cueIndex}_${tokenIndex}`.
+- Do **not** put a competing cue-level `InkWell`/`GestureDetector` on the same
+  tap.
+- Phrase surface (RT-10): contiguous cue slice from first token `charStart` to
+  last token `charEnd` (via `cueCharSlice`), including separators between words.
 
-## Gesture rules
+## Chrome: CTA + bottom sheet
 
-- Short tap without drag → word path (even if the OS starts a tiny selection —
-  prefer token under pointer).
-- Clear drag beyond threshold → phrase path.
-- Second tap on same token while card open → keep or refresh; do not stack cards.
-- Tap on already-highlighted vocab word → still open card (edit/remove path OK).
+1. Non-empty selection → `Scaffold.bottomNavigationBar` with
+   `Key('readerAddVocabCta')`, label **Add to vocabulary**. Empty → `null`.
+2. CTA → `showModalBottomSheet` (`Key('readerAddVocabSheet')`):
+   - surface/phrase read-only (`readerAddVocabSurface`)
+   - translation editable, initially empty, required (`readerAddVocabTranslation`)
+   - context editable, prefill = full cue text (`readerAddVocabContext`)
+   - Save (`readerAddVocabSave`); validation error (`readerAddVocabValidationError`)
+3. Persist via injected `DictionaryRepository.add` (same `normalizeLemma` +
+   upsert as Vocab UI). Empty translation after trim → no persist, error in sheet.
+4. Success → close sheet, clear selection (CTA hides). **No** lemma highlight
+   refresh in this MVP.
+5. Tokenize FRB/call failure → plain text, taps off, SnackBar
+   `readerTokenizeErrorSnack` (no auto-retry).
+
+## DI / test seams
+
+- `AppShell` → `LibraryScreen(dictionaryRepository:)` →
+  `ReaderScreen(dictionaryRepository:)` (required).
+- Optional `ReaderScreen.tokenizeCues` / `TokenizeCuesFn` (like
+  `ParseSubtitlesFn`) for widget tests — fake tokenize + real/test Drift repo.
+
+## Later (not MVP)
+
+| Later | Notes |
+|-------|--------|
+| Word / phrase card with offline gloss | FRB translate + richer chrome |
+| Drag / long-press select | Product may add; keep one-cue contiguous default |
+| Morph lemma + highlight refresh after save | [highlight.md](highlight.md) |
+| Tap on translation pane | Out of scope until a change says so |
 
 ## Anti-patterns
 
 | Avoid | Prefer |
 |-------|--------|
-| `onTap` on whole line only | Per-token (or span) hit-test |
-| Dart stemming for “which word” | Rust lemma id from span |
-| Card that invents translation locally | FRB translate / lookup |
-| Phrase = join of per-word cards | One phrase translate call |
+| Instant word card on every tap | Select → CTA → sheet |
+| Dart `RegExp` / UTF-16 `substring` for tokens | Rust spans + `cueCharSlice` |
+| Per-row FRB tokenize on list rebuild | Batch once on open, cache |
+| Invent local translation in the sheet | Manual translation field → Drift |
+| Dict writes outside `DictionaryRepository` | Same persist path as Vocab |

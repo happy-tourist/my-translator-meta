@@ -2,10 +2,10 @@
 name: work-with-reader
 description: >-
   Use when implementing or changing Translation Reader UX: cue/line rendering,
-  word tap, phrase selection, word/phrase card, vocab lemma highlight paint,
-  split view original↔translation, or sync scroll. Not for scaffold demo
-  TextField / processText. Cross-cut: work-with-pages (placement), work-with-frb
-  (API/codegen), work-with-styles (tokens/theme).
+  word tap / contiguous selection, bottom CTA + add-vocab sheet, vocab lemma
+  highlight paint (later), split view original↔translation, or sync scroll.
+  Not for scaffold demo TextField / processText. Cross-cut: work-with-pages
+  (placement), work-with-frb (API/codegen), work-with-styles (tokens/theme).
 ---
 
 # Work With Reader
@@ -13,25 +13,27 @@ description: >-
 ## Overview
 
 **Reader** contracts for **Translation Reader** (`my_translator_app`).
-**Cues-first** UI is under `lib/features/reader/`: Stateful `ReaderScreen`
-(optional split), `cue_row.dart`, `cue_time_format.dart`,
-`nearest_cue_index.dart`. Ctor takes already-parsed `originalCues` + title +
-`originalDocumentId` + injected `DocumentRepository` (optional translation
-cues/id, `initialReadingAnchor`, `ParseSubtitlesFn`, file picker). Library
-owns open/parse of the original (+ best-effort linked translation + reading
-anchor). Scaffold demo in older docs is **not** the reader — do not grow demo
-chrome into product UX.
+UI under `lib/features/reader/`: Stateful `ReaderScreen` (optional split),
+`cue_row.dart`, `cue_char_slice.dart`, `tokenize_cues_fn.dart`,
+`cue_time_format.dart`, `nearest_cue_index.dart`. Ctor takes already-parsed
+`originalCues` + title + `originalDocumentId` + injected `DocumentRepository`
++ required `DictionaryRepository` (optional translation cues/id,
+`initialReadingAnchor`, `ParseSubtitlesFn`, `TokenizeCuesFn`, file picker).
+Library owns open/parse of the original (+ best-effort linked translation +
+reading anchor) and passes the dictionary repo through. Scaffold demo in older
+docs is **not** the reader — do not grow demo chrome into product UX.
 
-Heavy logic stays in **Rust**; Flutter paints, gestures, and thin FRB
-orchestration. Path package: `package:my_translator_app/...`.
+Heavy compute stays in **Rust** (parse, tokenize); Flutter paints, gestures,
+thin FRB orchestration, and Drift persist for vocab. Path package:
+`package:my_translator_app/...`.
 
 ## When to Use
 
-- Cue/line list, tap-to-word, phrase drag-select
-- Word/phrase card (lemma, translate, add to vocab)
-- Vocab highlight by lemma across word forms
+- Cue/line list, tap selection on original tokens, add-to-vocab sheet
+- Contiguous multi-tap phrase selection (one cue)
+- Vocab highlight by lemma across word forms (**later** — see highlight.md)
 - Split view + synchronized scroll
-- Empty / loading / no-translation reader states
+- Empty / loading / no-translation / tokenize-degrade reader states
 
 **Not this skill:** file pick/upload-only, vocab list screen CRUD chrome alone,
 settings, FRB codegen mechanics, global `lib/` folder placement — see related
@@ -42,50 +44,49 @@ skills by name.
 | Concern | Owner |
 |---------|--------|
 | Parse SRT/VTT/ASS → cues | Rust |
-| Tokenize + lemmatize per line | Rust |
-| Dictionary truth + lemma match set | Rust |
-| Offline word/phrase translate | Rust |
-| Token spans / highlight flags for UI | Rust prepares; Flutter paints |
-| Line list, gestures, selection chrome | Flutter |
-| Word/phrase card UI | Flutter |
+| Batch tokenize cue display strings (`tokenize_cues`) | Rust (`panko` wrap); Flutter caches |
+| Morph lemmatize / lemma_key / in_vocab flags | **Later** Rust — MVP uses Flutter `normalizeLemma` stub on save |
+| Offline word/phrase translate | **Later** Rust |
+| Dictionary CRUD persist | Flutter Drift (`DictionaryRepository`) |
+| Token spans for hit-test | Rust prepares; Flutter paints |
+| Line list, gestures, selection chrome, CTA/sheet | Flutter |
 | Scroll controllers + sync | Flutter |
 | Line pairing original↔translation | Target: Rust (paired data); MVP (`reader/split`): Flutter time-nearest on two parse results — no Rust pairing API |
 
-Do **not** re-tokenize, lemmatize, or invent dictionary match rules in Dart.
+Do **not** re-tokenize or invent morph rules in Dart. Char-index slicing for
+paint uses `cueCharSlice` (runes), matching Rust Unicode scalar spans.
 
 ## Line Rendering
 
 1. Reader shows **cues as lines** (one cue ≈ one row / block), not a raw blob.
-2. **Cues-first (`reader/cues`):** render plain `text_lines` + timestamps
-   (`HH:MM:SS,mmm` start→end). Token spans / tap / highlight are **later**
-   changes — do not invent Dart tokenizers to “prepare” for them.
-3. **When tokenize lands:** each line is built from **token spans** from Rust
-   (text + lemma id / offsets + “in vocab” flag). Flutter maps spans to
-   `TextSpan` / custom painter — never split words with naive Dart regex for
-   product highlight/tap. Long lines wrap; tap hit-testing must still resolve
-   to the correct token (span geometry from the same token list).
+2. **Cues-first (`reader/cues`):** timestamps (`HH:MM:SS,mmm`) + plain
+   `text_lines` joined with `\n` when tokenize is not ready.
+3. **Tokenize (`reader/tap`):** after successful batch, original pane builds
+   selectable spans from cached `TokenDto` (surface + `charStart`/`charEnd`).
+   Interstitial text between words is restored from the cue string. Never split
+   words with naive Dart regex for product tap. Translation pane stays plain.
 4. Prefer feature UI under `lib/features/reader/` (see work-with-pages /
    client-work-with-structure).
 
 ## Interactions (summary)
 
-| Gesture | Behavior |
-|---------|----------|
-| Single tap on token | Open **word card** for that token (lemma + translate + add) |
-| Drag / long-press select across tokens | **Phrase** selection → phrase translate card (whole span) |
-| Tap outside / dismiss | Close card; clear transient selection |
+| Gesture / action | Behavior (MVP) |
+|------------------|----------------|
+| Single tap on original token | Select word; show bottom CTA **Add to vocabulary** |
+| Tap adjacent token (same cue) | Expand contiguous selection |
+| Tap inside multi-token selection | Shrink to that word |
+| Tap with gap / other cue | Reset anchor (gap → brief flash) |
+| CTA | Open bottom sheet → manual translation + context → Drift save |
+| Drag / long-press phrase | **Not** in MVP |
+| Instant word card + offline gloss | **Later** |
 
 Details: [tap.md](tap.md).
 
 ## Highlight by Lemma
 
-- Match key = **lemma**, not surface form (`run` / `running` / `ran`).
-- Rust marks which tokens are in the user’s dictionary; Flutter only applies
-  highlight style.
-- After add/remove vocab, refresh marks from Rust (or accept a pushed update) —
-  do not keep a divergent Dart “highlighted lemmas” set as source of truth.
-
-Details: [highlight.md](highlight.md).
+- **Later** capability (`reader/highlight`). Match key = **lemma**, not surface.
+- MVP save does **not** refresh highlight marks.
+- Details: [highlight.md](highlight.md).
 
 ## Split View + Sync Scroll
 
@@ -104,6 +105,7 @@ Details: [highlight.md](highlight.md).
   / dispose (skip while `_syncing` unless forced pop).
 - **Target (later):** line-index aligned when Rust supplies paired lists;
   missing translation → placeholder row that keeps index alignment.
+- Token selection applies to the **original** pane only (RT-08).
 
 Details: [split-scroll.md](split-scroll.md).
 
@@ -112,32 +114,37 @@ Details: [split-scroll.md](split-scroll.md).
 | Case | Contract |
 |------|----------|
 | Empty file / zero cues | **Do not open Reader** (Library SnackBar / empty-parse error); in-Reader empty state only if a later change allows opening empty docs |
-| Long lines | Wrap; token hit-test and highlight still correct |
+| Long lines | Wrap; token hit-test still correct |
 | No translation yet (MVP) | Single-pane OK; split shows empty + load CTA; top scrolls alone |
 | Toggle split Show/Hide (MVP) | Preserve original top-visible cue across remount; on Show with translation, sync bottom after restore |
 | Reopen document (MVP) | Resume original pane at saved `startMs` + alignment; fail must not block open |
 | Delete translation (MVP) | Bottom-pane top chrome → empty + load; never AppBar Delete |
 | Scroll desync (MVP) | Re-run time-nearest sync from last scrolled pane; avoid raw `offset` copy |
 | Scroll desync (target paired) | Re-anchor both panes to same cue index |
-| Tokenize pending | Show plain text or skeleton; disable tap until spans ready |
-| Unknown / non-word tap | Ignore or no-op — do not open empty card |
+| Tokenize pending | Plain text; taps/selection off until cache ready |
+| Tokenize FRB failure | Plain text + `readerTokenizeErrorSnack`; no CTA; no auto-retry |
+| Non-word gaps | Not exported as tokens; ignore / no hit target |
 
 ## Related Skills (by name only)
 
 - `work-with-pages` — screen/widget placement
 - `work-with-frb` — FFI surface, codegen, call sites
-- `work-with-styles` — colors/typography for highlight & card
+- `work-with-tokenizematize` — Rust tokenize (+ later lemmatize)
+- `work-with-dictionary` / `work-with-drift` — vocab persist
+- `work-with-styles` — colors/typography for highlight & selection
 - `client-work-with-structure` — `lib/` feature map
 
 Canon product scenarios: `{app}/AGENTS.md`.
 
 ## Checklist
 
-- [ ] Lines from Rust cues + token spans; no Dart NLP
-- [ ] Tap → word; selection → phrase; card wired via FRB orchestration
-- [ ] Highlight by lemma flags from Rust
+- [ ] Original cues from Rust parse; tokenize batch once on open (cache)
+- [ ] Char spans → `cueCharSlice`; no Dart NLP / UTF-16 substring traps
+- [ ] Tap selection state machine + CTA + sheet → Drift `dictionaryRepository`
+- [ ] Translation pane without token selection
+- [ ] Highlight by lemma flags from Rust — when that change lands
 - [ ] Split sync: MVP time-nearest (`startMs`) + settle; target index+placeholders when pairing exists
 - [ ] Show **and** Hide split preserve original scroll; Delete in bottom-pane chrome (not AppBar)
 - [ ] Reading anchor: restore on open; save on settle/dispose (not while syncing)
-- [ ] Empty / long / no-translation (empty+load MVP) / desync handled
+- [ ] Empty / long / no-translation (empty+load MVP) / tokenize degrade / desync handled
 - [ ] Not extending scaffold `MyHomePage` demo

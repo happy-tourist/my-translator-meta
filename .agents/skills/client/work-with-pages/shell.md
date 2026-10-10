@@ -53,6 +53,8 @@ Library folder.
 Until AGENTS / OpenSpec adopts a router package:
 
 - Shell holds an index (or equivalent) for Library / Vocab / Settings.
+- Pass `DictionaryRepository` into both `VocabularyScreen` and `LibraryScreen`
+  (Library forwards it to `ReaderScreen` for add-vocab sheet).
 - Open Reader with `Navigator.push` after successful FRB parse; pass cues (+
   document title) into `ReaderScreen`. Bytes come from Drift / content store;
   do not keep a parallel Dart subtitle parser.

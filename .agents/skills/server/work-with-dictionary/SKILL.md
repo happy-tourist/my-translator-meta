@@ -78,27 +78,28 @@ Rules:
 
 | Op | Intent | Layer |
 |----|--------|-------|
-| **Add** | Persist lemma + translation(s) + optional context | **Drift** (Vocab UI now; Reader card later) |
+| **Add** | Persist lemma + translation(s) + optional context | **Drift** (Vocab UI **and** Reader add-vocab sheet) |
 | **List** | Return entries for Vocabulary screen | **Drift** |
 | **Update** | Change translation(s) and/or context | **Drift** when UI supports edit |
 | **Remove** | Delete entry; subsequent lookup misses → highlight clears | **Drift** |
-| **Lookup by lemma** | Membership / entry fetch for Reader highlight | Drift on Flutter; NLP keys from Rust |
+| **Lookup by lemma** | Membership / entry fetch for Reader highlight | Drift on Flutter; morph keys later from Rust |
 
 ## Layering
 
 ```text
-Flutter (vocab screen / word card)
-  → Drift dictionary repository     # persist authority
-  → (later) FRB tokenize/lemmatize / translate   # compute only
+Flutter (vocab screen / Reader add-vocab sheet)
+  → Drift dictionary repository     # persist authority (normalizeLemma upsert)
+  → FRB tokenize_cues (Reader hit-test)   # compute only; no dict storage
+  → (later) FRB lemmatize / translate
       → rust/src/api/…              # thin
-          → tokenize_lemmatize / translate
 ```
 
-| Layer | Path (target) | Role |
-|-------|---------------|------|
+| Layer | Path | Role |
+|-------|------|------|
 | Persist | Flutter `lib/` Drift tables/DAOs | CRUD + reopen durability |
 | FFI surface | `rust/src/api/` | Thin compute export only — **not** dict storage |
-| NLP | `rust/src/tokenize_lemmatize/` (or peers) | Lemma keys for highlight / tap |
+| Tokenize | `rust/src/tokenize/` | Word spans for Reader tap (MVP) |
+| Lemmatize | later | Morph keys for highlight |
 | Generated | `frb_generated.rs`, `lib/src/rust/**` | **Never** hand-edit |
 
 Flutter must not keep a second source of truth in `SharedPreferences` beside

@@ -102,8 +102,9 @@ they specify):
 |------|----------------|-------|
 | **init** | `#[frb(init)]` bootstrap | Extend `init_app`; do not add a second init without reason |
 | **parse** | SRT / VTT / ASS → cues (text, timecodes) | Bytes/path/string in → structured cues out |
-| **tokenize / lemmatize** | Tokens + lemmas for tap & highlight | Pair with language codes as needed |
-| **dictionary** | Add / list / remove / lookup by lemma | CRUD + context fields; persistence in domain/db |
+| **tokenize** | Batch `tokenize_cues` → word tokens + char spans | Shipped (`api/tokenize.rs`); lemmatize later |
+| **dictionary** | (not FRB persist) | User CRUD = Drift; do not add Rust SQLite dict API unless OpenSpec says so |
+| **lemmatize / translate** | Morph keys + offline gloss | Later compute modules |
 | **translate** | Offline word/phrase translate | Keep provider/AI behind domain; thin export |
 | **(later) AI** | Optional explain/translate | Only when product opts in; still thin `api/` |
 

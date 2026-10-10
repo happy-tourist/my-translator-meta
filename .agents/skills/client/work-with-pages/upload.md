@@ -44,14 +44,15 @@ LibraryScreen
   → on document tap: loadBytes → FRB parseSubtitles → (optional linked translation)
       → Navigator.push(ReaderScreen(
             originalCues, originalDocumentId, documentRepository,
+            dictionaryRepository,   # pass-through from AppShell (reader/tap)
             translationCues?, translationDocumentId?,
-            initialReadingAnchor?, parseSubtitles?))
+            initialReadingAnchor?, parseSubtitles?, tokenizeCues?))
   → original fail: SnackBar; no Reader route
   → translation fail: ignore; still push Reader with original (+ link id if any)
   → reading-anchor fail: ignore; still push Reader (open at top)
 ```
 
-- Flutter: pick file, Drift CRUD for folders/documents, show list, open-flow orchestration, Reader UI.
+- Flutter: pick file, Drift CRUD for folders/documents, show list, open-flow orchestration, Reader UI; pass `dictionaryRepository` into Reader for add-vocab sheet.
 - Rust: parse SRT/VTT/ASS for Reader cues — compute only; **not** document store.
 - Do **not** parse subtitle formats in Dart.
 

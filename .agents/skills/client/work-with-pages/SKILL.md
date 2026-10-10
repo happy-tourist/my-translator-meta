@@ -2,8 +2,9 @@
 name: work-with-pages
 description: >-
   Use when creating or changing Flutter screens under lib/features/* in
-  my_translator_app (Translation Reader): library/upload, reader (+ word card /
-  highlight), split view, vocabulary, settings, app shell / navigation wiring.
+  my_translator_app (Translation Reader): library/upload, reader (+ tap→vocab
+  sheet / later highlight), split view, vocabulary, settings, app shell /
+  navigation wiring.
   Core in SKILL.md; topics in shell.md, upload.md, reader.md, vocab.md,
   settings.md. Structure → client-work-with-structure; Drift persist →
   work-with-drift. Flutter Material screens only — product surfaces.
@@ -31,7 +32,7 @@ Read the matching file in this folder when the change involves that area
 |-------|------|
 | App shell — MaterialApp, nav, chrome | [shell.md](shell.md) |
 | Upload + subtitle library list | [upload.md](upload.md) |
-| Reader, word card, highlight, split view | [reader.md](reader.md) |
+| Reader, tap→vocab sheet, highlight, split view | [reader.md](reader.md) |
 | Vocabulary (личный словарь) | [vocab.md](vocab.md) |
 | Settings | [settings.md](settings.md) |
 
@@ -76,7 +77,7 @@ If the route name or screen placement is unclear, ask the user before editing.
 |------|------|-------|
 | Shell | `lib/app/` | Drift open + Library \| Vocab — [shell.md](shell.md) |
 | Library / upload | `lib/features/upload/` | Folders + import; open → parse → Reader — [upload.md](upload.md) |
-| Reader (cues-first) | `lib/features/reader/` | Timestamps + plain `text_lines` (`reader/cues`) — [reader.md](reader.md) |
+| Reader (cues + tap + split) | `lib/features/reader/` | Cues, tokenize tap→sheet (`reader/tap`), split — [reader.md](reader.md) |
 | Vocabulary | `lib/features/vocab/` | Dict CRUD via Drift — [vocab.md](vocab.md) |
 | Data | `lib/data/` | Repositories / schema — `work-with-drift` |
 
@@ -84,7 +85,7 @@ If the route name or screen placement is unclear, ask the user before editing.
 
 | Area | Suggested path | Notes |
 |------|----------------|-------|
-| Reader tokenize / word card / highlight | `lib/features/reader/` | Tap, phrase select, lemma paint — [reader.md](reader.md) |
+| Reader highlight (later) | `lib/features/reader/` | Lemma paint after morph — [reader.md](reader.md) |
 | Split view | `lib/features/reader/` or `lib/features/split/` | Original + translation, sync scroll — [reader.md](reader.md) |
 | Settings | `lib/features/settings/` | Languages; later optional AI — [settings.md](settings.md) |
 
@@ -100,26 +101,28 @@ lib/src/rust/          → GENERATED FRB (never hand-edit)
 
 ## Screen Composition
 
-**Screen owns the view; Drift owns user persist; Rust owns parse (landed) /
-NLP / offline translate (later).**
+**Screen owns the view; Drift owns user persist; Rust owns parse + tokenize
+(landed) / lemmatize + offline translate (later).**
 
 - Screens compose widgets and call a thin orchestration layer (screen state,
   `ChangeNotifier`, or small service — package choice not mandated).
 - Library / Vocab call Drift repositories; Library open also calls generated
-  FRB `parseSubtitles`. Import `package:my_translator_app/src/rust/api/….dart`
-  only for compute — not for user CRUD.
-- Word card / highlight chrome may live as local reader widgets or move to
-  `lib/widgets/` when reused.
+  FRB `parseSubtitles` and passes `dictionaryRepository` into Reader. Import
+  `package:my_translator_app/src/rust/api/….dart` only for compute — not for
+  user CRUD.
+- Add-vocab sheet / later highlight chrome may live as local reader widgets or
+  move to `lib/widgets/` when reused.
 
-Examples (target):
+Examples:
 
 - Upload / library — folders + import via Drift; document tap → parse → Reader
   ([upload.md](upload.md)).
-- Reader — cues-first: timestamps + plain text from FRB parse; later tokens /
-  word card / lemma highlight ([reader.md](reader.md)).
+- Reader — cues + batch tokenize + tap→CTA/sheet → Drift; later morph highlight
+  ([reader.md](reader.md)).
 - Split — two panes, sync scroll; translation lines from Rust, not Dart
   string hacks ([reader.md](reader.md)).
-- Vocab — list/add/remove entries via Drift ([vocab.md](vocab.md)).
+- Vocab — list/add/remove via Drift; same store as Reader sheet
+  ([vocab.md](vocab.md)).
 - Settings — languages / prefs; persist via Drift when available
   ([settings.md](settings.md)).
 
@@ -141,7 +144,7 @@ Do not put a second app shell inside a feature screen.
 |--------|--------|
 | App shell / nav | [shell.md](shell.md) |
 | Upload + subtitle list | [upload.md](upload.md) |
-| Reader / word card / highlight / split | [reader.md](reader.md) |
+| Reader / tap sheet / highlight / split | [reader.md](reader.md) |
 | Vocabulary | [vocab.md](vocab.md) |
 | Settings | [settings.md](settings.md) |
 | Folder / dependency rules | `client-work-with-structure` |

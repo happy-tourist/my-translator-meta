@@ -27,7 +27,8 @@ Do not pre-create empty module trees. Do not invent `db/` for user CRUD.
 |--------|----------------|------|--------------|
 | **api** | `rust/src/api/` | FRB-exported fns/types; edge checks; one-shot orchestration into internals | Parsers, lemma tables, Flutter widgets, user SQL |
 | **parse** | `rust/src/parse/` | SRT / VTT / ASS(SSA) → cues, timings, plain text lines | Tokenization, dictionary persist, UI layout |
-| **tokenize / lemmatize** | `tokenize_lemmatize/` **or** `tokenize/` + `lemmatize/` | Split text into tap units; lemma ids for highlight / vocab keys | File format parsing, Drift/user store, FRB attributes |
+| **tokenize** (shipped) | `tokenize/` + `api/tokenize.rs` | Word tokens + char spans for Reader tap | File format parsing, Drift/user store |
+| **lemmatize** (later) | `lemmatize/` (or extend tokenize) | Morph keys for highlight / vocab | Do not invent FRB lemma fields until an OpenSpec change |
 | **translate** | `rust/src/translate/` | Offline gloss for word/phrase; later provider adapters behind one façade | Cue parsing, vocab row persistence |
 | **dictionary** (optional later) | helpers only if needed | Lemma-key / membership helpers for highlight | User CRUD store (→ Drift), raw SQL |
 | **frb_generated** | `rust/src/frb_generated.rs` | Tooling output | Any hand edits |
@@ -46,13 +47,13 @@ Do not pre-create empty module trees. Do not invent `db/` for user CRUD.
 
 ### Split or combine tokenize + lemmatize?
 
-- **Combine** (`tokenize_lemmatize`) when the pipeline is always “text →
-  tokens with lemmas” and one skill/`work-with-tokenizematize` covers both.
-- **Split** when tokenize and lemmatize gain separate backends, languages,
+- **Current:** split — `tokenize/` shipped (panko); lemmatize not landed.
+- **Combine** later only if the pipeline is always “text → tokens with lemmas”
+  and one module is clearer than two.
+- **Keep split** when tokenize and lemmatize gain separate backends, languages,
   or large files — keep a small façade so `api/` still calls one entry.
 
-Either shape is fine; pick one when the first NLP code lands and stick to
-it until a real split reason appears.
+Stick to `tokenize/` (+ later `lemmatize/`) unless a change consolidates them.
 
 ## Internal dependency edges
 
@@ -60,13 +61,13 @@ Allowed (prefer acyclic):
 
 ```text
 api
-  → parse | tokenize_lemmatize | translate | (optional NLP helpers)
-tokenize_lemmatize
-  → (pure; no api/)
+  → parse | tokenize | (later lemmatize / translate)
+tokenize
+  → (pure; no api/; wraps panko)
 parse
   → (no translate required)
-translate
-  → (optional caches — not user vocab Drift)
+translate / lemmatize
+  → (later; optional caches — not user vocab Drift)
 ```
 
 Avoid:
@@ -83,7 +84,7 @@ Avoid:
 | Area | Typical `api/` file | Calls into |
 |------|---------------------|------------|
 | parse | `api/parse.rs` | `parse/` |
-| tokenize / lemma | `api/tokenize.rs` or peers | `tokenize_lemmatize/` |
+| tokenize | `api/tokenize.rs` | `tokenize/` |
 | translate | `api/translate.rs` | `translate/` |
 | simple (scaffold) | `api/simple.rs` | demo only — retire for product |
 

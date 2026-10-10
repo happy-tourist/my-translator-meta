@@ -1,62 +1,62 @@
-# Reader, word card, highlight, split view
+# Reader, tap→vocab sheet, highlight, split view
 
 Read with the [core pages skill](SKILL.md) for navigation. Folder roles:
 `client-work-with-structure` → `lib/features/reader/` (split may live here or
-`lib/features/split/`).
+`lib/features/split/`). Tap/selection canon: `work-with-reader` / `tap.md`.
 
 ## Screens / surfaces
 
 | Surface | Path | Role |
 |---------|------|------|
-| Reader (cues-first + split MVP) | `lib/features/reader/reader_screen.dart` | Stateful; single-pane default; AppBar split toggle; delete translation in bottom-pane top chrome (D8) |
-| Cue row | `lib/features/reader/cue_row.dart` | Timestamp + `text_lines`; key prefixes for original / translation |
+| Reader (cues + split + tap MVP) | `lib/features/reader/reader_screen.dart` | Stateful; batch tokenize; selection CTA/sheet; AppBar split toggle; delete translation in bottom-pane top chrome |
+| Cue row | `lib/features/reader/cue_row.dart` | Timestamp + text; original pane token hit-targets when cache ready |
+| Char slice helper | `lib/features/reader/cue_char_slice.dart` | Unicode scalar slice matching Rust char spans |
+| Tokenize seam | `lib/features/reader/tokenize_cues_fn.dart` | `TokenizeCuesFn` for tests / default FRB |
 | Nearest-time helper | `lib/features/reader/nearest_cue_index.dart` | Pure `nearestCueIndex` (`BigInt` `startMs`) |
 | Time format | `lib/features/reader/cue_time_format.dart` | `HH:MM:SS,mmm` |
-| Word / phrase card (later) | local widget e.g. `word_card.dart` or bottom sheet | Translation, lemma, «add to vocabulary» |
+| Add-vocab sheet (MVP) | local in `reader_screen.dart` (`_AddVocabSheet`) | Surface + manual translation + context → Drift |
 | Highlight paint (later) | reader widgets + data from Rust | Lemma-matched saved words tinted in text |
 | Split view (MVP: `reader/split`) | Reader **mode** (same screen; `scrollable_positioned_list` panes) | Top: original; bottom: loaded translation; time-nearest + alignment settle; RS-10/11 scroll preserve on Show **and** Hide; RS-12 resume via `initialReadingAnchor` |
 
 Reader is usually **pushed** from the library ([upload.md](upload.md)), not a
-shell tab.
+shell tab. Ctor requires `dictionaryRepository` (Shell → Library → Reader).
 
-## Reader UX canon (target)
+## Reader UX canon
 
-### Cues-first Reader (current product step: `reader/cues`)
+### Cues + split (current: `reader/cues`, `reader/split`)
 
-- Show subtitle **cues** in order with **required** timestamps start→end
-  (`HH:MM:SS,mmm` from `start_ms` / `end_ms`) and plain `text_lines`.
-- Full-list scroll (no paging). AppBar title = document title; back pops to Library.
+- Show subtitle **cues** with timestamps start→end and `text_lines`.
+- Full-list scroll; AppBar title = document title; back pops to Library.
 - Open only after successful parse with ≥1 cue; empty / parse fail stays in Library.
-- **Do not** require tokenize / word card / lemma highlight in the cues-first change.
+- Split + reading resume — see [Split view](#split-view) below.
 
-### Later Reader (tokenize / vocab — separate changes)
+### Tap → vocabulary (current: `reader/tap`)
 
-Split view file-load + time sync is **current** (capability `reader/split`) —
-see [Split view](#split-view) below; do not treat split as “later” in this file.
+- Batch-tokenize **original** cues on open (`tokenizeCues`); cache; plain text
+  until ready / on FRB failure (`readerTokenizeErrorSnack`).
+- Tap-only contiguous selection in **one** original cue → bottom CTA → modal
+  sheet (manual translation required; context = cue text, editable) →
+  `dictionaryRepository.add`. No offline gloss, no highlight refresh after save.
+- Translation pane: no token selection.
+- Details: `work-with-reader` / `tap.md`.
 
-- Text is tappable by **token** (and selectable for multi-word phrases).
-- Tap / selection → open word/phrase card (overlay, sheet, or side panel —
-  product choice; keep one pattern).
-- Saved dictionary lemmas are **highlighted** wherever they appear, including
-  other word forms — match key is **lemma from Rust**, not raw string equality
-  in Dart.
-- Reading resume for the original pane is **current** (LD-17 / RS-12) — see
-  Split view below; do not treat scroll persist as “later” for the original.
+### Later
 
-## Word card
+- Offline translate / richer word-card chrome; morph lemma highlight paint
+  (`reader/highlight`).
 
-Minimum fields (target):
+## Add-vocab sheet (MVP)
 
-- Surface form + **lemma**
-- Translation(s) (offline path from Rust)
-- Context snippet (cue / phrase) when available
-- Primary action: **add to vocabulary** (Rust dictionary API)
-- Optional later: AI explain — only when Settings/AI is in scope
+Minimum fields:
 
-Card is a **widget**, not a top-level shell destination. Dismiss returns to
-Reader without losing scroll when possible.
+- Surface / phrase (read-only from selection)
+- Translation (required, initially empty — user-entered)
+- Context (editable; prefill = full cue text)
+- Save → Drift upsert via `normalizeLemma` (same as Vocab UI)
 
-## Highlight
+Not a shell destination. Success closes sheet and clears selection.
+
+## Highlight (later)
 
 - Rust prepares token → lemma (and which lemmas are in the dictionary).
 - Flutter paints styles (color/weight) from that data.
@@ -88,11 +88,11 @@ Reader without losing scroll when possible.
 ## Layering
 
 ```text
-ReaderScreen (single-pane or split mode; optional split_*.dart widgets)
-  → widgets: cue list, pane scrollables, empty+load, divider; later token/card
-  → orchestration: Library open + Reader attach/parse translation via
-      DocumentRepository + parseSubtitles; later tokenize/dict/translate
-      → FRB api (parse reuse; tokenize/lemmatize/dict/translate later)
+ReaderScreen (single-pane or split mode)
+  → widgets: cue list, token spans, CTA, add-vocab sheet, empty+load, divider
+  → orchestration: DocumentRepository + parseSubtitles; tokenizeCues (FRB);
+      DictionaryRepository.add for sheet save
+      → FRB api (parse + tokenize); lemmatize/translate later
 ```
 
 ## Do not
@@ -100,3 +100,4 @@ ReaderScreen (single-pane or split mode; optional split_*.dart widgets)
 - Invent unrelated chrome (catalog tiles, non-reader dashboards) outside reader UX.
 - Parse SRT in the widget tree.
 - Hand-edit generated FRB types for tokens — extend Rust `api/` + codegen.
+- Open an instant word card with invented translation on every tap (MVP = CTA + sheet).

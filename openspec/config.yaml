@@ -36,7 +36,7 @@ context: |
   Runtime: один sibling Git-репозиторий my_translator_app (Flutter lib/ + Rust rust/ + in-process FRB).
 
   Проект: My Translator — продукт Translation Reader (чтение субтитров + изучение слов в контексте).
-  Домены (target): parse/subtitles, reader/cues, reader/split, reader/highlight, library/folders,
+  Домены (target): parse/subtitles, reader/cues, reader/split, reader/tap, reader/highlight, library/folders,
   library/documents, dictionary/entries, translate/offline, settings/languages;
   опциональный AI — позже и явно.
 
@@ -155,10 +155,10 @@ rules:
     - 'Delta-specs: ADDED / MODIFIED / REMOVED'
     - 'Каждому исполняемому тесту — ровно один сценарий `#### Scenario [SC-…]: …` с тем же ID в тесте (Rust cargo test; Flutter flutter test)'
     - 'В начале spec — таблица трассировки ID → файл/тест (или pending)'
-    - 'Можно: parse outcomes, lemma highlight match, dictionary CRUD, offline gloss, reader tap card, split sync scroll'
+    - 'Можно: parse outcomes, lemma highlight match, dictionary CRUD, offline gloss, reader tap selection/sheet, split sync scroll'
     - 'Нельзя: имена Flutter Widget/классов, Rust internal helper filenames, CSS/Material class names'
     - 'Spec описывает только поведение ТЕКУЩЕГО change; логика из другого change — одна строка-ссылка в шапке'
-    - 'Flutter — Поведение UI: loading/empty/error, word/phrase card, highlight paint, navigation'
+    - 'Flutter — Поведение UI: loading/empty/error, tap selection + add-vocab sheet (MVP), word/phrase card (later), highlight paint, navigation'
     - 'Flutter — «НЕ в specs»: имена .dart, ThemeData константы, implementation constants'
     - 'Rust — Поведение compute: parse accept/reject, tokenize/lemma spans, translate miss/hit; dict CRUD в Rust — только если change явно требует Rust store (иначе Drift / Flutter persist)'
     - 'Rust — «НЕ в specs»: имена internal modules, SQLite table DDL как поведение без product need'

@@ -20,7 +20,9 @@ Primary shell destination alongside Library ([shell.md](shell.md)).
 - **Add** from Vocab UI (lemma + translation + optional context) — empty state has form/CTA add; do **not** require Reader for first entries.
 - Remove entry; validation on empty lemma/translation after trim.
 - Opening an entry may deep-link back to a document/cue **later** — do not invent cross-navigation until OpenSpec says so.
-- **Reader add** (word card → vocab) — later change; highlight still reads the same Drift dictionary when Reader lands.
+- **Reader add** (current: `reader/tap`) — bottom sheet after selection on
+  original; same Drift `DictionaryRepository.add` / upsert. Highlight paint
+  in Reader is still later.
 
 ## Layering
 
@@ -36,8 +38,8 @@ VocabularyScreen
 
 ## Relationship to Reader
 
-- **Add in this change:** Vocab screen in-UI form.
-- **Add later:** Reader word card → same Drift store.
+- **Add from Vocab UI:** in-screen form.
+- **Add from Reader:** CTA → sheet → same Drift store (`work-with-reader` / tap.md).
 - **Highlight** in Reader (later) reads membership from the same dictionary.
 
 ## Out of scope
