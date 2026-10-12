@@ -54,9 +54,9 @@ Do **not** add a second theme engine (CSS variables, brand-profile packages,
 or non-Material dark toggles). One Material theme pair + optional
 `ThemeExtension`s.
 
-Scaffold today may still use `ThemeData(primarySwatch: Colors.blue)` in
-`main.dart` — replace with proper light/dark `ColorScheme` themes as product
-UI lands; do not grow the demo theme.
+Present: `lib/app/theme.dart` (`AppTheme.light` / `.dark` + `ReaderColors`)
+wired from `TranslationReaderApp` with `ThemeMode.system`. Do not reintroduce
+`primarySwatch` demo theme.
 
 ## Default Choices
 

@@ -75,6 +75,8 @@ app: ../my_translator_app
 | `app.lib` | `../my_translator_app/lib/` | Flutter UI |
 | `app.data` | `../my_translator_app/lib/data/` | Drift user persist (folders / documents / dictionary) |
 | `app.rust` | `../my_translator_app/rust/` | Rust crate (`rust_lib_my_translator_app`) |
+| `app.rust.tokenize` | `../my_translator_app/rust/src/tokenize/` | panko tokenize (char spans) |
+| `app.rust.lemmatize` | `../my_translator_app/rust/src/lemmatize/` | EN WordNet morph keys |
 | `app.rust.api` | `../my_translator_app/rust/src/api/` | публичный FRB API (источник правды FFI) |
 | `app.rust.generated` | `../my_translator_app/lib/src/rust/` | GENERATED Dart bindings (не править вручную) |
 | `app.frb` | `../my_translator_app/flutter_rust_bridge.yaml` | конфиг codegen |

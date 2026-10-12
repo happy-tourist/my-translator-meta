@@ -28,7 +28,7 @@ Do not pre-create empty module trees. Do not invent `db/` for user CRUD.
 | **api** | `rust/src/api/` | FRB-exported fns/types; edge checks; one-shot orchestration into internals | Parsers, lemma tables, Flutter widgets, user SQL |
 | **parse** | `rust/src/parse/` | SRT / VTT / ASS(SSA) → cues, timings, plain text lines | Tokenization, dictionary persist, UI layout |
 | **tokenize** (shipped) | `tokenize/` + `api/tokenize.rs` | Word tokens + char spans for Reader tap | File format parsing, Drift/user store |
-| **lemmatize** (later) | `lemmatize/` (or extend tokenize) | Morph keys for highlight / vocab | Do not invent FRB lemma fields until an OpenSpec change |
+| **lemmatize** | `lemmatize/` (+ thin exports on `api/tokenize.rs`) | Morph keys / `is_in_vocab` for highlight | Shipped (`wordnet-lemmatizer`; D1–D3) |
 | **translate** | `rust/src/translate/` | Offline gloss for word/phrase; later provider adapters behind one façade | Cue parsing, vocab row persistence |
 | **dictionary** (optional later) | helpers only if needed | Lemma-key / membership helpers for highlight | User CRUD store (→ Drift), raw SQL |
 | **frb_generated** | `rust/src/frb_generated.rs` | Tooling output | Any hand edits |
@@ -47,13 +47,13 @@ Do not pre-create empty module trees. Do not invent `db/` for user CRUD.
 
 ### Split or combine tokenize + lemmatize?
 
-- **Current:** split — `tokenize/` shipped (panko); lemmatize not landed.
+- **Current:** split — `tokenize/` (panko) + `lemmatize/` (`wordnet-lemmatizer`).
 - **Combine** later only if the pipeline is always “text → tokens with lemmas”
   and one module is clearer than two.
 - **Keep split** when tokenize and lemmatize gain separate backends, languages,
   or large files — keep a small façade so `api/` still calls one entry.
 
-Stick to `tokenize/` (+ later `lemmatize/`) unless a change consolidates them.
+Stick to `tokenize/` + `lemmatize/` unless a change consolidates them.
 
 ## Internal dependency edges
 
@@ -61,7 +61,7 @@ Allowed (prefer acyclic):
 
 ```text
 api
-  → parse | tokenize | (later lemmatize / translate)
+  → parse | tokenize | lemmatize | (later translate)
 tokenize
   → (pure; no api/; wraps panko)
 parse

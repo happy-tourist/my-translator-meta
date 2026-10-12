@@ -2,10 +2,11 @@
 name: work-with-reader
 description: >-
   Use when implementing or changing Translation Reader UX: cue/line rendering,
-  word tap / contiguous selection, bottom CTA + add-vocab sheet, vocab lemma
-  highlight paint (later), split view original↔translation, or sync scroll.
-  Not for scaffold demo TextField / processText. Cross-cut: work-with-pages
-  (placement), work-with-frb (API/codegen), work-with-styles (tokens/theme).
+  word tap / single-token selection, bottom CTA + add-vocab sheet, vocab lemma
+  highlight paint (morph lemma), edit sheet on in-vocab tap, split view
+  original↔translation, or sync scroll. Not for scaffold demo TextField /
+  processText. Cross-cut: work-with-pages (placement), work-with-frb
+  (API/codegen), work-with-styles (tokens/theme).
 ---
 
 # Work With Reader
@@ -18,20 +19,21 @@ UI under `lib/features/reader/`: Stateful `ReaderScreen` (optional split),
 `cue_time_format.dart`, `nearest_cue_index.dart`. Ctor takes already-parsed
 `originalCues` + title + `originalDocumentId` + injected `DocumentRepository`
 + required `DictionaryRepository` (optional translation cues/id,
-`initialReadingAnchor`, `ParseSubtitlesFn`, `TokenizeCuesFn`, file picker).
+`initialReadingAnchor`, `ParseSubtitlesFn`, `TokenizeCuesFn`, optional
+`MarkVocabTokensFn` / lemma-keys seam, file picker).
 Library owns open/parse of the original (+ best-effort linked translation +
 reading anchor) and passes the dictionary repo through. Scaffold demo in older
 docs is **not** the reader — do not grow demo chrome into product UX.
 
-Heavy compute stays in **Rust** (parse, tokenize); Flutter paints, gestures,
-thin FRB orchestration, and Drift persist for vocab. Path package:
-`package:my_translator_app/...`.
+Heavy compute stays in **Rust** (parse, tokenize, lemmatize / mark); Flutter
+paints, gestures, thin FRB orchestration, and Drift persist for vocab. Path
+package: `package:my_translator_app/...`.
 
 ## When to Use
 
 - Cue/line list, tap selection on original tokens, add-to-vocab sheet
-- Contiguous multi-tap phrase selection (one cue)
-- Vocab highlight by lemma across word forms (**later** — see highlight.md)
+- Single-token Add (phrase multi-tap later); in_vocab → edit sheet
+- Vocab highlight by morph lemma (see highlight.md; OpenSpec `add-reader-lemma-highlight`)
 - Split view + synchronized scroll
 - Empty / loading / no-translation / tokenize-degrade reader states
 
@@ -45,11 +47,11 @@ skills by name.
 |---------|--------|
 | Parse SRT/VTT/ASS → cues | Rust |
 | Batch tokenize cue display strings (`tokenize_cues`) | Rust (`panko` wrap); Flutter caches |
-| Morph lemmatize / lemma_key / in_vocab flags | **Later** Rust — MVP uses Flutter `normalizeLemma` stub on save |
+| Morph lemmatize / lemma_key / is_in_vocab flags | Rust (`add-reader-lemma-highlight`); Flutter paints flags + passes morph key into Drift |
 | Offline word/phrase translate | **Later** Rust |
-| Dictionary CRUD persist | Flutter Drift (`DictionaryRepository`) |
+| Dictionary CRUD persist | Flutter Drift (`DictionaryRepository`; morph lemma from call site) |
 | Token spans for hit-test | Rust prepares; Flutter paints |
-| Line list, gestures, selection chrome, CTA/sheet | Flutter |
+| Line list, gestures, selection chrome, CTA/Add/edit sheets | Flutter |
 | Scroll controllers + sync | Flutter |
 | Line pairing original↔translation | Target: Rust (paired data); MVP (`reader/split`): Flutter time-nearest on two parse results — no Rust pairing API |
 
@@ -61,31 +63,32 @@ paint uses `cueCharSlice` (runes), matching Rust Unicode scalar spans.
 1. Reader shows **cues as lines** (one cue ≈ one row / block), not a raw blob.
 2. **Cues-first (`reader/cues`):** timestamps (`HH:MM:SS,mmm`) + plain
    `text_lines` joined with `\n` when tokenize is not ready.
-3. **Tokenize (`reader/tap`):** after successful batch, original pane builds
-   selectable spans from cached `TokenDto` (surface + `charStart`/`charEnd`).
-   Interstitial text between words is restored from the cue string. Never split
-   words with naive Dart regex for product tap. Translation pane stays plain.
+3. **Tokenize + mark (`reader/tap` / `reader/highlight`):** after successful
+   batch + `markVocabTokens`, original pane builds selectable spans from cached
+   `TokenDto` (surface + spans + `lemmaKey` + `isInVocab`). Interstitial text
+   between words is restored from the cue string. Never split words with naive
+   Dart regex. Translation pane stays plain (no highlight).
 4. Prefer feature UI under `lib/features/reader/` (see work-with-pages /
    client-work-with-structure).
 
 ## Interactions (summary)
 
-| Gesture / action | Behavior (MVP) |
-|------------------|----------------|
-| Single tap on original token | Select word; show bottom CTA **Add to vocabulary** |
-| Tap adjacent token (same cue) | Expand contiguous selection |
-| Tap inside multi-token selection | Shrink to that word |
-| Tap with gap / other cue | Reset anchor (gap → brief flash) |
-| CTA | Open bottom sheet → manual translation + context → Drift save |
-| Drag / long-press phrase | **Not** in MVP |
+| Gesture / action | Behavior |
+|------------------|----------|
+| Tap non-vocab original token | Select **single** word; show Add CTA |
+| Tap another non-vocab | Replace selection (no multi-token expand) |
+| Tap in-vocab (`is_in_vocab`) | Edit sheet (no Add CTA) — [highlight.md](highlight.md) |
+| CTA | Add sheet → manual translation + context → Drift save by morph `lemmaKey` |
+| After Add/edit save or delete | Refresh marks via `markVocabTokens` |
+| Drag / long-press / contiguous phrase | **Not** in this change |
 | Instant word card + offline gloss | **Later** |
 
 Details: [tap.md](tap.md).
 
 ## Highlight by Lemma
 
-- **Later** capability (`reader/highlight`). Match key = **lemma**, not surface.
-- MVP save does **not** refresh highlight marks.
+- Capability `reader/highlight` (OpenSpec `add-reader-lemma-highlight`).
+- Match key = morph **lemma**; paint via `ReaderColors.lemmaHighlight`.
 - Details: [highlight.md](highlight.md).
 
 ## Split View + Sync Scroll
@@ -129,7 +132,7 @@ Details: [split-scroll.md](split-scroll.md).
 
 - `work-with-pages` — screen/widget placement
 - `work-with-frb` — FFI surface, codegen, call sites
-- `work-with-tokenizematize` — Rust tokenize (+ later lemmatize)
+- `work-with-tokenizematize` — Rust tokenize + lemmatize/mark
 - `work-with-dictionary` / `work-with-drift` — vocab persist
 - `work-with-styles` — colors/typography for highlight & selection
 - `client-work-with-structure` — `lib/` feature map
@@ -140,9 +143,9 @@ Canon product scenarios: `{app}/AGENTS.md`.
 
 - [ ] Original cues from Rust parse; tokenize batch once on open (cache)
 - [ ] Char spans → `cueCharSlice`; no Dart NLP / UTF-16 substring traps
-- [ ] Tap selection state machine + CTA + sheet → Drift `dictionaryRepository`
-- [ ] Translation pane without token selection
-- [ ] Highlight by lemma flags from Rust — when that change lands
+- [ ] Single-token Add selection + CTA + sheet → Drift with morph `lemmaKey`
+- [ ] Translation pane without token selection / vocab highlight
+- [ ] Highlight + edit sheet from Rust `is_in_vocab`; refresh marks after dict mutation
 - [ ] Split sync: MVP time-nearest (`startMs`) + settle; target index+placeholders when pairing exists
 - [ ] Show **and** Hide split preserve original scroll; Delete in bottom-pane chrome (not AppBar)
 - [ ] Reading anchor: restore on open; save on settle/dispose (not while syncing)

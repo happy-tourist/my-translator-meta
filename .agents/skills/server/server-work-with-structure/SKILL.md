@@ -86,7 +86,7 @@ not extend for product features; replace or leave unused as real APIs land.
 | Crate root | `rust/src/lib.rs` | `pub mod api;` + internal `mod`s + `mod frb_generated;` |
 | FRB public surface | `rust/src/api/` | Thin `#[frb]` functions / types only; one file (or submodule) per product area |
 | Parse | `rust/src/parse/` (or `parse.rs`) | SRT / VTT / ASS(SSA) → cues / timings |
-| Tokenize (shipped) / lemmatize (later) | `rust/src/tokenize/` (+ later `lemmatize/`) | Word spans for tap; morph keys later |
+| Tokenize / lemmatize | `rust/src/tokenize/` + `lemmatize/` | Word spans; EN WordNet morph keys + mark helpers |
 | Translate | `rust/src/translate/` | Offline word/phrase translate; later optional AI adapters |
 | Dictionary (NLP helpers only) | optional module later | Lemma-key helpers — **not** user CRUD store |
 | User persistence | **Flutter Drift** (`lib/`) | folders / documents / dictionary — **not** `rust/src/db` |

@@ -1,18 +1,21 @@
-# Tokenize (shipped MVP)
+# Tokenize (shipped)
 
-Capability consumer: `reader/tap`. Lemmatize / `lemma_key` / `in_vocab` are
-**out of this module’s MVP** — see [lemmatize.md](lemmatize.md).
+Capability consumer: `reader/tap` (+ highlight). Morph fields
+(`lemma_key` / `is_in_vocab`) and mark / lemma-keys helpers live in the same
+FRB module — see [lemmatize.md](lemmatize.md).
 
 ## Layout
 
 ```text
 my_translator_app/rust/src/
   tokenize/mod.rs          # panko wrap → TokenSpan (char spans)
-  api/tokenize.rs           # TokenDto, CueTokensDto, tokenize_cues
+  lemmatize/mod.rs         # morph keys (called from api/tokenize mapping)
+  api/tokenize.rs          # TokenDto, CueTokensDto, tokenize_cues,
+                           # mark_vocab_tokens, lemma_keys_for_surfaces
 ```
 
 - Pin: `panko = "0.2.0"` in `rust/Cargo.toml` (pure Rust; WASM/mobile OK).
-- Thin FRB only in `api/`; domain mapping stays in `tokenize/`.
+- Thin FRB only in `api/`; domain mapping stays in `tokenize/` + `lemmatize/`.
 - After `api/` changes → `flutter_rust_bridge_codegen generate` (never hand-edit
   generated files).
 
@@ -24,6 +27,8 @@ pub struct TokenDto {
     pub char_start: u32, // inclusive Unicode scalar index
     pub char_end: u32,   // exclusive
     pub token_index: u32, // 0-based among word tokens in this cue
+    pub lemma_key: String,
+    pub is_in_vocab: bool, // false after tokenize_cues; set by mark_vocab_tokens
 }
 
 pub struct CueTokensDto {
@@ -32,11 +37,17 @@ pub struct CueTokensDto {
 }
 
 pub fn tokenize_cues(texts: Vec<String>) -> Vec<CueTokensDto>;
+pub fn mark_vocab_tokens(
+    cues: Vec<CueTokensDto>,
+    vocab_lemmas: Vec<String>,
+) -> Vec<CueTokensDto>;
+pub fn lemma_keys_for_surfaces(surfaces: Vec<String>) -> Vec<String>;
 ```
 
 - Infallible for valid UTF-8 `String`; empty / whitespace-only → empty `tokens`.
-- No `lemma_key`, no `in_vocab`, no byte fields in this MVP.
-- Reader MUST call **batch** `tokenize_cues` once on open (not per-row rebuild).
+- Do not invent alternate morph field names.
+- Reader MUST call **batch** `tokenize_cues` once on open (not per-row rebuild),
+  then `mark_vocab_tokens` with Drift morph lemmas.
 
 ## Algorithm (display-string contract)
 
@@ -45,18 +56,22 @@ pub fn tokenize_cues(texts: Vec<String>) -> Vec<CueTokensDto>;
    advance the cursor only.
 3. Char spans from byte offsets via `chars().count()`; invariant:
    slice of `S` by char range == `surface` (RT-12).
-4. Keep typical EN apostrophe forms (e.g. `don't`) as one word when panko does
+4. Map each word span → `TokenDto` with `lemma_key =
+   lemmatize::lemma_key_for_surface(&surface)` and `is_in_vocab = false`.
+5. Keep typical EN apostrophe forms (e.g. `don't`) as one word when panko does
    (RT-11); Cyrillic words as separate tokens.
 
 ## Flutter consumer
 
-- Injectable seam: `TokenizeCuesFn` / `ReaderScreen.tokenizeCues`.
+- Injectable seams: `TokenizeCuesFn` / `MarkVocabTokensFn` /
+  `LemmaKeysForSurfacesFn` (`tokenize_cues_fn.dart`,
+  `lemma_keys_for_surfaces_fn.dart`).
 - Paint/hit-test with Unicode scalar slicing (`cueCharSlice`) — not UTF-16
   `substring`.
-- FRB/call failure is a Flutter UX concern (plain text + SnackBar), not a typed
-  domain `Result` from tokenize.
+- FRB/call failure is a Flutter UX concern (plain text + SnackBar /
+  soft mark-refresh SnackBar), not a typed domain `Result` from tokenize.
 
 ## Tests
 
-- `cargo test` in `{app}/rust` on `tokenize/` (RT-11, RT-12, multiline join,
-  batch order). Do not prove span rules only via Flutter widget tests.
+- `cargo test` in `{app}/rust` on `tokenize/` + `lemmatize/` + `api/tokenize`
+  mark helpers. Do not prove span / morph rules only via Flutter widget tests.

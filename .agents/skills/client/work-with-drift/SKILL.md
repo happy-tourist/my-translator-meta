@@ -42,11 +42,11 @@ handoff → `server/work-with-dictionary`.
 
 ```text
 lib/main.dart                 # RustLib.init → runApp(TranslationReaderApp)
-lib/app/app.dart              # openAppDatabase → loading / error+retry / AppShell
-lib/app/shell.dart            # construct repositories + pass into screens
-lib/data/database/            # AppDatabase, tables, database_provider, *.g.dart
+lib/app/app.dart              # openAppDatabase → soft-fail stub→morph migrate → shell
+lib/app/shell.dart            # repos + LemmaKeysForSurfacesFn into screens
+lib/data/database/            # AppDatabase schema 4+, tables, database_provider, *.g.dart
 lib/data/library/             # FolderRepository, DocumentRepository, content store
-lib/data/dictionary/          # DictionaryRepository + validation exceptions
+lib/data/dictionary/          # DictionaryRepository + lemma_keys_for_surfaces_fn + exceptions
 lib/features/upload/          # Library UI (calls repositories)
 lib/features/vocab/           # Vocab UI (calls dictionary repository)
 test/support/test_database.dart

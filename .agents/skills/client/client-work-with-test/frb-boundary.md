@@ -17,43 +17,36 @@ Use with the [core test skill](SKILL.md) when tests touch
 
 Keep FRB I/O in a thin orchestration layer (screen method, controller, or
 small repository) as in `client-work-with-structure`. Widgets under test take
-callbacks or an interface:
+callbacks or an interface.
+
+**Product Reader / Vocab seams (prefer these over demo `processText`):**
+
+| Typedef | File | Default |
+|---------|------|---------|
+| `TokenizeCuesFn` | `lib/features/reader/tokenize_cues_fn.dart` | FRB `tokenizeCues` |
+| `MarkVocabTokensFn` | same | FRB `markVocabTokens` |
+| `LemmaKeysForSurfacesFn` | `lib/data/dictionary/lemma_keys_for_surfaces_fn.dart` | FRB `lemmaKeysForSurfaces` |
+| `ParseSubtitlesFn` | `lib/data/library/parse_subtitles_fn.dart` | FRB `parseSubtitles` |
+
+Wire via `ReaderScreen` / `LibraryScreen` / `AppShell` / `VocabularyScreen`
+optional ctor params. In tests, inject fakes that return fixed
+`CueTokensDto` / lemma keys — do **not** reimplement WordNet or panko in Dart.
 
 ```dart
 typedef ProcessTextFn = Future<String> Function({required String input});
 
+// Demo-only pattern (scaffold). Prefer the product typedefs above for Reader.
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key, required this.processText});
   final ProcessTextFn processText;
-  // …
-}
-
-// Production wiring (screen / main / controller):
-processText: ({required String input}) => processText(input: input),
-// where processText is the generated API import.
-```
-
-In tests, pass a fake:
-
-```dart
-class FakeProcessText {
-  String? lastInput;
-  Object? error;
-  String next = 'HELLO';
-
-  Future<String> call({required String input}) async {
-    lastInput = input;
-    if (error != null) throw error!;
-    return next;
-  }
 }
 ```
 
 Assert:
 
-- Fake received expected args.
-- UI shows success text / error surface / loading cleared.
-- Do **not** assert Rust `to_uppercase` semantics here — that is `cargo test`
+- Fake received expected args (texts / vocabLemmas / surfaces).
+- UI shows success text / error surface / loading cleared / highlight paint.
+- Do **not** assert Rust morph / span semantics here — that is `cargo test`
   (or a thin integration smoke).
 
 ## When the scaffold still calls generated API directly

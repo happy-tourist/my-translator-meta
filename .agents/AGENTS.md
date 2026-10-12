@@ -79,7 +79,7 @@ OpenSpec: [`openspec/config.yaml`](../openspec/config.yaml); артефакты 
 | [`work-with-env-deploy`](skills/client/work-with-env-deploy/SKILL.md) | `flutter build` apk/ipa/web; run/devices; Web `--web-port=5555` + COOP/COEP |
 | [`client-work-with-test`](skills/client/client-work-with-test/SKILL.md) | `flutter test` / `integration_test` / Drift tests |
 | [`work-with-frb`](skills/client/work-with-frb/SKILL.md) | Generated API, `RustLib.init`, codegen |
-| [`work-with-reader`](skills/client/work-with-reader/SKILL.md) | Тап→CTA/sheet, подсветка (later), split scroll |
+| [`work-with-reader`](skills/client/work-with-reader/SKILL.md) | Тап→CTA/sheet, lemma highlight/edit, split scroll |
 
 #### Server / Rust (`.agents/skills/server/`)
 
@@ -96,7 +96,7 @@ OpenSpec: [`openspec/config.yaml`](../openspec/config.yaml); артефакты 
 | [`work-with-config`](skills/server/work-with-config/SKILL.md) | `Cargo.toml`, `flutter_rust_bridge.yaml`, pin FRB ≈ 2.13 |
 | [`work-with-frb-api`](skills/server/work-with-frb-api/SKILL.md) | Публичный API в `rust/src/api/` + codegen (Rust-сторона) |
 | [`work-with-parse`](skills/server/work-with-parse/SKILL.md) | SRT / VTT / ASS(SSA) |
-| [`work-with-tokenizematize`](skills/server/work-with-tokenizematize/SKILL.md) | Tokenize (`panko`) / леммы (later) / spans |
+| [`work-with-tokenizematize`](skills/server/work-with-tokenizematize/SKILL.md) | Tokenize (`panko`) / WordNet lemmatize / mark / spans |
 | [`work-with-dictionary`](skills/server/work-with-dictionary/SKILL.md) | Lemma keys / NLP handoff; persist CRUD = Drift (Flutter) |
 | [`work-with-translate`](skills/server/work-with-translate/SKILL.md) | Офлайн-перевод слов/фраз |
 

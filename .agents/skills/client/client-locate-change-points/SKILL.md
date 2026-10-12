@@ -139,9 +139,9 @@ in Rust. Do not reimplement NLP/parse in Dart.
 | Drift open / shell | `lib/app/app.dart`, `lib/app/shell.dart` |
 | Library folders/documents | `lib/data/library/*`, `lib/features/upload/library_screen.dart` |
 | Dictionary CRUD | `lib/data/dictionary/*`, `lib/features/vocab/vocabulary_screen.dart` |
-| Reader + tap + highlight (later) | new `features/reader/`; Related: tokenize/lemmatize APIs |
-| Word/phrase card + add to dict (later) | reader widgets + Drift dictionary repo |
-| Split view (later) | split/reader widgets; Related: translation data from Rust |
+| Reader + tap + highlight | `lib/features/reader/`; Related: tokenize/lemmatize/mark FRB (`add-reader-lemma-highlight`) |
+| Word/phrase card + offline gloss (later) | reader widgets + Drift dictionary repo |
+| Split view | `lib/features/reader/` (mode); Related: translation cues from parse |
 | Settings (later) | `features/settings/`; Related: Drift settings when added |
 | Generated Dart bindings | `lib/src/rust/**` (read-only) |
 | Drift generated | `lib/data/database/*.g.dart` (read-only; `build_runner`) |

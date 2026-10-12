@@ -11,16 +11,18 @@ main.dart
   → runApp(TranslationReaderApp)          # lib/app/app.dart
 
 lib/app/app.dart
-  → open Drift → loading / error+retry / AppShell(database)
+  → open Drift → soft-fail stub→morph migrate → loading / error+retry / AppShell
+  → MaterialApp(theme: AppTheme.light, darkTheme: AppTheme.dark, themeMode: system)
 
 lib/app/shell.dart
   → NavigationBar: Library | Vocabulary
-  → inject Folder/Document/Dictionary repositories
+  → inject Folder/Document/Dictionary repos + LemmaKeysForSurfacesFn
 ```
 
 | File | Role |
 |------|------|
-| `lib/app/app.dart` | `MaterialApp` + Drift open + theme host |
+| `lib/app/app.dart` | `MaterialApp` + Drift open + post-open migrate + theme host |
+| `lib/app/theme.dart` | `AppTheme` + `ReaderColors` (`lemmaHighlight` light/dark) |
 | `lib/app/shell.dart` | Primary destinations + body outlet |
 | `lib/main.dart` | Init + `runApp` only — no feature markup |
 
@@ -54,7 +56,10 @@ Until AGENTS / OpenSpec adopts a router package:
 
 - Shell holds an index (or equivalent) for Library / Vocab / Settings.
 - Pass `DictionaryRepository` into both `VocabularyScreen` and `LibraryScreen`
-  (Library forwards it to `ReaderScreen` for add-vocab sheet).
+  (Library forwards it to `ReaderScreen` for Add/edit sheets).
+- Pass injectable `LemmaKeysForSurfacesFn` into Vocab (manual add morph keys);
+  default = FRB `lemmaKeysForSurfaces`. Reader gets `MarkVocabTokensFn` via
+  Library → Reader ctor (tests inject fakes).
 - Open Reader with `Navigator.push` after successful FRB parse; pass cues (+
   document title) into `ReaderScreen`. Bytes come from Drift / content store;
   do not keep a parallel Dart subtitle parser.

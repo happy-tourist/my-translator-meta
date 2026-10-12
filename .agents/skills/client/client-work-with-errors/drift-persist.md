@@ -32,7 +32,11 @@ Same as FRB actions: clear `error`, `try`/`catch`/`finally`, `mounted` after
 
 ```dart
 try {
-  await dictionary.add(lemma: lemma, translation: translation);
+  await dictionary.add(
+    lemma: morphLemma, // from token.lemmaKey or lemmaKeysForSurfaces
+    surfaceKey: DictionaryRepository.normalizeSurface(surface),
+    translation: translation,
+  );
 } on DictionaryValidationException catch (e) {
   error = e.message;
 } catch (e, st) {
@@ -44,8 +48,12 @@ try {
 }
 ```
 
+Post-open stub→morph `migrateStubKeysIfNeeded` is **soft-fail**: log in
+`assert`/`debugPrint`, do not block shell or treat as Drift open failure.
+
 ## Do not
 
 - Open product shell when DB open failed (unless retry succeeds).
 - Dump sqlite/Drift stack traces into UI.
+- Call `dictionary.add` with raw surface as morph `lemma` (use FRB key).
 - Add Rust/FRB storage API to “fix” persist errors — fix Drift / repositories.

@@ -33,10 +33,10 @@ Failures are orchestration-local `error` + Material surfaces
 
 Error handling is **orchestration-local**, not a second global toast bus:
 
-- Async I/O (Drift repositories; FRB parse open-flow; tokenize/translate later)
-  lives in a thin orchestration layer next to the feature (screen state,
-  controller/notifier, or small service) — see `client-work-with-structure`,
-  `work-with-drift`, and [frb-parse.md](frb-parse.md).
+- Async I/O (Drift repositories; FRB parse / tokenize / mark / lemma-keys;
+  translate later) lives in a thin orchestration layer next to the feature
+  (screen state, controller/notifier, or small service) — see
+  `client-work-with-structure`, `work-with-drift`, and [frb-parse.md](frb-parse.md).
 - Failed actions set a UI-facing `String? error` (or typed UI error enum) to a
   **user-safe** message. Never assign raw `e.toString()`, panic text, or
   anyhow backtraces to what the user reads.
@@ -137,7 +137,8 @@ try {
 ```
 
 Applies to: Drift folder/document/dictionary CRUD; Library open/parse
-([frb-parse.md](frb-parse.md)); later tokenize/lemmatize, offline translate.
+([frb-parse.md](frb-parse.md)); tokenize/mark/lemmatize FRB; later offline
+translate.
 
 - Re-throw only when the **caller** must skip a success path (e.g. navigate
   into reader only on successful parse). Otherwise keep the error in
@@ -353,7 +354,7 @@ closed” teardown. Document with a one-line comment. Do **not** use empty
 | `lib/features/upload/` | Pick/import + folder/document persist errors |
 | `lib/features/vocab/` | Load/add/remove errors + empty state |
 | `lib/features/upload/` (open) | Parse/load open failures → [frb-parse.md](frb-parse.md) |
-| `lib/features/reader/` | Cues-first has no FRB calls; tap/translate failures later |
+| `lib/features/reader/` | Tokenize/mark FRB; Add/edit Drift; mark-refresh SnackBar soft-fail |
 | `lib/features/settings/` | Save/load preference failures (later) |
 | Feature screen state / controllers | Owns `error` / `loading` + try/catch |
 | `lib/src/rust/api/*.dart` | Generated compute surface (do not hand-edit) |

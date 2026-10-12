@@ -6,7 +6,7 @@ Read with [SKILL.md](SKILL.md).
 
 | Piece | Path | Role |
 |-------|------|------|
-| Tables | `lib/data/database/tables.dart` | `Folders`, `Documents` (nullable `translationDocumentId`; `lastReadStartMs` / `lastReadAlignment` for resume), `DictionaryEntries` |
+| Tables | `lib/data/database/tables.dart` | `Folders`, `Documents` (nullable `translationDocumentId`; `lastReadStartMs` / `lastReadAlignment` for resume), `DictionaryEntries` (`lemma` UNIQUE morph + nullable `surfaceKey`) |
 | DB class | `lib/data/database/app_database.dart` | `@DriftDatabase`, `schemaVersion`, `driftDatabase(...)` |
 | Generated | `lib/data/database/app_database.g.dart` | **GENERATED** — never hand-edit |
 | Open helper | `lib/data/database/database_provider.dart` | `openAppDatabase()` + readiness `SELECT 1` |
@@ -24,7 +24,10 @@ web: DriftWebOptions(
 
 1. `main()` → `await RustLib.init()` (fatal UI on failure — no Drift).
 2. `TranslationReaderApp` → `openAppDatabase()` → loading → OK shell / error+retry.
-3. `AppShell(database: …)` builds repositories and feature screens.
+3. After open (schema ≥4): best-effort `DictionaryRepository.migrateStubKeysIfNeeded`
+   via injectable `LemmaKeysForSurfacesFn` (default FRB). Soft-fail: do **not**
+   block shell / conflate with Drift open failure; retry next launch.
+4. `AppShell(database: …)` builds repositories + optional `lemmaKeysForSurfaces`.
 
 Do not open Drift before successful FRB init in product flow.
 
@@ -56,7 +59,12 @@ data wipe — see `work-with-env-deploy` and `{app}/AGENTS.md`.
 Bump `schemaVersion` and add a Drift `MigrationStrategy` when altering tables.
 Do not silently wipe user data in product builds without an OpenSpec decision.
 
-**Present (`reader/split`):** `schemaVersion` **3** —
-`onUpgrade` from `< 2` adds nullable `Documents.translationDocumentId`
-(self-FK → `Documents.id`); from `< 3` adds nullable `lastReadStartMs` +
-`lastReadAlignment` (reading resume). Regenerate `.g.dart` after table edits.
+**Present:** `schemaVersion` **4** —
+
+- from `< 2`: nullable `Documents.translationDocumentId` (self-FK → `Documents.id`)
+- from `< 3`: nullable `lastReadStartMs` + `lastReadAlignment` (reading resume)
+- from `< 4`: nullable `DictionaryEntries.surfaceKey` (DDL only). Morph rewrite
+  of legacy stub lemmas is **post-open** `migrateStubKeysIfNeeded` (FRB after
+  `RustLib.init`), not inside Drift `onUpgrade` every cold start.
+
+Regenerate `.g.dart` after table edits.

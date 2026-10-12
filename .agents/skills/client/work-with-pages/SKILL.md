@@ -3,7 +3,7 @@ name: work-with-pages
 description: >-
   Use when creating or changing Flutter screens under lib/features/* in
   my_translator_app (Translation Reader): library/upload, reader (+ tap→vocab
-  sheet / later highlight), split view, vocabulary, settings, app shell /
+  sheet / lemma highlight+edit), split view, vocabulary, settings, app shell /
   navigation wiring.
   Core in SKILL.md; topics in shell.md, upload.md, reader.md, vocab.md,
   settings.md. Structure → client-work-with-structure; Drift persist →
@@ -77,16 +77,15 @@ If the route name or screen placement is unclear, ask the user before editing.
 |------|------|-------|
 | Shell | `lib/app/` | Drift open + Library \| Vocab — [shell.md](shell.md) |
 | Library / upload | `lib/features/upload/` | Folders + import; open → parse → Reader — [upload.md](upload.md) |
-| Reader (cues + tap + split) | `lib/features/reader/` | Cues, tokenize tap→sheet (`reader/tap`), split — [reader.md](reader.md) |
-| Vocabulary | `lib/features/vocab/` | Dict CRUD via Drift — [vocab.md](vocab.md) |
+| Reader (cues + tap + highlight + split) | `lib/features/reader/` | Cues, single-token tap→sheet, lemma highlight/edit (`reader/tap`, `reader/highlight`), split — [reader.md](reader.md) |
+| Vocabulary | `lib/features/vocab/` | Dict CRUD via Drift (morph lemma) — [vocab.md](vocab.md) |
 | Data | `lib/data/` | Repositories / schema — `work-with-drift` |
 
 ### Next / not all in tree yet
 
 | Area | Suggested path | Notes |
 |------|----------------|-------|
-| Reader highlight (later) | `lib/features/reader/` | Lemma paint after morph — [reader.md](reader.md) |
-| Split view | `lib/features/reader/` or `lib/features/split/` | Original + translation, sync scroll — [reader.md](reader.md) |
+| Phrase highlight / phrase Add | `lib/features/reader/` | Contiguous multi-token — later |
 | Settings | `lib/features/settings/` | Languages; later optional AI — [settings.md](settings.md) |
 
 Entry stays thin:
@@ -101,8 +100,8 @@ lib/src/rust/          → GENERATED FRB (never hand-edit)
 
 ## Screen Composition
 
-**Screen owns the view; Drift owns user persist; Rust owns parse + tokenize
-(landed) / lemmatize + offline translate (later).**
+**Screen owns the view; Drift owns user persist; Rust owns parse + tokenize +
+lemmatize/mark (highlight change) / offline translate (later).**
 
 - Screens compose widgets and call a thin orchestration layer (screen state,
   `ChangeNotifier`, or small service — package choice not mandated).
@@ -110,19 +109,19 @@ lib/src/rust/          → GENERATED FRB (never hand-edit)
   FRB `parseSubtitles` and passes `dictionaryRepository` into Reader. Import
   `package:my_translator_app/src/rust/api/….dart` only for compute — not for
   user CRUD.
-- Add-vocab sheet / later highlight chrome may live as local reader widgets or
-  move to `lib/widgets/` when reused.
+- Add/edit vocab sheets + highlight paint live as local reader widgets (or
+  `lib/widgets/` when reused).
 
 Examples:
 
 - Upload / library — folders + import via Drift; document tap → parse → Reader
   ([upload.md](upload.md)).
-- Reader — cues + batch tokenize + tap→CTA/sheet → Drift; later morph highlight
+- Reader — cues + tokenize + mark + single-token Add / in-vocab edit + highlight
   ([reader.md](reader.md)).
 - Split — two panes, sync scroll; translation lines from Rust, not Dart
   string hacks ([reader.md](reader.md)).
-- Vocab — list/add/remove via Drift; same store as Reader sheet
-  ([vocab.md](vocab.md)).
+- Vocab — list/add/remove via Drift; morph key via FRB helper; same store as
+  Reader ([vocab.md](vocab.md)).
 - Settings — languages / prefs; persist via Drift when available
   ([settings.md](settings.md)).
 
