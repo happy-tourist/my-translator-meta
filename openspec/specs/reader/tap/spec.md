@@ -4,7 +4,7 @@
 
 Даёт пользователю в Reader выделять слова и смежные фразы в тексте оригинала тапами по токенам, собирать contiguous selection и через bottom sheet сохранять выбранный фрагмент в личный словарь с ручным переводом и контекстом реплики.
 
-Связанные capabilities: отображение cues — `reader/cues` / split — `reader/split`; persist словаря — `dictionary/entries`. Морфологическая лемматизация, offline translate и lemma highlight — отдельные future changes.
+Связанные capabilities: отображение cues — `reader/cues` / split — `reader/split`; persist словаря — `dictionary/entries`; highlight / edit in_vocab — `reader/highlight`.
 
 ## Requirements
 
@@ -27,50 +27,70 @@
 - **THEN** не возникает selection слов/фраз для добавления в словарь (панель перевода остаётся без token-select UX этого change)
 
 ### Requirement: Tap selection of contiguous tokens in one cue
-Система SHALL позволять выделять слова оригинала **только тапом** по токенам внутри **одной** реплики. Первый тап выбирает слово-якорь и показывает bottom CTA. Тап по **смежному** снаружи текущего диапазона слову той же реплики расширяет contiguous selection. Тап по слову **внутри** уже выделенного диапазона длины ≥ 2 сужает selection до этого слова (новый одиночный якорь). Повторный тап по единственному уже выбранному слову MUST NOT менять selection и MUST оставить CTA. Тап по **несмежному** слову той же реплики MUST сбросить selection к новому якорю и дать краткий визуальный фидбек сброса (~300ms). Selection MUST NOT объединять токены из разных реплик: тап в другой реплике начинает новое выделение только там. Drag-select в этом change не требуется.
+Система SHALL позволять выделять word-токены оригинала **только тапом** внутри **одной** реплики для пути Add. Первый тап по токену с `is_in_vocab` = false выбирает якорь и показывает bottom CTA. Тап по **смежному** снаружи текущего диапазона non-vocab слову той же реплики MUST расширять contiguous selection. Тап по слову **внутри** уже выделенного диапазона длины ≥ 2 MUST сужать selection до этого слова (новый одиночный якорь). Повторный тап по единственному уже выбранному non-vocab токену MUST снять selection и скрыть CTA. Тап вне токена MUST NOT снимать selection. Тап по **несмежному** non-vocab слову той же реплики MUST сбросить selection к новому якорю и дать краткий визуальный фидбек сброса (~300ms). Selection MUST NOT объединять токены из разных реплик. Drag-select не требуется. Тап по `is_in_vocab` = true — см. `reader/highlight` (edit, без Add CTA); Add selection при этом MUST очищаться. При открытии Add/Edit bottom sheet система SHOULD не давать списку оригинала визуально прыгать к началу (`resizeToAvoidBottomInset: false` и/или restore scroll якоря).
 
 #### Scenario [RT-02]: Single tap shows selection and CTA
-- **GIVEN** Reader открыт, токены оригинала доступны, selection пуст
-- **WHEN** пользователь тапает по одному слову в реплике оригинала
-- **THEN** это слово выделено и видна bottom CTA для добавления в словарь
+- **GIVEN** Reader открыт, selection пуст, целевой токен не в словаре
+- **WHEN** пользователь тапает по одному такому слову
+- **THEN** слово выделено и видна bottom CTA Add
 
 #### Scenario [RT-03]: Contiguous tap extends selection
-- **GIVEN** в реплике уже выделено одно слово
-- **WHEN** пользователь тапает по соседнему (смежному) слову той же реплики
-- **THEN** selection становится contiguous диапазоном обоих слов, CTA остаётся доступной
+- **GIVEN** в реплике выделен один non-vocab токен
+- **WHEN** пользователь тапает по соседнему non-vocab слову той же реплики
+- **THEN** selection становится contiguous диапазоном обоих слов; CTA доступна
 
 #### Scenario [RT-04]: Non-contiguous tap resets anchor
-- **GIVEN** в реплике выделены слова, образующие contiguous диапазон
-- **WHEN** пользователь тапает по слову той же реплики с gap относительно текущего диапазона
-- **THEN** предыдущий диапазон сбрасывается; выбран только новый якорь; пользователь видит краткий визуальный фидбек, что selection перезапущен; CTA доступна для нового якоря
+- **GIVEN** в реплике есть contiguous selection
+- **WHEN** пользователь тапает по несмежному non-vocab слову той же реплики
+- **THEN** selection сбрасывается к новому одиночному якорю; краткий visual flash ~300ms; CTA доступна
+
+#### Scenario [RT-16]: Shrink multi selection to single
+- **GIVEN** в реплике выделен contiguous диапазон длины ≥ 2
+- **WHEN** пользователь тапает по токену внутри этого диапазона
+- **THEN** selection сужается до этого одиночного токена; CTA остаётся
+
+#### Scenario [RT-17]: Retap sole selected clears
+- **GIVEN** выбран единственный non-vocab токен и видна Add CTA
+- **WHEN** пользователь снова тапает по этому же токену
+- **THEN** selection снят; CTA скрыта
 
 #### Scenario [RT-09]: Selection stays within one cue
 - **GIVEN** в реплике A есть активный selection
-- **WHEN** пользователь тапает по слову в другой реплике B оригинала
-- **THEN** selection в A очищается и начинается новое выделение только в B
+- **WHEN** пользователь тапает по non-vocab слову в реплике B
+- **THEN** selection в A очищается; новое выделение только в B
 
-#### Scenario [RT-10]: Phrase surface is contiguous cue substring
-- **GIVEN** в одной реплике выделены два или более смежных слова
-- **WHEN** система формирует текст фразы для sheet / сохранения
-- **THEN** текст соответствует contiguous фрагменту текста реплики от начала первого до конца последнего выбранного токена (включая исходные разделители между ними)
+#### Scenario [RT-10]: Phrase surface is token-join
+- **GIVEN** contiguous multi-token selection в одной реплике
+- **WHEN** формируется surface для Add-sheet / persist key
+- **THEN** surface/key строится как casefold(join выбранных token surfaces через один пробел), не как обязательный cue substring
+
+#### Scenario [RT-14]: Contiguous multi-token Add available
+- **GIVEN** Reader открыт, токены готовы
+- **WHEN** пользователь набирает contiguous multi-token selection и сохраняет через CTA/sheet
+- **THEN** phrase Add доступен; запись создаётся с phrase identity (см. RT-06 / `dictionary/entries`)
+
+#### Scenario [RT-15]: In-vocab tap does not show Add CTA
+- **GIVEN** токен с `is_in_vocab` = true
+- **WHEN** пользователь тапает по нему
+- **THEN** bottom CTA Add для этого жеста не показывается (edit-flow `reader/highlight`)
 
 ### Requirement: Bottom sheet to add selection to dictionary
-По нажатию bottom CTA система SHALL открывать bottom sheet с: (1) текстом выбранного слова/фразы (read-only surface), (2) полем перевода (обязательное), (3) полем контекста, предварительно заполненным полным текстом текущей реплики и **editable** (можно изменить или очистить). Подтверждение с непустым переводом MUST сохранять запись через общий dictionary persist (`dictionary/entries`, upsert по нормализованному ключу). Пустой перевод после trim MUST NOT создавать запись и MUST показать ошибку валидации. После успешного save система MUST закрыть sheet и очистить selection (bottom CTA скрывается). Автоперевод и подсветка lemma после save в этом change не требуются.
+По нажатию bottom CTA система SHALL открывать bottom sheet с: (1) read-only surface выбранного фрагмента (один токен или phrase join), (2) обязательным translation, (3) context = полный текст реплики, editable. Подтверждение с непустым translation MUST сохранять через `dictionary/entries`: **single-token** → identity = morph `lemma_key`, `surface_key` = casefold(surface); **multi-token** → identity = casefold(join token surfaces), `surface_key` = тот же ключ (или casefold join — эквивалент). Пустой translation после trim MUST NOT персистить и MUST показать ошибку. После успешного save — закрыть sheet, очистить selection, обновить highlight (`reader/highlight`).
 
 #### Scenario [RT-05]: CTA opens sheet with prefilled fields
-- **GIVEN** есть contiguous selection в одной реплике оригинала
+- **GIVEN** non-empty non-vocab selection в одной реплике
 - **WHEN** пользователь нажимает bottom CTA
-- **THEN** открывается bottom sheet: surface/phrase заполнены из selection, перевод пуст, context = полный текст этой реплики и доступен для редактирования
+- **THEN** sheet: surface = selection (single или join), перевод пуст, context = текст реплики editable
 
 #### Scenario [RT-06]: Save from sheet adds dictionary entry
-- **GIVEN** sheet открыт с непустым selection surface
-- **WHEN** пользователь вводит непустой перевод и подтверждает сохранение
-- **THEN** запись появляется в словаре (доступна через list/lookup Vocabulary) с ключом = нормализованный surface/фраза, указанным переводом и (опционально отредактированным) context; sheet закрыт; selection очищен (bottom CTA скрыта)
+- **GIVEN** sheet открыт для single «Running» или для phrase из нескольких токенов
+- **WHEN** пользователь вводит непустой перевод и подтверждает
+- **THEN** для single — запись с morph lemma; для phrase — запись с casefold(join); sheet закрыт; selection очищен
 
 #### Scenario [RT-07]: Reject empty translation from Reader sheet
 - **GIVEN** sheet открыт
-- **WHEN** пользователь подтверждает сохранение с пустым переводом (после trim)
-- **THEN** запись не создаётся и показывается ошибка валидации
+- **WHEN** сохранение с пустым translation после trim
+- **THEN** запись не создаётся; показывается ошибка валидации
 
 ### Requirement: Token spans for hit-test
 Rust tokenize compute SHALL принимать для каждой реплики тот же display-string, что рисует Reader (`text_lines` / `textLines`, соединённые одним `\n`), и возвращать упорядоченные **word**-токены с `surface` и **char** span (`char_start` / `char_end`, exclusive end) такими, что `surface` совпадает с соответствующим срезом этого текста. Публичный FRB batch — `tokenize_cues(texts: Vec<String>) -> Vec<CueTokensDto>` (по одному результату на вход, поле `cue_index` = индекс во входном векторе). Токенизация MUST корректно обрабатывать кириллицу и сохранять типичные EN-формы с апострофом (например `don't`) как одно слово, где tokenizer это предусматривает. Byte-only индексы без char-индексов для Flutter hit-test MUST NOT быть единственным контрактом. Морфологическая лемма и Rust-persist словаря в этом requirement не требуются.
@@ -90,15 +110,19 @@ Rust tokenize compute SHALL принимать для каждой реплик�
 | SC-ID | Scenario | Test intent |
 |-------|----------|-------------|
 | RT-01 | Batch tokens ready for original cues | Flutter: after Reader open, original cues have token spans without per-row tokenize on rebuild |
-| RT-02 | Single tap shows selection and CTA | Flutter widget: tap word → selected + bottom CTA visible |
-| RT-03 | Contiguous tap extends selection | Flutter widget: tap adjacent word → both selected, CTA stays |
-| RT-04 | Non-contiguous tap resets anchor | Flutter widget: tap with gap → only new word selected; brief visual feedback |
-| RT-05 | CTA opens sheet with prefilled fields | Flutter widget: CTA → sheet: surface/phrase, empty translation, context = cue text (editable) |
-| RT-06 | Save from sheet adds dictionary entry | Flutter widget/integration: confirm with translation → entry in dictionary persist; sheet closed; selection cleared |
-| RT-07 | Reject empty translation from Reader sheet | Flutter widget: empty translation → no persist, validation error |
+| RT-02 | Single tap shows selection and CTA | Flutter: tap non-vocab → selected + Add CTA |
+| RT-03 | Contiguous tap extends selection | Flutter: tap adjacent non-vocab → expand contiguous range |
+| RT-04 | Non-contiguous tap resets anchor | Flutter: gap tap → only new word; brief ~300ms flash |
+| RT-05 | CTA opens sheet with prefilled fields | Flutter: CTA → surface = selection (single or phrase join); translation empty; context = cue |
+| RT-06 | Save from sheet adds dictionary entry | Flutter: single → morph lemma; phrase → casefold(join tokens) |
+| RT-07 | Reject empty translation from Reader sheet | Flutter: empty translation → no persist, validation |
 | RT-08 | Translation pane has no token selection | Flutter widget: split with translation → taps do not create word selection on bottom pane |
-| RT-09 | Selection stays within one cue | Flutter widget: selecting in cue A then tapping cue B starts new selection only in B |
-| RT-10 | Phrase surface is contiguous cue substring | Flutter: multi-word contiguous selection uses cue substring spanning first→last token (not naive space-join only) |
+| RT-09 | Selection stays within one cue | Flutter: tap other cue → selection only there |
+| RT-10 | Phrase surface is token-join | Flutter: multi-token surface = casefold(join token surfaces with single space) |
 | RT-11 | Tokenize Cyrillic and apostrophe words | Rust `cargo test`: Cyrillic words + `don't` as single word tokens with valid char spans |
 | RT-12 | Span surface invariant | Rust `cargo test`: each word token surface equals cue[char_start..char_end] |
 | RT-13 | Tokenize call failure degrades Reader | Flutter widget: failing batch tokenize → cues readable as plain text, no token CTA, user-visible SnackBar |
+| RT-14 | Contiguous multi-token Add available | Flutter: can form multi-token selection and save phrase |
+| RT-15 | In-vocab tap does not show Add CTA | Flutter: tap in_vocab → no Add CTA (edit via highlight) |
+| RT-16 | Shrink multi selection to single | Flutter: tap inside range length≥2 → shrink to that token |
+| RT-17 | Retap sole selected clears | Flutter: retap lone non-vocab → selection gone, CTA hidden |

@@ -2,58 +2,102 @@
 
 ## Purpose
 
-Хранит локальный личный словарь пользователя (лемма, перевод, опциональный контекст) для проверки persistence и будущего матчинга подсветки в Reader. Source of truth записей — Flutter Drift в `lib/`; Rust/FRB storage API для словаря не требуется; compute/NLP (lemma highlight) — отдельные capabilities.
+Хранит локальный личный словарь пользователя (лемма, перевод, опциональный контекст) для проверки persistence и матчинга подсветки в Reader. Source of truth записей — Flutter Drift в `lib/`; Rust/FRB storage API для словаря не требуется; compute/NLP (lemma highlight) — `reader/highlight`.
 
 ## Requirements
 
 ### Requirement: Add dictionary entry
-Система SHALL позволять добавить запись словаря с леммой (или multi-word surface/фразой как ключом) и переводом через **Vocab UI** или через **Reader** (bottom sheet после selection на оригинале; см. `reader/tap`). Контекст MAY быть пустым. Идентичность для lookup — **нормализованный** ключ (`trim` + Unicode case-fold / lowercase). Морфологическая лемматизация не требуется: ключ = нормализованный surface выбранного слова или contiguous фразы (stub normalize).
+Система SHALL позволять добавить запись словаря с unique identity `lemma` и переводом через **Vocab UI** или **Reader** Add-sheet. Контекст MAY быть пустым. MUST сохраняться **surface_key** (casefold исходного surface / phrase join). Identity:
+- **single-word** (нет whitespace в ключе): morph lemma (EN WordNet; morph-fail → casefold(surface));
+- **multi-word / phrase** (whitespace в ключе): casefold(join) без WordNet.
+Reader MAY добавлять и single, и phrase (contiguous selection). Vocab manual add: single через `lemmaKeysForSurfaces`; multi-word input → casefold identity без morph cascade.
 
 #### Scenario [DE-01]: Add entry with context
 - **GIVEN** словарь пуст
-- **WHEN** пользователь добавляет лемму «run», перевод «бежать» и контекст «He was running»
-- **THEN** запись доступна в списке словаря с этими полями
+- **WHEN** пользователь добавляет morph-лемму «run», перевод «бежать» и контекст «He was running»
+- **THEN** запись доступна в списке с этими полями
 
 #### Scenario [DE-02]: Add entry without context
-- **GIVEN** словарь может уже содержать другие записи
-- **WHEN** пользователь добавляет лемму «cat» и перевод «кот» без контекста
-- **THEN** запись сохраняется; поле контекста пустое или отсутствует
+- **GIVEN** словарь может содержать другие записи
+- **WHEN** пользователь добавляет «cat» / «кот» без контекста
+- **THEN** запись сохраняется; context пуст или отсутствует
 
 #### Scenario [DE-09]: Reject empty lemma or translation
-- **GIVEN** пользователь открыл форму добавления
-- **WHEN** он подтверждает пустую лемму или пустой перевод (после trim)
-- **THEN** система не создаёт запись и показывает ошибку валидации
+- **GIVEN** форма добавления открыта
+- **WHEN** подтверждение с пустой леммой или пустым переводом после trim
+- **THEN** запись не создаётся; ошибка валидации
 
 #### Scenario [DE-11]: Empty vocabulary CTA
 - **GIVEN** словарь пуст
-- **WHEN** пользователь открывает экран словаря
-- **THEN** видит empty state с возможностью добавить запись на этом экране (не требуется переход в Reader)
+- **WHEN** открыт экран словаря
+- **THEN** empty state с возможностью добавить запись на экране
 
 #### Scenario [DE-12]: Add entry from Reader selection
-- **GIVEN** в Reader на оригинале есть contiguous selection и открыт sheet добавления
-- **WHEN** пользователь вводит непустой перевод и подтверждает сохранение
-- **THEN** запись с нормализованным ключом selection и этим переводом доступна в словаре так же, как запись, добавленная из Vocab UI
+- **GIVEN** в Reader non-vocab selection (single или contiguous phrase) и открыт Add-sheet
+- **WHEN** непустой перевод и подтверждение
+- **THEN** запись с корректным identity (morph или casefold join) доступна в словаре
+
+#### Scenario [DE-14]: Surface key stored for token
+- **GIVEN** сохранение single surface «Running» (morph «run»)
+- **WHEN** запись создана
+- **THEN** lemma = «run», surface_key = casefold surface («running»)
+
+#### Scenario [DE-17]: Morph-fail key is casefold surface
+- **GIVEN** single слово без отличной EN morph-леммы
+- **WHEN** запись сохраняется
+- **THEN** lemma identity = casefold(surface)
+
+#### Scenario [DE-18]: Phrase key is casefold join
+- **GIVEN** Reader contiguous selection из токенов «Hello» и «world»
+- **WHEN** запись сохраняется из Add-sheet
+- **THEN** lemma (и surface_key) = casefold(join) («hello world»), без WordNet на фразе целиком
 
 ### Requirement: Duplicate lemma policy
-Система SHALL при повторном добавлении той же (нормализованной) леммы выполнять upsert: обновить `translation` и `context` существующей записи и не создавать второй ряд. Политика upsert MUST быть единой во всём приложении.
+Система SHALL при повторном добавлении того же **lemma key** (morph или phrase) выполнять upsert translation/context без второго ряда. Политика едина для Vocab UI, Reader Add, Reader edit.
 
 #### Scenario [DE-03]: Second add of same lemma
-- **GIVEN** в словаре уже есть лемма «run»
-- **WHEN** пользователь снова добавляет «run» с другим переводом (и опционально новым контекстом)
-- **THEN** в списке остаётся одна запись с леммой «run» и обновлёнными полями перевода/контекста, без двух строк с одной леммой
+- **GIVEN** есть «run»
+- **WHEN** снова добавляют «run» с другим переводом
+- **THEN** одна запись с обновлёнными полями
 
 #### Scenario [DE-10]: Case-insensitive lemma identity
-- **GIVEN** в словаре есть лемма «run»
-- **WHEN** пользователь добавляет «Run» (другой регистр) с новым переводом
-- **THEN** выполняется upsert одной записи; второго ряда нет
+- **GIVEN** есть «run»
+- **WHEN** добавляют «Run»
+- **THEN** upsert одной записи
 
 ### Requirement: Reader add uses shared upsert policy
-Добавление из Reader MUST использовать ту же политику upsert по нормализованному ключу, что и Vocab UI: повторное сохранение того же ключа обновляет `translation` и `context`, не создавая второй ряд.
+Добавление из Reader MUST использовать ту же upsert-политику по `lemma`, что и Vocab UI.
 
 #### Scenario [DE-13]: Upsert from Reader same as Vocab
-- **GIVEN** в словаре уже есть запись с ключом «hello»
-- **WHEN** пользователь из Reader сохраняет selection «Hello» с другим переводом и/или context
-- **THEN** остаётся одна запись; поля обновлены; второго ряда нет
+- **GIVEN** запись с ключом «hello» (или phrase key)
+- **WHEN** Reader сохраняет тот же ключ с другим translation/context
+- **THEN** одна запись; поля обновлены
+
+### Requirement: Lookup by lemma
+Система SHALL поддерживать lookup по `lemma` (case-insensitive). Membership для highlight: morph keys и phrase keys — см. `reader/highlight`.
+
+#### Scenario [DE-06]: Lookup hit
+- **GIVEN** сохранена «run»
+- **WHEN** lookup «run» / «Run»
+- **THEN** hit с данными записи
+
+#### Scenario [DE-07]: Lookup miss
+- **GIVEN** «xyz» нет
+- **WHEN** lookup «xyz»
+- **THEN** miss
+
+### Requirement: One-time stub-to-morph schema migration
+При schema migration (один раз) система SHALL перевести stub-ключи в dual-key: `lemma` = morph для singles; multi-word → casefold phrase identity + `surface_key`. Коллизии singles: merge по max `updated_at`. Phrase rows MUST сохраниться. (Legacy cleanup — вне UI.)
+
+#### Scenario [DE-15]: Schema migration merges collisions
+- **GIVEN** две stub-записи «running» и «ran» с разными updated_at
+- **WHEN** одноразовая migration
+- **THEN** одна запись morph «run»; поля от max updated_at
+
+#### Scenario [DE-16]: Phrase rows survive migration
+- **GIVEN** multi-word stub-ключ до migration
+- **WHEN** schema migration
+- **THEN** фразовый ряд остаётся; участвует в phrase highlight membership (`reader/highlight`)
 
 ### Requirement: List dictionary entries
 Система SHALL отдавать список всех сохранённых записей словаря.
@@ -71,19 +115,6 @@
 - **WHEN** пользователь удаляет эту запись
 - **THEN** «run» больше не в списке и lookup по «run» не находит запись
 
-### Requirement: Lookup by lemma
-Система SHALL поддерживать проверку наличия / получение записи по нормализованной лемме.
-
-#### Scenario [DE-06]: Lookup hit
-- **GIVEN** сохранена лемма «run»
-- **WHEN** выполняется lookup по «run» или «Run»
-- **THEN** система сообщает, что запись есть (и возвращает данные записи при запросе полной карточки)
-
-#### Scenario [DE-07]: Lookup miss
-- **GIVEN** леммы «xyz» нет в словаре
-- **WHEN** выполняется lookup по «xyz»
-- **THEN** система сообщает отсутствие записи
-
 ### Requirement: Dictionary persists across restart
 Система SHALL сохранять записи словаря между перезапусками приложения на поддерживаемых платформах (включая Web / browser storage через Drift).
 
@@ -96,16 +127,21 @@
 
 | SC-ID | Scenario | Test intent |
 |-------|----------|-------------|
-| DE-01 | Add entry with context | unit: insert → list contains fields |
+| DE-01 | Add entry with context | unit: insert morph lemma + translation (+ context) → list |
 | DE-02 | Add entry without context | unit: optional context null/empty |
-| DE-03 | Second add of same lemma | unit: upsert updates fields; never two rows |
+| DE-03 | Second add of same lemma | unit: second add same key updates one row |
 | DE-04 | List after several adds | unit/widget: list size / contents |
 | DE-05 | Remove entry | unit/widget: delete + lookup miss |
-| DE-06 | Lookup hit | unit: membership true (incl. case fold) |
+| DE-06 | Lookup hit | unit: lookup hit by key (case-insensitive) |
 | DE-07 | Lookup miss | unit: membership false |
 | DE-08 | Entries survive restart | integration (close/reopen DB) + verify/ops Web same-origin restart |
 | DE-09 | Reject empty lemma or translation | unit/widget: validation |
 | DE-10 | Case-insensitive lemma identity | unit: Run/run → one row |
 | DE-11 | Empty vocabulary CTA | widget: empty allows in-UI add |
-| DE-12 | Add entry from Reader selection | Flutter: Reader sheet save → dictionary list/lookup contains entry |
-| DE-13 | Upsert from Reader same as Vocab | Flutter/unit: Reader save of existing normalized key updates one row |
+| DE-12 | Add entry from Reader selection | Flutter: Reader single → morph; phrase → casefold(join) |
+| DE-13 | Upsert from Reader same as Vocab | Flutter/unit: same key updates one row |
+| DE-14 | Surface key stored for token | unit: single keeps surface_key casefold surface + morph lemma |
+| DE-15 | Schema migration merges collisions | unit/integration: stub collapse → one morph row |
+| DE-16 | Phrase rows survive migration | unit: multi-word key remains as phrase identity |
+| DE-17 | Morph-fail key is casefold surface | unit: non-EN/junk single = casefold(surface) |
+| DE-18 | Phrase key is casefold join | unit/Flutter: multi-word lemma = casefold(join token surfaces) |

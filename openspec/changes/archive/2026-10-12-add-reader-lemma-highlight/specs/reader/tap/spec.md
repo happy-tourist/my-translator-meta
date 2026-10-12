@@ -15,11 +15,12 @@
 | RT-14 | Contiguous multi-token Add available | Flutter: can form multi-token selection and save phrase |
 | RT-15 | In-vocab tap does not show Add CTA | Flutter: tap in_vocab → no Add CTA (edit via highlight) |
 | RT-16 | Shrink multi selection to single | Flutter: tap inside range length≥2 → shrink to that token |
+| RT-17 | Retap sole selected clears | Flutter: retap lone non-vocab → selection gone, CTA hidden |
 
 ## MODIFIED Requirements
 
 ### Requirement: Tap selection of contiguous tokens in one cue
-Система SHALL позволять выделять word-токены оригинала **только тапом** внутри **одной** реплики для пути Add. Первый тап по токену с `is_in_vocab` = false выбирает якорь и показывает bottom CTA. Тап по **смежному** снаружи текущего диапазона non-vocab слову той же реплики MUST расширять contiguous selection. Тап по слову **внутри** уже выделенного диапазона длины ≥ 2 MUST сужать selection до этого слова (новый одиночный якорь). Повторный тап по единственному уже выбранному non-vocab токену MUST NOT менять selection и MUST оставить CTA. Тап по **несмежному** non-vocab слову той же реплики MUST сбросить selection к новому якорю и дать краткий визуальный фидбек сброса (~300ms). Selection MUST NOT объединять токены из разных реплик. Drag-select не требуется. Тап по `is_in_vocab` = true — см. `reader/highlight` (edit, без Add CTA); Add selection при этом MUST очищаться.
+Система SHALL позволять выделять word-токены оригинала **только тапом** внутри **одной** реплики для пути Add. Первый тап по токену с `is_in_vocab` = false выбирает якорь и показывает bottom CTA. Тап по **смежному** снаружи текущего диапазона non-vocab слову той же реплики MUST расширять contiguous selection. Тап по слову **внутри** уже выделенного диапазона длины ≥ 2 MUST сужать selection до этого слова (новый одиночный якорь). Повторный тап по единственному уже выбранному non-vocab токену MUST снять selection и скрыть CTA. Тап вне токена MUST NOT снимать selection. Тап по **несмежному** non-vocab слову той же реплики MUST сбросить selection к новому якорю и дать краткий визуальный фидбек сброса (~300ms). Selection MUST NOT объединять токены из разных реплик. Drag-select не требуется. Тап по `is_in_vocab` = true — см. `reader/highlight` (edit, без Add CTA); Add selection при этом MUST очищаться. При открытии Add/Edit bottom sheet система SHOULD не давать списку оригинала визуально прыгать к началу (`resizeToAvoidBottomInset: false` и/или restore scroll якоря).
 
 #### Scenario [RT-02]: Single tap shows selection and CTA
 - **GIVEN** Reader открыт, selection пуст, целевой токен не в словаре
@@ -40,6 +41,11 @@
 - **GIVEN** в реплике выделен contiguous диапазон длины ≥ 2
 - **WHEN** пользователь тапает по токену внутри этого диапазона
 - **THEN** selection сужается до этого одиночного токена; CTA остаётся
+
+#### Scenario [RT-17]: Retap sole selected clears
+- **GIVEN** выбран единственный non-vocab токен и видна Add CTA
+- **WHEN** пользователь снова тапает по этому же токену
+- **THEN** selection снят; CTA скрыта
 
 #### Scenario [RT-09]: Selection stays within one cue
 - **GIVEN** в реплике A есть активный selection

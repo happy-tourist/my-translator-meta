@@ -28,7 +28,7 @@ long-press). Selection never spans cues.
 | Selection empty → non-vocab `T` | Select `[T,T]`; show Add CTA |
 | Adjacent outside range (same cue), non-vocab | Expand contiguous range; CTA stays |
 | Inside multi-token range (`end - start ≥ 1`) | Shrink to `[T,T]`; CTA stays |
-| Same single non-vocab again | No-op; CTA stays |
+| Same single non-vocab again | Clear selection; hide CTA |
 | Gap (non-adjacent, same cue), non-vocab | Reset to `[T,T]` + ~300ms gap-flash; CTA stays |
 | Other cue, non-vocab | Move selection to that cue’s `[T,T]` (no gap-flash) |
 

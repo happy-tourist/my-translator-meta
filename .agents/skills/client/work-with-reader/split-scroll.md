@@ -50,9 +50,10 @@
 
 Enabling **or hiding** split remounts the original list. Before
 `setState` on either direction, capture the top-visible anchor from
-`ItemPositionsListener` (`index` + `itemLeadingEdge`); after the first frame
-(when `ItemScrollController.isAttached`), `jumpTo` that anchor on the original
-pane. On Show with translation cues, run the usual sync from original.
+`ItemPositionsListener` (`index` + `itemLeadingEdge`); seed
+`ScrollablePositionedList.initialScrollIndex` / `initialAlignment` on the
+remounted original list so the first frame is not cue 0; after the first frame
+(when `ItemScrollController.isAttached`), `jumpTo` that anchor as backup. On Show with translation cues, run the usual sync from original.
 Do **not** treat Hide as a no-op for scroll — the single-pane list is a new
 widget tree and will land at cue 0 without capture+restore.
 

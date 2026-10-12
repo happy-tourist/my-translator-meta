@@ -50,7 +50,8 @@ Explore (phrase restore, locked): phrase key = casefold(join token surfaces); ma
 - **Selection machine (restore tap-vocab):**
   - State: cue + `selectionStart`/`selectionEnd` (inclusive token indices).
   - Non-vocab: first tap → anchor; adjacent outside → expand; inside range len≥2 → shrink-to-single; gap → reset + ~300ms flash; other cue → move.
-  - Retap sole selected non-vocab → no-op.
+  - Retap sole selected non-vocab → clear selection (hide CTA).
+  - Sheet open: `Scaffold.resizeToAvoidBottomInset: false` + capture/`jumpTo` scroll restore (avoid list snap to top).
   - `is_in_vocab` tap → clear Add selection → edit (D8); no CTA.
 - **Paint:** `is_in_vocab` → `ReaderColors.lemmaHighlight` (уже).
 - **Add save (D5.1):**
