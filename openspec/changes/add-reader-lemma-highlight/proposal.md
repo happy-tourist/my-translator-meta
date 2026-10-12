@@ -1,53 +1,55 @@
 ## Why
 
-После добавления слов в словарь из Reader сохранённые единицы не видны в оригинале транскрипта, а повторный тап не открывает карточку для правки. Нужна подсветка по морфологической лемме и edit-sheet по тапу на уже сохранённое — иначе словарь оторван от чтения.
+После morph-highlight shipped: одиночные леммы подсвечиваются, но **фразовые** записи словаря (основной контент пользователя) не красятся, а contiguous multi-token Add из Reader убран. Нужно вернуть сохранение фраз и подсветку phrase spans рядом с morph singles — иначе словарь снова оторван от чтения.
 
 ## What Changes
 
-- Морфологические lemma-keys (EN WordNet) на токенах оригинала; stub-нормализация как identity для словаря выпиливается.
-- Подсветка single-token вхождений сохранённых лемм на панели оригинала (theme accent light+dark).
-- Тап по уже сохранённому токену → сразу edit-sheet с содержимым; Add остаётся только для несохранённых single-token.
-- Drift: morph `lemma` + `surface_key`; одноразовая schema migration с merge коллизий.
+- **Вернуть** contiguous tap selection + phrase save из Reader (machine как в `add-reader-tap-vocab`: expand / shrink-to-single / gap-flash).
+- **Phrase highlight**: ключ = casefold(join token surfaces); матч по consecutive токенам (не cue substring); paint **всех** токенов span’а; overlaps — красить обе.
+- Morph highlight / WordNet для **single-token** остаётся; фразы **без** WordNet.
+- Тап по подсвеченному (слово или фраза) → edit-sheet; при overlaps приоритет длиннее фраза > короче > single.
+- Уже shipped (без отката): EN lemmatize, Drift dual-key schema 4, `mark_vocab_tokens` / `lemma_keys_for_surfaces`, `ReaderColors`, edit для singles.
 
 ## Scope
 
-- **Capability ID:** `reader/highlight` (новый) — paint по `is_in_vocab`, refresh после save/delete/migrate, edit по тапу на подсвеченный токен.
-- **Capability ID:** `reader/tap` (изменяемый) — Add только single-token; multi-token selection/phrase save убирается из текущего поведения; in_vocab-тап минует CTA Add.
-- **Capability ID:** `dictionary/entries` (изменяемый) — identity = morph lemma; `surface_key`; migration merge; lookup/upsert по morph-ключу.
-- **Слои:** Rust (lemmatize + membership flags через FRB) и Flutter Reader UX + Drift persist + theme tokens.
-- **Язык:** всегда EN WordNet на токене; не-EN / morph-fail → ключ = casefold(surface); RU morph и settings language — вне scope.
-- **Highlight:** только single-token; phrase spans — later.
+- **Capability ID:** `reader/highlight` — phrase-span membership + paint + edit priority; сохранить single-token morph highlight.
+- **Capability ID:** `reader/tap` — восстановить contiguous multi-token Add; phrase surface = casefold(join tokens); single save = morph lemma.
+- **Capability ID:** `dictionary/entries` — phrase keys (whitespace / join) как identity рядом с morph singles; upsert по тому же `lemma` ключу.
+- **Слои:** Rust mark (phrase + morph) через FRB; Flutter selection machine + paint/edit; Drift без новой schema bump (schema 4 уже есть).
+- **Язык:** morph только single-token EN WordNet; фразы — casefold(join).
 
 ## Out of scope
 
-- Contiguous phrase highlight и phrase save из Reader (later вместе).
-- Русская морфология / отдельный RU lemmatizer.
-- Settings language gate для выбора бэкенда лемматизации.
-- Offline / auto translate prefilling перевода.
-- Drag / long-press select; тап на панели translation.
-- Ручной UI разбора merge-коллизий при миграции.
-- Облачный sync словаря.
+- Morph внутри фразы (лемматизация каждого слова фразы → join) — не в этом delta.
+- Cue-substring identity (punct/whitespace как в сыром тексте) — матч только join токенов.
+- Русская морфология / settings language gate.
+- Offline / auto translate prefilling.
+- Drag / long-press select; highlight на translation pane.
+- Ручной UI merge-коллизий; облачный sync.
+- Legacy stub cleanup UI (пользователь чистит старые ряды сам).
 
 ## Capabilities
 
 ### New Capabilities
 
-- `reader/highlight`: подсветка сохранённых single-token лемм на оригинале; refresh marks; тап → edit-sheet (translation/context, upsert/delete).
+- (нет) — `reader/highlight` уже введён этим change; delta расширяет поведение.
 
 ### Modified Capabilities
 
-- `reader/tap`: сужение Add до single-token; убрать multi-token contiguous Add/phrase surface из текущего MVP; in_vocab bypass CTA в пользу highlight/edit.
-- `dictionary/entries`: morph lemma как unique identity; `surface_key` для legacy/lookup; одноразовая migration с merge по `updated_at`; stub-only normalize больше не является ключом identity.
+- `reader/highlight`: phrase spans + overlap paint/edit priority; отмена «phrases never highlight».
+- `reader/tap`: contiguous Add restored; phrase save key = casefold(join); single = morph.
+- `dictionary/entries`: Reader MAY добавлять multi-word keys; phrase identity = casefold(join).
 
 ## Impact
 
-- Sibling app: зависимость lemmatizer (EN); расширение tokenize/lemma FRB контракта (`lemma_key` / `is_in_vocab` / `mark_vocab_tokens` / `lemma_keys_for_surfaces`); Reader paint + gesture ветвление; Drift schema + migration; theme highlight tokens.
-- Meta: delta specs + skills reader/tokenize/dictionary/styles (канон morph highlight).
-- Совместимость: существующие stub-записи мигрируют один раз; фразовые записи остаются в словаре, но не подсвечиваются до later.
+- Sibling app: расширить `mark_vocab_tokens` (или связанный mark) под phrase windows; вернуть selection state machine; sheet save branch single vs phrase; tests RH/RT/DE.
+- Meta: delta specs/design/tasks + skills reader tap/highlight после apply.
+- Совместимость: schema 4 / morph pipeline уже в коде; этот delta — поведение поверх shipped foundation.
 
 ## References
 
-- Explore-решения: D1=B morph сразу; D2=`wordnet-lemmatizer`; D3=EN-only; D4=Rust `is_in_vocab`; D5=single-token; D6=dual-key + migrate on schema migration; Q1–Q8 (merge по max `updated_at`; phrases не highlight; tap in_vocab → edit; Add single-token; WordNet всегда; theme green tint).
-- `docs/projects-map.md`, `openspec/config.yaml` (домен `reader/highlight`).
-- Sibling `../my_translator_app/AGENTS.md`.
-- Skills (не дублировать): `work-with-reader` / highlight, `work-with-tokenizematize` / lemmatize, `work-with-dictionary`, `work-with-styles`, `work-with-drift`, FRB skills.
+- Explore (phrase restore): D1=A phrase key casefold(join) + token match; morph singles only; paint all tokens; edit on tap; overlaps paint both; tap priority longest>shorter>single; selection = tap-vocab machine; legacy rows user deletes.
+- Prior explore/ship: morph WordNet; Drift dual-key; `ReaderColors`; edit singles.
+- Archived `add-reader-tap-vocab` (contiguous selection reference).
+- `docs/projects-map.md`, sibling `../my_translator_app/AGENTS.md`.
+- Skills: `work-with-reader` / tap+highlight, `work-with-tokenizematize`, `work-with-dictionary`, `work-with-styles`, `work-with-drift`, FRB.

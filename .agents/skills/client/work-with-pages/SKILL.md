@@ -77,15 +77,14 @@ If the route name or screen placement is unclear, ask the user before editing.
 |------|------|-------|
 | Shell | `lib/app/` | Drift open + Library \| Vocab — [shell.md](shell.md) |
 | Library / upload | `lib/features/upload/` | Folders + import; open → parse → Reader — [upload.md](upload.md) |
-| Reader (cues + tap + highlight + split) | `lib/features/reader/` | Cues, single-token tap→sheet, lemma highlight/edit (`reader/tap`, `reader/highlight`), split — [reader.md](reader.md) |
-| Vocabulary | `lib/features/vocab/` | Dict CRUD via Drift (morph lemma) — [vocab.md](vocab.md) |
+| Reader (cues + tap + highlight + split) | `lib/features/reader/` | Cues, contiguous tap→sheet, lemma/phrase highlight/edit (`reader/tap`, `reader/highlight`), split — [reader.md](reader.md) |
+| Vocabulary | `lib/features/vocab/` | Dict CRUD via Drift (morph + phrase keys) — [vocab.md](vocab.md) |
 | Data | `lib/data/` | Repositories / schema — `work-with-drift` |
 
 ### Next / not all in tree yet
 
 | Area | Suggested path | Notes |
 |------|----------------|-------|
-| Phrase highlight / phrase Add | `lib/features/reader/` | Contiguous multi-token — later |
 | Settings | `lib/features/settings/` | Languages; later optional AI — [settings.md](settings.md) |
 
 Entry stays thin:
@@ -116,7 +115,7 @@ Examples:
 
 - Upload / library — folders + import via Drift; document tap → parse → Reader
   ([upload.md](upload.md)).
-- Reader — cues + tokenize + mark + single-token Add / in-vocab edit + highlight
+- Reader — cues + tokenize + mark + contiguous Add / in-vocab edit + highlight
   ([reader.md](reader.md)).
 - Split — two panes, sync scroll; translation lines from Rust, not Dart
   string hacks ([reader.md](reader.md)).

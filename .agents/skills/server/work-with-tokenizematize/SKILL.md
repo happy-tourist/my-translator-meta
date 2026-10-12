@@ -45,8 +45,8 @@ Flutter selection/CTA/sheet (→ **work-with-reader**); test harness shape alone
 | Split words, punctuation policy, char spans | Rust `tokenize/` |
 | Batch FRB export | Rust `api/tokenize.rs` |
 | Hit-test / selection chrome | Flutter (`work-with-reader`) |
-| Dict key on save | Morph `lemma_key` from Rust (call site → Drift) |
-| Morph lemma / highlight membership | Rust — [lemmatize.md](lemmatize.md) (`mark_vocab_tokens`) |
+| Dict key on save | Single: morph `lemma_key`; phrase: casefold(join) (call site → Drift) |
+| Morph + phrase highlight membership | Rust — [lemmatize.md](lemmatize.md) (`mark_vocab_tokens` / `mark_vocab_flags`) |
 
 Anti-pattern: Dart `RegExp` word split for product tap; inventing alternate
 lemma field names outside the locked OpenSpec DTO.
@@ -63,7 +63,7 @@ lemma field names outside the locked OpenSpec DTO.
 | Neighbor | Boundary |
 |----------|----------|
 | **work-with-parse** | Supplies cue text; tokenize does not parse files |
-| **work-with-dictionary** | Persist by morph `lemma` (+ `surface_key`); membership via FRB marks |
+| **work-with-dictionary** | Persist by morph / phrase `lemma` (+ `surface_key`); membership via FRB marks |
 | **work-with-frb-api** | Thin `api/` + codegen after changes |
 | **server-work-with-test** | `cargo test` on `tokenize/` + `lemmatize/` |
 | **work-with-reader** | Consumes tokens for paint/tap/highlight; no Dart NLP |

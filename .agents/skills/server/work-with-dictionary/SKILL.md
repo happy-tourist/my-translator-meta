@@ -1,11 +1,12 @@
 ---
 name: work-with-dictionary
 description: >-
-  Personal vocabulary domain for Translation Reader (my_translator_app): lemma
-  keys, translation/context model, lookup-by-lemma for reader highlight. User
-  CRUD persistence is Drift in Flutter lib/ (not Rust SQLite / FRB storage).
-  Use when clarifying Rust NLP handoff to vocab, lemma-key contracts, or thin
-  FRB compute helpers — not for implementing Drift DAOs (client skills).
+  Personal vocabulary domain for Translation Reader (my_translator_app): morph
+  and phrase lemma keys, translation/context model, lookup-by-lemma for reader
+  highlight. User CRUD persistence is Drift in Flutter lib/ (not Rust SQLite /
+  FRB storage). Use when clarifying Rust NLP handoff to vocab, lemma-key
+  contracts, or thin FRB compute helpers — not for implementing Drift DAOs
+  (client skills).
 ---
 
 # Work With Dictionary
@@ -45,10 +46,11 @@ reassigns persist to Rust.
 
 ## When to Use
 
-- Clarify morph lemma as the stable key; translations + optional context +
-  `surface_key`
-- Lookup-by-lemma / membership for Reader highlight: Drift morph lemmas → FRB
-  `mark_vocab_tokens` (`is_in_vocab`); Flutter paints flags only
+- Clarify morph lemma (singles) and casefold(join) phrase identity; translations
+  + optional context + `surface_key`
+- Lookup-by-lemma / membership for Reader highlight: Drift lemmas → FRB
+  `mark_vocab_tokens` (morph **or** phrase windows → `is_in_vocab`); Flutter
+  paints flags only
 - Wire thin FRB exports for **NLP/gloss** that feed vocab — not for storing
   entries
 - Review whether a change wrongly adds rusqlite / FRB CRUD for user dict
@@ -64,29 +66,32 @@ generation → `work-with-translate`; FRB codegen mechanics →
 
 | Field | Role |
 |-------|------|
-| **Lemma** | Morph identity (from Rust `lemma_key`). Match key for highlight across wordforms (`run` / `running` / `ran`) |
-| **surface_key** | Casefold surface / legacy stub (dual-key; not unique) |
+| **Lemma** | Single: morph identity (`lemma_key`). Phrase: casefold(join surfaces). Match key for highlight across wordforms / phrase spans |
+| **surface_key** | Casefold surface or phrase join (`normalizeSurface` collapses whitespace); dual-key; not unique |
 | **Translation(s)** | One or more gloss strings the user keeps |
 | **Context** | Optional source phrase and/or subtitle cue text at add time |
 | **Ids / timestamps** | Stable entry id + created/updated in Drift |
 
 Rules:
 
-- Identity for highlight / upsert = **morph lemma** (`lemma_key` from Rust),
-  not raw surface. Call sites supply morph keys (Reader `token.lemmaKey` /
-  FRB `lemma_keys_for_surfaces`) — repo does **not** embed WordNet.
-- Store **`surface_key`** alongside morph `lemma` (schema 4; stub→morph
-  `migrateStubKeysIfNeeded` post-open).
+- Identity for highlight / upsert = **morph lemma** (singles) or **phrase
+  join** (multi-word), not raw surface casing. Call sites supply keys (Reader
+  single `token.lemmaKey` / phrase join; Vocab: `lemma_keys_for_surfaces` for
+  singles, casefold identity for multi-word input) — repo does **not** embed
+  WordNet.
+- Store **`surface_key`** alongside `lemma` (schema 4; stub→morph
+  `migrateStubKeysIfNeeded` post-open). `normalizeSurface` collapses internal
+  whitespace so phrase keys match Rust join.
 - Membership for paint = Rust `is_in_vocab` via `mark_vocab_tokens` — not
   Dart-only surface compare as sole truth.
-- Duplicate lemma policy = upsert by morph key — see OpenSpec
+- Duplicate lemma policy = upsert by lemma key (morph or phrase) — see OpenSpec
   `dictionary/entries`.
 
 ## Operations (product CRUD + lookup)
 
 | Op | Intent | Layer |
 |----|--------|-------|
-| **Add** | Persist morph lemma + `surface_key` + translation(s) + optional context | **Drift** (Vocab UI **and** Reader Add sheet) |
+| **Add** | Persist morph/phrase lemma + `surface_key` + translation(s) + optional context | **Drift** (Vocab UI **and** Reader Add sheet) |
 | **List** | Return entries for Vocabulary screen | **Drift** |
 | **Update** | Change translation(s) and/or context | **Drift** (Reader edit sheet; Vocab edit when UI supports) |
 | **Remove** | Delete entry; refresh marks / clear highlight | **Drift** |

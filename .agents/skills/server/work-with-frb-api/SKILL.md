@@ -69,7 +69,7 @@ in `simple` — do **not** grow product features by stuffing logic into
 | Rust | Behavior now | Product role |
 |------|--------------|--------------|
 | `api/parse.rs` | `parse_subtitles` | Shipped |
-| `api/tokenize.rs` | `tokenize_cues`, `mark_vocab_tokens`, `lemma_keys_for_surfaces`; `TokenDto.lemma_key` / `is_in_vocab` | Shipped |
+| `api/tokenize.rs` | `tokenize_cues`, `mark_vocab_tokens` (morph + phrase windows), `lemma_keys_for_surfaces`; `TokenDto.lemma_key` / `is_in_vocab` | Shipped |
 | `api/simple.rs` `process_text` / `add_numbers` | Demo uppercase / add | Demo only |
 | `init_app` (`#[frb(init)]`) | `setup_default_user_utils()` | Real init hook — keep / extend carefully |
 
@@ -105,7 +105,7 @@ they specify):
 | **parse** | SRT / VTT / ASS → cues (text, timecodes) | Bytes/path/string in → structured cues out |
 | **tokenize** | Batch `tokenize_cues` → word tokens + char spans + morph fields | Shipped (`api/tokenize.rs`) |
 | **dictionary** | (not FRB persist) | User CRUD = Drift; do not add Rust SQLite dict API unless OpenSpec says so |
-| **lemmatize / mark** | `lemma_key` fill + `mark_vocab_tokens` + `lemma_keys_for_surfaces` | Shipped (`lemmatize/` + thin exports on `api/tokenize.rs`) |
+| **lemmatize / mark** | `lemma_key` fill + `mark_vocab_tokens` (morph + phrase) + `lemma_keys_for_surfaces` | Shipped (`lemmatize/` + thin exports on `api/tokenize.rs`) |
 | **translate** | Offline word/phrase translate | Later compute; keep provider/AI behind domain; thin export |
 | **(later) AI** | Optional explain/translate | Only when product opts in; still thin `api/` |
 

@@ -113,9 +113,10 @@ final rc = Theme.of(context).extension<ReaderColors>()!;
 Rules:
 
 - Define **light and dark** pairs; verify contrast on reader surface.
-- Selection chrome (Add CTA / selected token) stays separate from vocab
-  highlight; do not overload `lemmaHighlight` for phrase selection unless a
-  change adds a dedicated token.
+- Selection chrome (Add CTA / selected token range) stays separate from vocab
+  highlight; gap-reset flash (~300ms) uses `ColorScheme.tertiaryContainer` /
+  `onTertiaryContainer` — do not overload `lemmaHighlight` for selection or
+  flash.
 - Vocab list badges / chips reuse the same extension — do not invent a second
   green.
 - Do not bake highlight hex into Rust FFI models.

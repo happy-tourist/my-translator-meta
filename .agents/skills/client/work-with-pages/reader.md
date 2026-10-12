@@ -9,13 +9,13 @@ Highlight: `work-with-reader` / `highlight.md`.
 
 | Surface | Path | Role |
 |---------|------|------|
-| Reader (cues + split + tap + highlight) | `lib/features/reader/reader_screen.dart` | Stateful; batch tokenize + mark; single-token Add; in-vocab edit; AppBar split toggle; delete translation in bottom-pane top chrome |
+| Reader (cues + split + tap + highlight) | `lib/features/reader/reader_screen.dart` | Stateful; batch tokenize + mark; contiguous Add (phrase); in-vocab edit; AppBar split toggle; delete translation in bottom-pane top chrome |
 | Cue row | `lib/features/reader/cue_row.dart` | Timestamp + text; original pane token hit-targets + vocab highlight paint |
 | Char slice helper | `lib/features/reader/cue_char_slice.dart` | Unicode scalar slice matching Rust char spans |
 | Tokenize / mark seams | `lib/features/reader/tokenize_cues_fn.dart` (+ mark / lemma-keys typedefs) | Injectable FRB seams for tests |
 | Nearest-time helper | `lib/features/reader/nearest_cue_index.dart` | Pure `nearestCueIndex` (`BigInt` `startMs`) |
 | Time format | `lib/features/reader/cue_time_format.dart` | `HH:MM:SS,mmm` |
-| Add-vocab sheet | local in `reader_screen.dart` (`_AddVocabSheet`) | Single-token surface + translation + context → Drift morph lemma |
+| Add-vocab sheet | local in `reader_screen.dart` (`_AddVocabSheet`) | Surface (single or phrase join) + translation + context → Drift (morph / phrase key) |
 | Edit-vocab sheet | local in `reader_screen.dart` | In-vocab tap: lemma/surface RO + translation/context + delete |
 | Highlight paint | `cue_row` + `ReaderColors` | `is_in_vocab` → `lemmaHighlight` theme token |
 | Split view (MVP: `reader/split`) | Reader **mode** (same screen; `scrollable_positioned_list` panes) | Top: original; bottom: loaded translation; time-nearest + alignment settle; RS-10/11 scroll preserve on Show **and** Hide; RS-12 resume via `initialReadingAnchor` |
@@ -35,34 +35,36 @@ shell tab. Ctor requires `dictionaryRepository` (Shell → Library → Reader).
 ### Tap → vocabulary (current: `reader/tap`)
 
 - Batch-tokenize **original** cues on open (`tokenizeCues`); mark with Drift
-  morph lemmas (`markVocabTokens`); cache; plain text until ready / on FRB
-  failure (`readerTokenizeErrorSnack`).
-- **Single-token** selection on original → bottom CTA → Add sheet (manual
-  translation; context = cue text) → `dictionaryRepository.add` with morph
-  `lemmaKey` + `surfaceKey`. No contiguous multi-token Add in this change.
-- Tap `is_in_vocab` → edit sheet (no Add CTA); see highlight section.
+  lemmas (`markVocabTokens`: morph + phrase); cache; plain text until ready /
+  on FRB failure (`readerTokenizeErrorSnack`).
+- **Contiguous tap** selection on original (expand / shrink / gap-flash; one
+  cue) → bottom CTA → Add sheet (manual translation; context = cue text) →
+  `dictionaryRepository.add`: single → morph `lemmaKey` + `surfaceKey`;
+  phrase → casefold(join) for both.
+- Tap `is_in_vocab` → edit sheet (D8 longest-phrase resolve; no Add CTA).
 - Translation pane: no token selection / no vocab highlight.
 - Details: `work-with-reader` / `tap.md`.
 
 ### Highlight (current: `reader/highlight`)
 
-- Paint `is_in_vocab` tokens with `ReaderColors.lemmaHighlight` (light+dark).
+- Paint `is_in_vocab` tokens with `ReaderColors.lemmaHighlight` (light+dark)
+  — morph singles and all tokens in matched phrase spans.
 - Refresh marks after Reader Add/edit save or delete (re-`markVocabTokens`).
 - Details: `work-with-reader` / `highlight.md`.
 
 ### Later
 
-- Offline translate / richer word-card chrome; phrase contiguous Add + phrase
-  highlight.
+- Offline translate / richer word-card chrome; drag / long-press select.
 
 ## Add-vocab sheet
 
 Minimum fields:
 
-- Surface (read-only from single-token selection)
+- Surface (read-only from selection: single surface or phrase join)
 - Translation (required, initially empty — user-entered)
 - Context (editable; prefill = full cue text)
-- Save → Drift upsert by morph `lemmaKey` (+ `surfaceKey`); same policy as Vocab UI
+- Save → Drift upsert: single morph `lemmaKey` + `surfaceKey`; phrase
+  casefold(join); same policy as Vocab UI
 
 Not a shell destination. Success closes sheet, clears selection, refreshes marks.
 
@@ -110,4 +112,4 @@ ReaderScreen (single-pane or split mode)
 - Parse SRT in the widget tree.
 - Hand-edit generated FRB types for tokens — extend Rust `api/` + codegen.
 - Open an instant word card with invented translation on every tap (Add = CTA + sheet; in-vocab = edit sheet).
-- Contiguous multi-token Add / Dart-only membership as sole highlight truth.
+- Dart-only membership as sole highlight truth (use FRB `is_in_vocab`).

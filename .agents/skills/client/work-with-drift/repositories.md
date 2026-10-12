@@ -43,11 +43,14 @@ UI maps these to short copy (SnackBar / inline) — see
 - **Shared parse seams (Library + Reader):**
   `lib/data/library/parse_subtitles_fn.dart` (`ParseSubtitlesFn`),
   `lib/data/library/parse_error_messages.dart` (`messageForParseError`).
-- **Dictionary:** add (morph `lemma` + `surfaceKey` + translation + optional
-  context), list, remove, lookup by morph lemma. Call site supplies morph key
-  (Reader: `token.lemmaKey`; Vocab/migration: FRB `lemmaKeysForSurfaces`) —
-  repository does **not** embed WordNet. Schema 4+: `surface_key` column;
-  post-open idempotent stub→morph `migrateStubKeysIfNeeded` (see OpenSpec
+- **Dictionary:** add (`lemma` + `surfaceKey` + translation + optional context),
+  list, remove, lookup by lemma. Call site supplies key — single morph
+  (`token.lemmaKey` / FRB `lemmaKeysForSurfaces`) or phrase
+  `normalizeSurface(join)` — repository does **not** embed WordNet.
+  `normalizeSurface` collapses internal whitespace (phrase parity with Rust).
+  Lookup: exact `lemma` first; multi-word also accepts legacy rows that only
+  differ by irregular whitespace. Schema 4+: `surface_key` column; post-open
+  idempotent stub→morph `migrateStubKeysIfNeeded` (OpenSpec
   `add-reader-lemma-highlight` D4 / D5.1).
 
 Keep business validation in repositories (trim, empty checks, parent exists).

@@ -2,9 +2,9 @@
 name: work-with-reader
 description: >-
   Use when implementing or changing Translation Reader UX: cue/line rendering,
-  word tap / single-token selection, bottom CTA + add-vocab sheet, vocab lemma
-  highlight paint (morph lemma), edit sheet on in-vocab tap, split view
-  original↔translation, or sync scroll. Not for scaffold demo TextField /
+  word tap / contiguous token selection (phrase Add), bottom CTA + add-vocab
+  sheet, vocab lemma/phrase highlight paint, edit sheet on in-vocab tap, split
+  view original↔translation, or sync scroll. Not for scaffold demo TextField /
   processText. Cross-cut: work-with-pages (placement), work-with-frb
   (API/codegen), work-with-styles (tokens/theme).
 ---
@@ -32,8 +32,9 @@ package: `package:my_translator_app/...`.
 ## When to Use
 
 - Cue/line list, tap selection on original tokens, add-to-vocab sheet
-- Single-token Add (phrase multi-tap later); in_vocab → edit sheet
-- Vocab highlight by morph lemma (see highlight.md; OpenSpec `add-reader-lemma-highlight`)
+- Contiguous tap Add (expand / shrink / gap-flash; one cue); in_vocab → edit sheet
+- Vocab highlight by morph lemma **and** phrase windows (see highlight.md;
+  OpenSpec `add-reader-lemma-highlight`)
 - Split view + synchronized scroll
 - Empty / loading / no-translation / tokenize-degrade reader states
 
@@ -47,7 +48,7 @@ skills by name.
 |---------|--------|
 | Parse SRT/VTT/ASS → cues | Rust |
 | Batch tokenize cue display strings (`tokenize_cues`) | Rust (`panko` wrap); Flutter caches |
-| Morph lemmatize / lemma_key / is_in_vocab flags | Rust (`add-reader-lemma-highlight`); Flutter paints flags + passes morph key into Drift |
+| Morph lemmatize / lemma_key / is_in_vocab (morph + phrase) | Rust (`add-reader-lemma-highlight`); Flutter paints flags + passes morph/phrase key into Drift |
 | Offline word/phrase translate | **Later** Rust |
 | Dictionary CRUD persist | Flutter Drift (`DictionaryRepository`; morph lemma from call site) |
 | Token spans for hit-test | Rust prepares; Flutter paints |
@@ -75,20 +76,24 @@ paint uses `cueCharSlice` (runes), matching Rust Unicode scalar spans.
 
 | Gesture / action | Behavior |
 |------------------|----------|
-| Tap non-vocab original token | Select **single** word; show Add CTA |
-| Tap another non-vocab | Replace selection (no multi-token expand) |
-| Tap in-vocab (`is_in_vocab`) | Edit sheet (no Add CTA) — [highlight.md](highlight.md) |
-| CTA | Add sheet → manual translation + context → Drift save by morph `lemmaKey` |
+| Tap non-vocab (empty) | Select `[T,T]`; show Add CTA |
+| Tap adjacent non-vocab (same cue) | Expand contiguous range |
+| Tap inside multi-token range | Shrink to `[T,T]` |
+| Gap tap (same cue) | Reset to `[T,T]` + ~300ms flash |
+| Other cue non-vocab | Move to that cue’s `[T,T]` |
+| Tap in-vocab (`is_in_vocab`) | Edit sheet (D8 longest-phrase resolve; no Add CTA) — [highlight.md](highlight.md) |
+| CTA | Add sheet → manual translation + context → Drift (single: morph; phrase: casefold(join)) |
 | After Add/edit save or delete | Refresh marks via `markVocabTokens` |
-| Drag / long-press / contiguous phrase | **Not** in this change |
+| Drag / long-press select | **Later** (tap-contiguous is shipped) |
 | Instant word card + offline gloss | **Later** |
 
 Details: [tap.md](tap.md).
 
-## Highlight by Lemma
+## Highlight by Lemma / Phrase
 
 - Capability `reader/highlight` (OpenSpec `add-reader-lemma-highlight`).
-- Match key = morph **lemma**; paint via `ReaderColors.lemmaHighlight`.
+- Match = morph **lemma** singles **or** consecutive phrase windows; paint via
+  `ReaderColors.lemmaHighlight`.
 - Details: [highlight.md](highlight.md).
 
 ## Split View + Sync Scroll
@@ -143,9 +148,11 @@ Canon product scenarios: `{app}/AGENTS.md`.
 
 - [ ] Original cues from Rust parse; tokenize batch once on open (cache)
 - [ ] Char spans → `cueCharSlice`; no Dart NLP / UTF-16 substring traps
-- [ ] Single-token Add selection + CTA + sheet → Drift with morph `lemmaKey`
+- [ ] Contiguous Add selection (expand/shrink/gap-flash) + CTA + sheet → Drift
+      (single morph / phrase casefold(join))
 - [ ] Translation pane without token selection / vocab highlight
-- [ ] Highlight + edit sheet from Rust `is_in_vocab`; refresh marks after dict mutation
+- [ ] Highlight (morph + phrase) + edit sheet (D8) from Rust `is_in_vocab`;
+      refresh marks after dict mutation
 - [ ] Split sync: MVP time-nearest (`startMs`) + settle; target index+placeholders when pairing exists
 - [ ] Show **and** Hide split preserve original scroll; Delete in bottom-pane chrome (not AppBar)
 - [ ] Reading anchor: restore on open; save on settle/dispose (not while syncing)

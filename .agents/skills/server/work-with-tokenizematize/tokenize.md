@@ -47,7 +47,8 @@ pub fn lemma_keys_for_surfaces(surfaces: Vec<String>) -> Vec<String>;
 - Infallible for valid UTF-8 `String`; empty / whitespace-only → empty `tokens`.
 - Do not invent alternate morph field names.
 - Reader MUST call **batch** `tokenize_cues` once on open (not per-row rebuild),
-  then `mark_vocab_tokens` with Drift morph lemmas.
+  then `mark_vocab_tokens` with Drift lemmas (morph singles **and** phrase keys).
+  Mark logic lives in `lemmatize::mark_vocab_flags` — see [lemmatize.md](lemmatize.md).
 
 ## Algorithm (display-string contract)
 

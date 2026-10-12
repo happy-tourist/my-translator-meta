@@ -74,7 +74,7 @@ Skills for this client live under `.agents/skills/client/` in
 |------|--------|-----------------|
 | Upload / Library | `features/upload/` | Folders + import (`library_screen.dart`) — **present** |
 | Vocab | `features/vocab/` | Dictionary list / add / remove — **present** |
-| Reader | `features/reader/` | Line list, single-token tap, lemma highlight/edit (`reader/highlight`) |
+| Reader | `features/reader/` | Line list, contiguous tap Add, lemma/phrase highlight/edit (`reader/highlight`) |
 | Split view | under `reader/` (or `features/split/`) | Original ↔ translation panes (`reader/split`) |
 | Settings | `features/settings/` | Languages; later optional AI (later) |
 

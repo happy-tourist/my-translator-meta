@@ -26,3 +26,18 @@
 - [x] 4.1 `flutter analyze` в app — verify: без новых ошибок в затронутых путях
 - [x] 4.2 Повторить `cargo test` + целевой `flutter test` по Traceability (RH-*, RT-* из delta, DE-12…DE-17) — verify: зелёные
 - [x] 4.3 Smoke WASM/size: `cargo check` для web target crate и/или `flutter build web` (или apk) после добавления `wordnet-lemmatizer` — verify: сборка проходит; размер не блокирует (см. design Risks)
+
+## 5. Phrase mark + restore contiguous Add (delta)
+
+- [x] 5.1 Прочитать обновлённые `design.md` (D2 delta, D5, D8), deltas `reader/highlight` (RH-08/13/14, RH-05 priority), `reader/tap` (RT-03/04/10/14/16), `dictionary/entries` (DE-12/18); skills `work-with-reader` tap/highlight, `work-with-tokenizematize`, `work-with-frb-api`; сверить текущий `mark_vocab_tokens` и Reader selection
+- [x] 5.2 Расширить Rust `mark_vocab_tokens`: single morph set + phrase windows (casefold join `" "`); OR `is_in_vocab` на всех токенах hit; overlaps оставляют true — verify: `cargo test` RH-08 / RH-13 / RH-14 (+ регрессия RH-01/09/10)
+- [x] 5.3 Codegen только если сигнатура FRB изменилась; иначе skip — verify: Dart bindings соответствуют api; при изменении API — `flutter_rust_bridge_codegen generate` (+ `build-web` для web/pkg)
+- [x] 5.4 Вернуть Reader selection machine (expand / shrink-to-single / gap-flash ~300ms / one-cue) как tap-vocab; Add save: single → `lemmaKey`+surfaceKey; phrase → casefold(join) — verify: widget RT-02…RT-07 / RT-09 / RT-10 / RT-14 / RT-16
+- [x] 5.5 Edit на in_vocab: resolve longest phrase > shorter > single (D8); sheet upsert/delete по выбранному ключу; refresh marks — verify: RH-05…RH-07 / RH-03 / RH-04 + DE-12 / DE-18
+- [x] 5.6 Обновить fakes/тесты под inverted RH-08 и contiguous RT-*; Vocab multi-word input → casefold без WordNet — verify: targeted `flutter test` зелёный
+
+## 6. Analyze + verify (phrase delta)
+
+- [x] 6.1 `flutter analyze` в app — verify: без новых ошибок в затронутых путях
+- [x] 6.2 `cargo test` + целевой `flutter test` по Traceability RH-01…RH-14, RT-02…RT-16, DE-12/18 — verify: зелёные
+- [x] 6.3 При изменении Rust/WASM: `flutter_rust_bridge_codegen build-web` и/или `cargo check --target wasm32-unknown-unknown` — verify: без content-hash mismatch на web
