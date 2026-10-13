@@ -2,102 +2,111 @@
 
 ## Purpose
 
-Позволяет на экране Reader привязать видео к открытому документу, показывать скриншоты по секундам над списком cues (по 3 на страницу) и листать страницы, не меняя поведение tap / highlight / списка cues.
+Позволяет на экране Reader привязать видео к открытому документу и **заменить** список cues оригинала вертикальным потоком скриншотов по **каждой целой секунде** (кадр под кадром), с опциональным текстом cue под кадром и переходом к текущей позиции чтения.
 
-**Слой (намеренно без Rust):** decode кадров и probe длительности — только Dart (native FFmpeg-kit / web canvas interop) за одним фасадом; **нового** Rust/FRB video API нет; `rust/` и FRB codegen для video не трогаем. Это FE-only compute exception (аналог platform-исключения web translate), не gap NLP/parse. Persist привязки и JPEG-кэша — Drift / platform storage (`library/documents`), не Rust SQLite. Существующие FRB `parse_subtitles` / `tokenize_cues` / mark / translate — без изменений из‑за полосы.
+**Слой (намеренно без Rust):** decode кадров и probe длительности — только Dart (native FFmpeg-kit / web canvas) за одним фасадом; нового Rust/FRB video API нет. Persist привязки и JPEG-кэша — Drift (`library/documents`).
 
-Связанные capabilities: список cues — `reader/cues`; split — `reader/split`; persist привязки — `library/documents`.
+Связанные capabilities: cues — `reader/cues`; split — `reader/split`; persist — `library/documents`.
 
 ## Traceability
 
 | SC-ID | Scenario | Test intent |
 |-------|----------|-------------|
-| VF-01 | Load video shows frame strip | Flutter widget: pick ok → strip visible with pager |
-| VF-02 | Page shows three second slots | Flutter widget/unit: 1-based page N → seconds `3*(N-1)..3*(N-1)+2` (or fewer on last) |
-| VF-03 | Pager advances and shows counter | Flutter widget: next/prev + page/total |
+| VF-01 | Load video replaces original with second timeline | Flutter widget: pick ok → interleaved list visible (not 3-across strip) |
+| VF-02 | Timeline has one row per whole-video second | unit/widget: duration N sec → N rows for seconds `0..N-1` |
+| VF-03 | Empty cue text still shows frame row | Flutter widget: second without covering cue → frame + empty text |
 | VF-04 | Cue text under frame when interval covers second | unit: second inside cue → text; outside → empty |
-| VF-05 | Empty text under frame is allowed | Flutter widget: slot without covering cue shows frame without text |
-| VF-06 | Frame page change scrolls original cues | Flutter widget: change page → original list jumps near page time |
-| VF-07 | Show split scrolls translation to top | Flutter widget: with video, enable split → bottom near top/frame time |
-| VF-08 | Cue scroll does not move frame strip | Flutter widget: scroll cues → strip page unchanged |
-| VF-09 | Remove video clears strip | Flutter widget: remove → strip gone; cues unchanged |
-| VF-10 | Failed frame slot shows placeholder | Flutter widget: extract fail → placeholder in slot, others ok |
-| VF-11 | Unsupported or failed pick shows error | Flutter widget: bad pick/probe → visible error; strip not shown |
-| VF-12 | Tap and highlight still work with strip | Flutter widget: with strip, token tap / highlight still work on cues |
+| VF-05 | Load jumps to current reading time | Flutter widget: scrolled cues ~T → after load list shows around second floor(T) |
+| VF-06 | Original scroll syncs translation when split | Flutter widget: scroll interleaved original → bottom near same time |
+| VF-07 | Bottom scroll does not move original when video | Flutter widget: scroll translation → original second unchanged |
+| VF-08 | Remove video restores cue list at same time | Flutter widget: remove → cues back; position near same second |
+| VF-09 | Frames only in original pane | Flutter widget: split on → no frame widgets in bottom pane |
+| VF-10 | Failed frame row shows placeholder | Flutter widget: extract fail → placeholder; neighbors ok |
+| VF-11 | Unsupported or failed pick shows error | Flutter widget: bad pick/probe → error; timeline not shown |
+| VF-12 | Tap and highlight still work on cue text under frames | Flutter widget: token tap / highlight on text under frame |
+| VF-13 | Open/restore jumps to reading time or last second | Flutter widget: restore attachment → jump without forcing second 0 |
 
 ## ADDED Requirements
 
 ### Requirement: Load and remove video from Reader chrome
-Система SHALL позволять на экране Reader выбрать видеофайл с устройства (поддерживаемые контейнеры включают MP4 и MKV) через действие в верхней зоне chrome рядом с управлением split, и SHALL позволять убрать привязанное видео отдельным действием в той же верхней зоне. После успешной привязки система MUST показать полосу кадров над списком cues. После удаления система MUST скрыть полосу и MUST NOT оставлять привязку в сессии. Повторный выбор при уже привязанном видео SHALL заменить привязку (новый файл) и сбросить кэш кадров предыдущего файла для этого документа. Воспроизведение аудио и полноценный плеер не требуются.
+Система SHALL позволять на экране Reader выбрать видеофайл с устройства (поддерживаемые контейнеры включают MP4 и MKV) через действие в верхней зоне chrome рядом с управлением split, и SHALL позволять убрать привязанное видео отдельным действием в той же верхней зоне. После успешной привязки система MUST **заменить** список cues оригинала вертикальным second-timeline (см. ниже). После удаления система MUST вернуть обычный список cues на временном якоре текущей секунды timeline и MUST NOT оставлять привязку в сессии. Повторный выбор при уже привязанном видео SHALL заменить привязку и сбросить кэш кадров предыдущего файла для этого документа. Воспроизведение аудио и полноценный плеер не требуются.
 
-#### Scenario [VF-01]: Load video shows frame strip
+#### Scenario [VF-01]: Load video replaces original with second timeline
 - **GIVEN** Reader открыт для документа без привязанного видео
 - **WHEN** пользователь успешно выбирает поддерживаемый видеофайл
-- **THEN** над списком cues появляется полоса кадров с пагинацией
+- **THEN** панель оригинала показывает вертикальный поток кадров по секундам вместо обычного cue list (не полосу из трёх кадров над cues)
 
-#### Scenario [VF-09]: Remove video clears strip
-- **GIVEN** Reader открыт с привязанным видео и видимой полосой кадров
-- **WHEN** пользователь выполняет действие удаления видео
-- **THEN** полоса кадров скрывается, список cues и tap/highlight продолжают работать как до загрузки видео
+#### Scenario [VF-08]: Remove video restores cue list at same time
+- **GIVEN** Reader открыт с video timeline на секунде T
+- **WHEN** пользователь удаляет видео
+- **THEN** отображается обычный cue list, прокрученный к репликам около времени T; tap/highlight работают как до загрузки видео
 
 #### Scenario [VF-11]: Unsupported or failed pick shows error
 - **GIVEN** Reader открыт без видео (или с видео)
-- **WHEN** пользователь выбирает файл, который система не может использовать как видео для кадров (неподдерживаемый тип или сбой probe длительности)
-- **THEN** пользователь видит заметную ошибку, полоса кадров для этого выбора не показывается (прежняя привязка не ломается без явной замены)
+- **WHEN** пользователь выбирает файл, который система не может использовать (неподдерживаемый тип или сбой probe)
+- **THEN** пользователь видит заметную ошибку; timeline для этого выбора не показывается (прежняя привязка не ломается без явной замены)
 
-### Requirement: Paginated frame strip by whole-video seconds
-Система SHALL строить страницы кадров по **каждой целой секунде** длительности видео от `0` до `floor(durationSeconds) - 1` (или эквивалентной дискретизации на целые секунды покрытия файла). Каждая страница MUST показывать до **трёх** слотов подряд (секунда `3·(page-1)`, `+1`, `+2`); последняя страница MAY содержать меньше трёх слотов. Система SHALL показывать элементы перехода к предыдущей/следующей странице и счётчик вида текущая/всего. Извлечение кадров MUST выполняться лениво для видимой страницы (не обязательно для всех секунд сразу); уже извлечённые секунды MAY браться из кэша (см. `library/documents`).
+### Requirement: Vertical second timeline in original pane
+Система SHALL строить элементы timeline по **каждой целой секунде** длительности видео от `0` до `floor(durationSeconds) - 1`. Каждый элемент MUST показывать: JPEG-кадр (или плейсхолдер загрузки/ошибки), временную метку секунды и текстовую область cue. Элементы MUST идти **друг под другом** (один столбец), без сетки «три в ряд» и без отдельного pager страниц по 3. Извлечение кадров MUST быть ленивым для видимой области viewport (не обязательно для всех секунд сразу); уже извлечённые секунды MAY браться из кэша (`library/documents`). При `durationSeconds < 1` после probe → VF-11 (timeline не показывать).
 
-#### Scenario [VF-02]: Page shows three second slots
-- **GIVEN** привязано видео длительностью не менее девяти секунд
-- **WHEN** пользователь находится на первой странице полосы
-- **THEN** видны слоты для секунд 0, 1 и 2 (три кадра или плейсхолдеры загрузки/ошибки)
+#### Scenario [VF-02]: Timeline has one row per whole-video second
+- **GIVEN** привязано видео длительностью не менее трёх секунд
+- **WHEN** timeline отображается
+- **THEN** в потоке есть отдельные строки для секунд 0, 1, 2, … (вертикально), а не три слота одной «страницы»
 
-#### Scenario [VF-03]: Pager advances and shows counter
-- **GIVEN** привязано видео с числом секунд, дающим более одной страницы
-- **WHEN** пользователь переходит на следующую страницу
-- **THEN** отображаются следующие до трёх секунд, а счётчик страниц обновляется соответственно
+#### Scenario [VF-03]: Empty cue text still shows frame row
+- **GIVEN** ни одна cue оригинала не покрывает секунду `t`
+- **WHEN** строка секунды `t` видна
+- **THEN** кадр (или плейсхолдер) показан, текстовая область пуста, строка остаётся в списке без ошибки
+
+#### Scenario [VF-10]: Failed frame row shows placeholder
+- **GIVEN** привязано видео, extract для одной секунды завершается ошибкой
+- **WHEN** эта строка отображается
+- **THEN** в ошибочной строке виден плейсхолдер кадра, соседние строки и жесты на тексте остаются доступны
 
 ### Requirement: Optional cue text under each frame
-Для каждой секунды `t` на странице система SHALL показывать под кадром текст cue **только если** существует реплика оригинала, чей полуинтервал `[startMs, endMs)` покрывает момент `t·1000` мс (при нескольких — первая cue в порядке списка оригинала). Display-текст MUST быть join `text_lines` через `\n` (как cues-first в Reader). Если покрывающей реплики нет, система MUST оставить текстовую область пустой (это допустимое состояние, не ошибка).
+Для каждой секунды `t` система SHALL показывать под кадром текст cue **только если** существует реплика оригинала, чей полуинтервал `[startMs, endMs)` покрывает момент `t·1000` мс (при нескольких — первая cue в порядке списка оригинала). Display-текст MUST быть join `text_lines` через `\n` (как cues-first в Reader). Если покрывающей реплики нет, система MUST оставить текстовую область пустой (допустимо, не ошибка) и MUST всё равно показать строку кадра.
 
 #### Scenario [VF-04]: Cue text under frame when interval covers second
 - **GIVEN** оригинал имеет cue с `startMs`/`endMs`, покрывающими секунду `t`
-- **WHEN** страница полосы показывает слот секунды `t`
+- **WHEN** строка секунды `t` отображается
 - **THEN** под кадром виден display-текст этой реплики (`text_lines` через `\n`)
 
-#### Scenario [VF-05]: Empty text under frame is allowed
-- **GIVEN** ни одна cue оригинала не покрывает секунду `t`
-- **WHEN** страница полосы показывает слот секунды `t`
-- **THEN** кадр (или плейсхолдер) показан без текста реплики, без сообщения об ошибке из‑за отсутствия текста
+### Requirement: Jump to current reading time on load and restore
+При успешной загрузке видео (и при restore привязки при open, когда timeline показывается) система SHALL определить текущее время чтения **до** transform (время видимого верха списка cues / reading anchor / эквивалент) и MUST прокрутить second-timeline к секунде `floor(timeMs/1000)` (clamp в `[0, durationSeconds-1]`). Система MUST NOT оставлять пользователя на секунде 0, если до Load позиция чтения была существенно позже.
 
-### Requirement: One-way scroll sync from frames and split show
-При смене страницы кадров система SHALL прокрутить список оригинальных cues к области, соответствующей времени текущей страницы (якорь по времени первой секунды страницы или ближайшей cue через существующий nearest-`startMs` helper). Если режим split включён, система SHALL также выровнять нижнюю панель перевода к тому же временному якорю (как при sync split). При **включении** split система SHALL прокрутить нижнюю панель к текущему верху (позиция оригинала / время полосы кадров) и MUST NOT сбрасывать страницу полосы из‑за remount списка cues. Скролл списка cues или нижней панели split MUST NOT изменять страницу полосы кадров.
+#### Scenario [VF-05]: Load jumps to current reading time
+- **GIVEN** Reader на обычном cue list прокручен к области около 10 минут
+- **WHEN** пользователь успешно загружает видео
+- **THEN** interleaved timeline открывается около секунды ~600, а не с начала файла
 
-#### Scenario [VF-06]: Frame page change scrolls original cues
-- **GIVEN** Reader с привязанным видео, список оригинала не на начале
-- **WHEN** пользователь переключает страницу кадров на область с другим временем
-- **THEN** список оригинала прокручивается к репликам около времени новой страницы
+#### Scenario [VF-13]: Open/restore jumps to reading time or last second
+- **GIVEN** оригинал имеет сохранённую привязку видео; при open доступен reading anchor или сохранённый `last_second`
+- **WHEN** Reader восстанавливает timeline
+- **THEN** список открывается около соответствующего времени (не принудительно с секунды 0, если якорь/last_second известен)
 
-#### Scenario [VF-07]: Show split scrolls translation to top
-- **GIVEN** Reader с привязанным видео и загруженным переводом, split выключен, полоса на странице не с начала файла
-- **WHEN** пользователь включает split
-- **THEN** нижняя панель перевода показывает область около текущего верха / времени полосы, а полоса кадров не сбрасывается из‑за включения split
+### Requirement: Split sync with video timeline
+Кадры MUST отображаться **только** в панели оригинала; нижняя панель split MUST NOT содержать кадры video timeline. При включённом split и активном video timeline: скролл interleaved-оригинала SHALL прокручивать нижнюю панель перевода к ближайшей cue того же времени (reuse `nearestCueIndex`); скролл нижней панели MUST NOT изменять позицию second-timeline оригинала. При **включении** split система SHALL выровнять низ к текущему верху оригинала / текущей секунде и MUST NOT сбрасывать секунду timeline из‑за remount.
 
-#### Scenario [VF-08]: Cue scroll does not move frame strip
-- **GIVEN** Reader с привязанным видео, полоса на странице P
-- **WHEN** пользователь прокручивает список cues (или нижнюю панель split)
-- **THEN** полоса кадров остаётся на странице P
+#### Scenario [VF-06]: Original scroll syncs translation when split
+- **GIVEN** video timeline и split включены, перевод загружен
+- **WHEN** пользователь прокручивает interleaved-оригинал к другой секунде
+- **THEN** нижняя панель показывает область около того же времени
+
+#### Scenario [VF-07]: Bottom scroll does not move original when video
+- **GIVEN** video timeline на секунде T, split включён
+- **WHEN** пользователь прокручивает нижнюю панель перевода
+- **THEN** original timeline остаётся на секунде T
+
+#### Scenario [VF-09]: Frames only in original pane
+- **GIVEN** video timeline и split включены
+- **WHEN** обе панели видимы
+- **THEN** кадры присутствуют только в верхней (original) панели
 
 ### Requirement: Frame extract errors and learning gestures unchanged
-Если извлечение кадра для одной секунды не удалось, система SHALL показать плейсхолдер в этом слоте и MUST NOT блокировать остальные слоты страницы и список cues. Пока полоса кадров видна, система MUST сохранять существующее поведение tap → vocab / highlight на оригинальных cues (`reader/tap`, `reader/highlight`) без требования жестов на самих кадрах.
+Пока video timeline виден, система MUST сохранять существующее поведение tap → vocab / highlight на тексте cue под кадрами (`reader/tap`, `reader/highlight`) без требования жестов на самих кадрах.
 
-#### Scenario [VF-10]: Failed frame slot shows placeholder
-- **GIVEN** привязано видео, для одной из секунд текущей страницы extract завершается ошибкой
-- **WHEN** страница отображается
-- **THEN** в ошибочном слоте виден плейсхолдер, соседние слоты и cues остаются доступны
-
-#### Scenario [VF-12]: Tap and highlight still work with strip
-- **GIVEN** Reader открыт с полосой кадров и токенизированными cues оригинала
-- **WHEN** пользователь тапает слово на cue под полосой
-- **THEN** поведение выделения / add-vocab / highlight соответствует `reader/tap` и `reader/highlight` без регрессии из‑за полосы
+#### Scenario [VF-12]: Tap and highlight still work on cue text under frames
+- **GIVEN** Reader с video timeline и токенизируемым текстом cue под кадром
+- **WHEN** пользователь тапает слово в тексте под кадром
+- **THEN** поведение выделения / add-vocab / highlight соответствует `reader/tap` и `reader/highlight` без регрессии из‑за timeline

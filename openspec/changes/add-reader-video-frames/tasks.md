@@ -22,20 +22,32 @@
 
 ## 4. Pure helpers и strip UI
 
-- [x] 4.1 Прочитать `specs/reader/video-frames/spec.md` (VF-02…VF-05); `design.md` (D4, D5); skills `work-with-pages` / `reader.md`, `work-with-reader`
-- [x] 4.2 Pure helpers: page→seconds math; cue text at second (покрытие `[startMs,endMs)`, join `textLines` через `\n`); unit-тесты VF-02/VF-04
-- [x] 4.3 Виджет полосы: 3 слота, pager, счётчик, placeholder слота (VF-01…VF-03, VF-05, VF-10) с injectable extractor/cache
+> **Superseded (UX revision):** page-of-3 strip. 4.2–4.3 invalidated → см. §7. Cue-at-second helper остаётся полезным.
+
+- [x] 4.1 Прочитать `specs/reader/video-frames/spec.md`; `design.md` (D4, D5); skills `work-with-pages` / `reader.md`, `work-with-reader`
+- [x] 4.2 ~~Pure helpers: page→seconds math~~ → **переписать:** helpers clamp/jump `readingTimeMs → second`; unit VF-02/VF-04/VF-05 math (page-of-3 math не acceptance)
+- [x] 4.3 ~~Виджет полосы 3 слота~~ → **заменить:** виджет/список second-timeline row (кадр + timestamp + текст|пусто + placeholder) с injectable extractor/cache (VF-01…VF-03, VF-10)
 
 ## 5. Врезка в Reader + sync
 
-- [x] 5.1 Прочитать `design.md` (D4 remount, D6), VF-06…VF-09, VF-12; `reader/split` sync через `nearestCueIndex`; текущий `reader_screen.dart` AppBar/actions
-- [x] 5.2 AppBar: load / remove video рядом со split; оркестрация pick → usable path → probe → attach → показать strip; remove → detach (VF-01, VF-09, VF-11)
-- [x] 5.3 Body: `Column(strip?, single|split)`; strip **вне** remount-ветки Show/Hide; смена страницы → scroll original (+ translation если split); Show split → bottom к верху без сброса strip page; scroll cues не двигает strip (VF-06…VF-08)
-- [x] 5.4 Open из Library: best-effort `getVideoAttachment` (fail не блокирует open) → Reader ctor или load по `originalDocumentId` (LD-19); re-pick при мёртвой ссылке без потери cache (LD-22)
-- [x] 5.5 Widget-тесты VF-01, VF-03, VF-06, VF-07, VF-08, VF-09, VF-12 с fake extractor (без реального FFmpeg)
+> **Superseded:** `Column(strip?, cues)`. Replace + jump + one-way split sync → §7 / unchecked ниже.
+
+- [x] 5.1 Прочитать `design.md` (D4, D6), VF-*; текущий `reader_screen.dart`
+- [x] 5.2 AppBar load/remove: оркестрация pick → usable path → probe → attach → **replace original body timeline** + **jump к текущему reading time**; remove → detach + **restore cue list @ same second** (VF-01, VF-05, VF-08, VF-11)
+- [x] 5.3 Body: при video — timeline в original pane (не strip над cues); split — кадры только сверху; original scroll → sync bottom; bottom scroll ↛ original; Show split не сбрасывает second (VF-06, VF-07, VF-09)
+- [x] 5.4 Open из Library: best-effort `getVideoAttachment` (fail не блокирует open) → Reader (LD-19); re-pick при мёртвой ссылке (LD-22) — **дополнить jump VF-13**
+- [x] 5.5 Widget-тесты VF-01…VF-13 (убрать/переписать strip pager tests) с fake extractor
 
 ## 6. Verify
 
 - [x] 6.1 `flutter analyze` в sibling app — без новых ошибок по затронутым файлам
-- [x] 6.2 `flutter test` по добавленным/затронутым тестам (SC-ID из Traceability VF-* / LD-18…LD-23)
-- [x] 6.3 Негативная проверка Rust: **нет** новых video/FFmpeg модулей в `rust/`, **нет** изменений публичного FRB API ради video, **нет** обязательного `flutter_rust_bridge_codegen generate` из‑за этого change (D1); `cargo check` в `rust/` остаётся зелёным без video deps
+- [x] 6.2 `flutter test` по добавленным/затронутым тестам (VF-* revision / LD-18…LD-23)
+- [x] 6.3 Негативная проверка Rust: **нет** новых video/FFmpeg модулей в `rust/`, **нет** изменений публичного FRB API ради video (D1); `cargo check` в `rust/` зелёный
+
+## 7. UX revision — interleaved seconds (новый scope после strip)
+
+- [x] 7.1 Прочитать revised `proposal.md` / `design.md` D4–D6 / `specs/reader/video-frames/spec.md` (VF-01…VF-13); skill `work-with-reader/video-frames.md` — обновить канон strip→timeline при apply или в check-changes
+- [x] 7.2 Убрать использование `VideoFrameStrip` 3-в-ряд из `reader_screen`; внедрить virtualized second list (reuse `ItemScrollController` / `ScrollablePositionedList` паттерн Reader)
+- [x] 7.3 Persist якорь: `last_second` (переиспользовать/переименовать `lastFramePage`) + запись при скролле; restore jump VF-13
+- [x] 7.4 Split listeners: при video отключить sync bottom→original; сохранить original→bottom
+- [x] 7.5 Cleanup мёртвого page-of-3 UI/tests или оставить только если ещё referenced; обновить meta skill `video-frames.md` под interleaved

@@ -17,8 +17,8 @@ Use with the [core test skill](SKILL.md) for tests under `{app}/test/` run by
 ```text
 my_translator_app/test/
   features/reader/reader_screen_test.dart
-  features/reader/video_frame_strip_test.dart
-  features/reader/video_frame_page_math_test.dart
+  features/reader/video_second_timeline_test.dart
+  features/reader/video_second_math_test.dart
   features/vocab/vocab_entry_tile_test.dart
   widgets/empty_state_test.dart
 ```

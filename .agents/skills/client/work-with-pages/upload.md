@@ -34,7 +34,7 @@ Default post-scaffold **home** destination in [shell.md](shell.md).
 - **Reading anchor (LD-17 / RS-12):** best-effort `loadReadingAnchor(doc.id)` →
   pass `initialReadingAnchor` into `ReaderScreen`. Fail must not block open.
 - **Video attachment (`reader/video-frames` / LD-18…):** best-effort
-  `getVideoAttachment(doc.id)` → pass into `ReaderScreen` so the strip can
+  `getVideoAttachment(doc.id)` → pass into `ReaderScreen` so the timeline can
   restore. Fail / dead link MUST NOT block original open (keep JPEG cache;
   re-pick in Reader). Details: `work-with-reader` /
   [video-frames.md](../work-with-reader/video-frames.md).
@@ -70,6 +70,6 @@ shell tab). Wire persist through `lib/data/library/*` — see `work-with-drift`.
 ## Out of scope here
 
 - Full A/V **playback** / in-player sync timeline (product is cues-first +
-  optional still-frame strip — not a video player).
+  optional still-frame second timeline — not a video player).
 - Cloud sync of libraries.
 - Content-catalog / marketplace UI (not a product surface).

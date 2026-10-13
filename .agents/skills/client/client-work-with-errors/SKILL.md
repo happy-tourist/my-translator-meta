@@ -246,8 +246,8 @@ Reserve for confirms and true blockers. Do not wrap every FRB failure in
 | List vocab / library folders | Orchestration catch sets `error`, keeps list empty or prior data; **no** silent swallow |
 | Drift DB open | `TranslationReaderApp` error+retry — not a feature SnackBar |
 | File picker cancel | No error, no SnackBar |
-| Video probe / pick fail (`VideoFrameException`) | SnackBar / inline `userMessage`; strip not shown for that choice |
-| Per-slot JPEG extract fail | Placeholder in that slot only — not a blocking Reader error |
+| Video probe / pick fail (`VideoFrameException`) | SnackBar / inline `userMessage`; timeline not shown for that choice |
+| Per-row JPEG extract fail | Placeholder in that timeline row only — not a blocking Reader error |
 | Leave / dispose mid-request | Swallow UI update; do not set a new user error for “cancelled by dispose” |
 | `RustLib.init` | Only in `main` → fatal app; not a feature SnackBar |
 | Best-effort side effect (e.g. analytics later) | May swallow only if product says so; never hide user-visible FRB failures this way |

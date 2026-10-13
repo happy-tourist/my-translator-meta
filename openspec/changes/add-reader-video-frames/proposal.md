@@ -1,49 +1,53 @@
 ## Why
 
-При чтении субтитров пользователю не хватает визуального контекста сцены. Нужна возможность привязать к документу видеофайл, показать скриншоты по секундам над списком cues и листать их страницами, не ломая tap / highlight / split.
+При чтении субтитров пользователю не хватает визуального контекста сцены. Нужна возможность привязать к документу видеофайл и **вплести** скриншоты по секундам в поток чтения оригинала (кадр под кадром), с переходом к текущей позиции чтения, не ломая tap / highlight и не дублируя кадры в панели перевода.
 
 ## What Changes
 
-- На Reader — действия загрузить / убрать видео рядом со split; после загрузки сверху полоса из трёх кадров текущей страницы, стрелки и счётчик страниц.
-- Кадры берутся на **каждую секунду** длительности видео; под кадром текст cue только если секунда попадает в интервал реплики (пусто — нормально).
-- Список cues и жесты изучения слов работают как сейчас; полоса кадров не реагирует на скролл cues / нижней панели split.
-- Смена страницы кадров и открытие split прокручивают соответствующие панели субтитров к времени текущих кадров / текущего верха.
-- Привязка видео к документу и кэш уже извлечённых кадров переживают выход и повторный вход (durable link + JPEG посещённых секунд; при мёртвой ссылке — повторный выбор файла, сохранённые кадры остаются).
+- На Reader — действия загрузить / убрать видео рядом со split.
+- После успешной загрузки список cues оригинала **заменяется** вертикальным потоком: на **каждую целую секунду** видео — кадр, под ним опциональный текст cue (если секунда покрыта интервалом реплики; пусто — нормально, кадр всё равно в списке) и временная метка.
+- Сразу после Load (и при restore) поток **открывается на секунде, соответствующей текущей позиции чтения** (время видимого верха cues / якоря до transform).
+- Remove video — снова обычный cue list на **том же** временном якоре.
+- Кадры **только** в панели оригинала; нижняя панель split без кадров.
+- При video + split: скролл interleaved-оригинала двигает низ (перевод); скролл низа **не** двигает оригинал.
+- Привязка видео и кэш JPEG посещённых секунд переживают выход/вход (durable link; при мёртвой ссылке — re-pick, кэш остаётся).
+
+**BREAKING (относительно первой реализации strip):** убирается полоса «3 кадра в ряд над cues» и pager страниц по 3; оригинал при video преобразуется, а не дополняется верхней панелью.
 
 ## Scope
 
-- **Capability ID:** `reader/video-frames` (новое) — UI полосы кадров на Reader, пагинация по 3, извлечение кадров по секундам (native + web), опциональный текст под кадром, односторонняя sync к списку cues / split, load/remove видео в chrome Reader.
-- **Capability ID:** `library/documents` (изменяемое) — persist привязки видео к оригинальному документу (durable platform link, не обязательная копия всего файла), кэш JPEG посещённых секунд, restore при open, cascade при удалении документа, re-pick при недоступной ссылке.
-- **Слои:** Flutter UI (Reader) + Drift / platform storage для метаданных и кэша кадров; decode кадров на native через Dart FFmpeg-kit, на web через Dart canvas / web interop. **Без** нового Rust/FRB video API и без линковки FFmpeg в `rust/`. Намеренный FE-only compute exception (не gap NLP/parse); persist video — Drift, как у `library/documents`.
+- **Capability ID:** `reader/video-frames` — interleaved second timeline в original pane, load/remove, lazy extract, jump-on-load, sync rules с split, tap/highlight на тексте под кадром.
+- **Capability ID:** `library/documents` — persist привязки и JPEG-кэша (без обязательной копии всего видео); restore; cascade; re-pick; якорь секунды вместо page-of-3 при необходимости.
+- **Слои:** Flutter UI + Drift / platform storage; decode native FFmpeg-kit / web canvas за существующим Dart-фасадом. **Без** нового Rust/FRB video API.
 
 ## Out of scope
 
 - Полноценный видеоплеер, scrubber, аудиодорожка.
-- Копирование всего видеофайла в sandbox «как байты субтитров» (только durable link + JPEG-кэш).
-- Извлечение / хранение кадров в Rust; WebAssembly / WebCodecs-стеки в crate.
-- Изменение поведения tap → vocab, lemma highlight, offline translate.
-- Синхронизация полосы кадров от скролла cues или нижней панели split (низ → верх запрещён).
+- Копирование всего видеофайла в sandbox.
+- Извлечение / хранение кадров в Rust; WASM WebCodecs в crate.
+- Кадры в нижней панели split.
+- Обязательный decode всех секунд при первой загрузке (только lazy вокруг viewport + кэш).
 - Облачный sync видео и кадров.
-- Обязательный decode всех секунд при первой загрузке (только lazy по странице + кэш).
+- Изменение семантики offline translate / vocab CRUD вне текстыпод-кадром tap.
 
 ## Capabilities
 
 ### New Capabilities
 
-- `reader/video-frames`: полоса кадров на Reader (3 на страницу, pager), сэмплинг по секундам, текст под кадром по покрытию cue, load/remove, platform decode (native FFmpeg-kit / web canvas), sync сверху вниз при смене страницы и при Show split.
+- `reader/video-frames`: вертикальный поток «секунда → кадр → текст|пусто»; replace original; jump к текущему времени при load/restore; remove → cue list; sync original→translation при video, не наоборот; load/remove в chrome; platform decode.
 
 ### Modified Capabilities
 
-- `library/documents`: persist video attachment (durable link + frame JPEG cache) у оригинала; restore; cascade delete; re-attach при мёртвой ссылке без потери уже сохранённых кадров.
+- `library/documents`: persist video attachment + JPEG cache; restore в Reader как interleaved timeline; cascade; re-attach; optional `last_second` (вместо page-of-3).
 
 ## Impact
 
-- Flutter: Reader chrome + strip UI (strip вне remount Show/Hide split); оркестрация pick → usable path / probe / extract page / cache; Drift schema/repos для video link и frame cache; web facade извлечения кадра (по аналогии с `lib/data/translate/` platform split).
-- Зависимости: native FFmpeg-kit (Dart); web — `package:web` / canvas interop; без изменений публичного Rust FRB API для video. Native extract только по filesystem path (sandbox copy при `content://`).
-- Main specs (после sync): новый `reader/video-frames`; обновлённый `library/documents`.
+- Flutter: заменить `VideoFrameStrip` (3-в-ряд) на virtualized second list в original body; оркестрация load → jump; remove → restore cues; split sync rules; существующий extract/facade/Drift cache переиспользовать.
+- Зависимости: уже выбранный `ffmpeg_kit_flutter_new_video` + `package:web`; без новых Rust/FRB video API.
+- Main specs (после sync): обновить `reader/video-frames` и `library/documents`.
 
 ## References
 
 - Sibling app: `../my_translator_app/AGENTS.md`.
-- Meta: `docs/projects-map.md`; skills `work-with-pages` (reader), `work-with-reader` (split-scroll), `work-with-drift`, `work-with-env-deploy`.
-- Explore: решения D1–D10, P1 (JPEG-кэш + durable link); sync кадры/Show split → cues, не наоборот.
+- Meta: `docs/projects-map.md`; skills `work-with-reader` / `video-frames.md`, `work-with-pages`, `work-with-drift`.
+- Explore (revision): D1 A секунды вертикально; replace; jump-on-load; frames only original; original→bottom sync, bottom↛original.

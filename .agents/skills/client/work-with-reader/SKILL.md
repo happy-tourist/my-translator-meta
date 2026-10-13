@@ -4,7 +4,7 @@ description: >-
   Use when implementing or changing Translation Reader UX: cue/line rendering,
   word tap / contiguous token selection (phrase Add), bottom CTA + add-vocab
   sheet, vocab lemma/phrase highlight paint, edit sheet on in-vocab tap, split
-  view original↔translation, sync scroll, or optional video frame strip
+  view original↔translation, sync scroll, or optional video second timeline
   (OpenSpec `reader/video-frames`). Not for scaffold demo TextField /
   processText. Cross-cut: work-with-pages (placement), work-with-frb
   (API/codegen), work-with-styles (tokens/theme), work-with-drift (video meta).
@@ -39,7 +39,7 @@ Path package: `package:my_translator_app/...`.
 | Tap selection + add/edit vocab sheets | [tap.md](tap.md) |
 | Lemma / phrase highlight | [highlight.md](highlight.md) |
 | Split view + sync scroll + reading resume | [split-scroll.md](split-scroll.md) |
-| Video frame strip + extract facade | [video-frames.md](video-frames.md) |
+| Video second timeline + extract facade | [video-frames.md](video-frames.md) |
 
 ## When to Use
 
@@ -48,7 +48,7 @@ Path package: `package:my_translator_app/...`.
 - Vocab highlight by morph lemma **and** phrase windows (see highlight.md;
   OpenSpec `add-reader-lemma-highlight`)
 - Split view + synchronized scroll
-- Optional video frame strip (`reader/video-frames`) — [video-frames.md](video-frames.md)
+- Optional video second timeline (`reader/video-frames`) — [video-frames.md](video-frames.md)
 - Empty / loading / no-translation / tokenize-degrade reader states
 
 **Not this skill:** file pick/upload-only, vocab list screen CRUD chrome alone,
@@ -68,7 +68,7 @@ skills by name.
 | Dictionary CRUD persist | Flutter Drift (`DictionaryRepository`; morph lemma from call site) |
 | Token spans for hit-test | Rust prepares; Flutter paints |
 | Line list, gestures, selection chrome, CTA/Add/edit sheets | Flutter |
-| Scroll controllers + sync (incl. frames→cues one-way) | Flutter |
+| Scroll controllers + sync (incl. timeline→translation one-way when video) | Flutter |
 | Line pairing original↔translation | Target: Rust (paired data); MVP (`reader/split`): Flutter time-nearest on two parse results — no Rust pairing API |
 
 Do **not** re-tokenize or invent morph rules in Dart. Char-index slicing for
@@ -124,12 +124,13 @@ Details: [tap.md](tap.md).
   bottom-pane top chrome (not AppBar) when cues or a stuck link exist.
 - **Show / Hide split:** remounting the original list resets scroll — capture
   the top-visible anchor and `jumpTo` after layout on **both** directions
-  (RS-10, RS-11). Video frame strip MUST sit **outside** that remount branch
-  ([video-frames.md](video-frames.md)).
+  (RS-10, RS-11). With video, keep timeline scroll controllers / key outside
+  the dispose branch that remounts cue lists ([video-frames.md](video-frames.md)).
 - **Reading resume (RS-12 / LD-17):** Library loads `ReadingAnchor` and passes
   `initialReadingAnchor`; Reader restores after layout; persist on user settle
   / dispose (skip while `_syncing` unless forced pop).
-- **Video frames:** strip + one-way frames→cues + Drift attach — details in
+- **Video frames:** interleaved second timeline replacing original cues +
+  one-way timeline→translation + Drift attach — details in
   [video-frames.md](video-frames.md).
 - **Target (later):** line-index aligned when Rust supplies paired lists;
   missing translation → placeholder row that keeps index alignment.
@@ -149,7 +150,7 @@ Details: [split-scroll.md](split-scroll.md).
 | Delete translation (MVP) | Bottom-pane top chrome → empty + load; never AppBar Delete |
 | Scroll desync (MVP) | Re-run time-nearest sync from last scrolled pane; avoid raw `offset` copy |
 | Scroll desync (target paired) | Re-anchor both panes to same cue index |
-| Video strip / dead link / extract / bad pick | See [video-frames.md](video-frames.md) |
+| Video timeline / dead link / extract / bad pick | See [video-frames.md](video-frames.md) |
 | Tokenize pending | Plain text; taps/selection off until cache ready |
 | Tokenize FRB failure | Plain text + `readerTokenizeErrorSnack`; no CTA; no auto-retry |
 | Non-word gaps | Not exported as tokens; ignore / no hit target |
@@ -178,6 +179,7 @@ Canon product scenarios: `{app}/AGENTS.md`.
 - [ ] Show **and** Hide split preserve original scroll; Delete in bottom-pane chrome (not AppBar)
 - [ ] Reading anchor: restore on open; save on settle/dispose (not while syncing)
 - [ ] If video frames in scope: follow [video-frames.md](video-frames.md) checklist
-      (strip outside remount; AppBar load/remove; frames→cues; Drift; fakes)
+      (timeline controllers outside remount; AppBar load/remove;
+      timeline→translation; Drift; fakes)
 - [ ] Empty / long / no-translation (empty+load MVP) / tokenize degrade / desync handled
 - [ ] Not extending scaffold `MyHomePage` demo

@@ -80,7 +80,7 @@ Skills for this client live under `.agents/skills/client/` in
 |------|--------|-----------------|
 | Upload / Library | `features/upload/` | Folders + import (`library_screen.dart`) — **present** |
 | Vocab | `features/vocab/` | Dictionary list / add / remove — **present** |
-| Reader | `features/reader/` | Line list, contiguous tap Add, lemma/phrase highlight/edit (`reader/highlight`), optional video strip (`reader/video-frames`) |
+| Reader | `features/reader/` | Line list, contiguous tap Add, lemma/phrase highlight/edit (`reader/highlight`), optional video second timeline (`reader/video-frames`) |
 | Split view | under `reader/` (or `features/split/`) | Original ↔ translation panes (`reader/split`) |
 | Settings | `features/settings/` | Languages; later optional AI (later) |
 
@@ -143,8 +143,9 @@ Decide in this order:
    in `lib/` (data layer / repositories) — not Rust SQLite / FRB storage.
 4c. **Video frame probe / JPEG extract (`reader/video-frames`)?** → Flutter
    facade under `lib/data/video/` (platform conditional export; injectable
-   fake in tests) — **not** Rust/FRB. Strip UI under `features/reader/`;
-   attach/cache via Drift — see `work-with-reader` / `video-frames.md`.
+   fake in tests) — **not** Rust/FRB. Timeline UI under `features/reader/`
+   (`video_second_timeline.dart`); attach/cache via Drift — see
+   `work-with-reader` / `video-frames.md`.
 5. **Page-local sheet / dialog?** → Keep in the screen or extract a widget —
    **do not** invent a global dialogs registry.
 

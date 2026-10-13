@@ -68,7 +68,9 @@ Do not silently wipe user data in product builds without an OpenSpec decision.
   `RustLib.init`), not inside Drift `onUpgrade` every cold start.
 - from `< 5`: video attachment meta on the original (`videoUri` /
   `videoSandboxPath` / `videoDurationSec` / `videoLastFramePage`) +
-  `DocumentVideoFrames` JPEG BLOB cache (visited seconds). Cascade clear on
-  `deleteDocument` / folder delete. No Rust SQLite for video.
+  `DocumentVideoFrames` JPEG BLOB cache (visited seconds). Column
+  `videoLastFramePage` stores **0-based last timeline second** (D7 reuse;
+  not page-of-3). Cascade clear on `deleteDocument` / folder delete. No Rust
+  SQLite for video.
 
 Regenerate `.g.dart` after table edits.
