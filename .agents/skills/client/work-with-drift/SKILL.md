@@ -45,10 +45,11 @@ handoff → `server/work-with-dictionary`.
 lib/main.dart                 # RustLib.init → runApp(TranslationReaderApp)
 lib/app/app.dart              # openAppDatabase → soft-fail stub→morph migrate → shell
 lib/app/shell.dart            # repos + LemmaKeysForSurfacesFn into screens
-lib/data/database/            # AppDatabase schema 4+, tables, database_provider, *.g.dart
-lib/data/library/             # FolderRepository, DocumentRepository, content store
+lib/data/database/            # AppDatabase schema 5+, tables, database_provider, *.g.dart
+lib/data/library/             # FolderRepository, DocumentRepository (+ video attach/JPEG), content store
 lib/data/dictionary/          # DictionaryRepository + lemma_keys_for_surfaces_fn + exceptions
-lib/features/upload/          # Library UI (calls repositories)
+lib/data/video/               # FE extract facade (not Drift); Reader uses repos for JPEG cache
+lib/features/upload/          # Library UI (calls repositories; best-effort video restore)
 lib/features/vocab/           # Vocab UI (calls dictionary repository)
 test/support/test_database.dart
 test/data/*_repository_test.dart
@@ -72,7 +73,7 @@ web/drift_worker.js
 | Capability | Persist path |
 |------------|--------------|
 | `library/folders` | `FolderRepository` + `Folders` table |
-| `library/documents` | `DocumentRepository` + `Documents` + `DocumentContentStore` |
+| `library/documents` | `DocumentRepository` + `Documents` + `DocumentContentStore` (+ video attach / JPEG frame cache when `reader/video-frames`) |
 | `dictionary/entries` | `DictionaryRepository` + `DictionaryEntries` |
 | Settings (later) | Drift when that change lands — same `lib/data/` pattern |
 

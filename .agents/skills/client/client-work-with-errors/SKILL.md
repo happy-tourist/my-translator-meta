@@ -65,6 +65,7 @@ surfaces below.
 | Drift / sqlite I/O | Drift / sqlite3 errors | Generic save/load copy; log details |
 | File picker cancel | — | **Not** an error — return silently |
 | Pick/read permission / I/O | `PlatformException` / `FileSystemException` / similar | Short permission or “Couldn’t read file” copy |
+| Video pick / probe / extract | `VideoFrameException` (`lib/data/video/video_frame_errors.dart`) | Show `userMessage` (locked EN); never raw FFmpeg / DOM internals — see `work-with-reader` / `video-frames.md` |
 | Parse / format reject (Rust) | `ParseErrorKind` (generated) | Switch on kind → short Library copy; see [frb-parse.md](frb-parse.md) |
 | Empty list / no document | — | **Empty state**, not SnackBar error |
 
@@ -245,6 +246,8 @@ Reserve for confirms and true blockers. Do not wrap every FRB failure in
 | List vocab / library folders | Orchestration catch sets `error`, keeps list empty or prior data; **no** silent swallow |
 | Drift DB open | `TranslationReaderApp` error+retry — not a feature SnackBar |
 | File picker cancel | No error, no SnackBar |
+| Video probe / pick fail (`VideoFrameException`) | SnackBar / inline `userMessage`; strip not shown for that choice |
+| Per-slot JPEG extract fail | Placeholder in that slot only — not a blocking Reader error |
 | Leave / dispose mid-request | Swallow UI update; do not set a new user error for “cancelled by dispose” |
 | `RustLib.init` | Only in `main` → fatal app; not a feature SnackBar |
 | Best-effort side effect (e.g. analytics later) | May swallow only if product says so; never hide user-visible FRB failures this way |

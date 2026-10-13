@@ -57,6 +57,13 @@ remounted original list so the first frame is not cue 0; after the first frame
 Do **not** treat Hide as a no-op for scroll — the single-pane list is a new
 widget tree and will land at cue 0 without capture+restore.
 
+When implementing `reader/video-frames`, keep `VideoFrameStrip` **outside** the
+Show/Hide remount branch (common `Column` parent above single/split body) so
+strip page / in-flight extract survive toggle. Full strip / extract / Drift
+contracts: [video-frames.md](video-frames.md). Frame page change → one-way
+`nearestCueIndex` jump on original (+ translation if split); cue/bottom scroll
+MUST NOT change strip page.
+
 ## Reading resume (RS-12 / LD-17)
 
 Persist the **original** pane position only (not translation scroll):
@@ -73,7 +80,8 @@ Do **not** write the translation pane’s scroll as the resume key.
 
 ## Delete chrome (RS-07 / D8)
 
-- **AppBar** actions: split toggle only — **not** Delete.
+- **AppBar** actions: split toggle (+ Load/Remove video when `reader/video-frames`)
+  — **not** Delete translation.
 - When split is on and translation cues exist **or** a stuck link
   (`translationDocumentId` without cues): show Delete in a **top chrome strip
   of the bottom pane** (`readerTranslationDelete` /
@@ -112,7 +120,8 @@ Avoid copying `controller.offset` blindly between panes.
 | Show split after scroll | Restore original top-visible cue (RS-10); do not reset to 0 |
 | Hide split after scroll | Same capture+`jumpTo` (RS-11); do not reset to 0 |
 | Reopen from Library | Restore saved `startMs` + alignment on original (RS-12); fail → open at top |
-| Delete translation | Bottom-pane top chrome only; AppBar stays toggle-only |
+| Delete translation | Bottom-pane top chrome only; AppBar stays split (+ video) — never Delete |
+| Video strip present | Outside remount; frames→cues sync only (`reader/video-frames`) |
 | One cue only | Sync trivial |
 | Fast fling | Debounce or sync on scroll-end + settle; then time (MVP) or index (target) |
 | Unequal list lengths (MVP) | Expected; nearest `startMs` — do **not** invent Rust pairing |
@@ -128,5 +137,7 @@ Avoid copying `controller.offset` blindly between panes.
 | Sync logic in Rust | Flutter owns scroll; Rust only parse (MVP) or paired lines (target) |
 | Delete translation in AppBar | Bottom-pane top chrome (`readerTranslationDelete*`) |
 | Ignoring remount on Show/Hide split | Capture top-visible → post-frame `jumpTo` (RS-10 / RS-11) |
+| Putting video strip inside remounted body | Strip above single/split branch (`reader/video-frames`) |
+| Driving strip page from cue scroll | One-way frames→cues only |
 | Persisting translation-pane scroll as resume | Persist original `startMs` + alignment only (RS-12) |
 | Blocking open / settle on save/load fail | Best-effort; assert-log; continue (D10) |

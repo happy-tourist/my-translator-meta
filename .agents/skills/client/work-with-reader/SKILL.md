@@ -4,9 +4,10 @@ description: >-
   Use when implementing or changing Translation Reader UX: cue/line rendering,
   word tap / contiguous token selection (phrase Add), bottom CTA + add-vocab
   sheet, vocab lemma/phrase highlight paint, edit sheet on in-vocab tap, split
-  view original↔translation, or sync scroll. Not for scaffold demo TextField /
+  view original↔translation, sync scroll, or optional video frame strip
+  (OpenSpec `reader/video-frames`). Not for scaffold demo TextField /
   processText. Cross-cut: work-with-pages (placement), work-with-frb
-  (API/codegen), work-with-styles (tokens/theme).
+  (API/codegen), work-with-styles (tokens/theme), work-with-drift (video meta).
 ---
 
 # Work With Reader
@@ -25,9 +26,20 @@ Library owns open/parse of the original (+ best-effort linked translation +
 reading anchor) and passes the dictionary repo through. Scaffold demo in older
 docs is **not** the reader — do not grow demo chrome into product UX.
 
-Heavy compute stays in **Rust** (parse, tokenize, lemmatize / mark); Flutter
-paints, gestures, thin FRB orchestration, and Drift persist for vocab. Path
-package: `package:my_translator_app/...`.
+Heavy compute stays in **Rust** (parse, tokenize, lemmatize / mark / native
+translate); Flutter paints, gestures, thin FRB orchestration, and Drift persist
+for vocab / library. **Exception:** video frame probe/extract is **FE-only**
+under `lib/data/video/` (FFmpegKit native + web canvas) — no Rust/FRB video API.
+Path package: `package:my_translator_app/...`.
+
+## Specialized Topics
+
+| Topic | File |
+|-------|------|
+| Tap selection + add/edit vocab sheets | [tap.md](tap.md) |
+| Lemma / phrase highlight | [highlight.md](highlight.md) |
+| Split view + sync scroll + reading resume | [split-scroll.md](split-scroll.md) |
+| Video frame strip + extract facade | [video-frames.md](video-frames.md) |
 
 ## When to Use
 
@@ -36,6 +48,7 @@ package: `package:my_translator_app/...`.
 - Vocab highlight by morph lemma **and** phrase windows (see highlight.md;
   OpenSpec `add-reader-lemma-highlight`)
 - Split view + synchronized scroll
+- Optional video frame strip (`reader/video-frames`) — [video-frames.md](video-frames.md)
 - Empty / loading / no-translation / tokenize-degrade reader states
 
 **Not this skill:** file pick/upload-only, vocab list screen CRUD chrome alone,
@@ -50,10 +63,12 @@ skills by name.
 | Batch tokenize cue display strings (`tokenize_cues`) | Rust (`panko` wrap); Flutter caches |
 | Morph lemmatize / lemma_key / is_in_vocab (morph + phrase) | Rust (`add-reader-lemma-highlight`); Flutter paints flags + passes morph/phrase key into Drift |
 | Offline word/phrase translate (Vocab + Reader sheets) | Native: Rust FRB (`work-with-translate`); Web: JS behind `lib/data/translate/` facade |
+| Video frame probe / JPEG extract | Flutter only — `lib/data/video/` (`VideoFrameExtractor`; FFmpegKit / web canvas) — **not** Rust |
+| Video attachment + frame JPEG cache | Flutter Drift (`DocumentRepository` + `DocumentVideoFrames`) — see [video-frames.md](video-frames.md) |
 | Dictionary CRUD persist | Flutter Drift (`DictionaryRepository`; morph lemma from call site) |
 | Token spans for hit-test | Rust prepares; Flutter paints |
 | Line list, gestures, selection chrome, CTA/Add/edit sheets | Flutter |
-| Scroll controllers + sync | Flutter |
+| Scroll controllers + sync (incl. frames→cues one-way) | Flutter |
 | Line pairing original↔translation | Target: Rust (paired data); MVP (`reader/split`): Flutter time-nearest on two parse results — no Rust pairing API |
 
 Do **not** re-tokenize or invent morph rules in Dart. Char-index slicing for
@@ -104,14 +119,18 @@ Details: [tap.md](tap.md).
   sync by **nearest `CueDto.startMs`** (`BigInt`), then optional pixel settle —
   empty bottom + load CTA until a translation file is attached; **no** per-cue
   placeholders and **no** Rust pairing API.
-- **AppBar:** split toggle only. **Delete translation** lives in bottom-pane
-  top chrome (not AppBar) when cues or a stuck link exist.
+- **AppBar:** split toggle; when `reader/video-frames` is in scope also
+  Load/Remove video **next to** split. **Delete translation** stays in
+  bottom-pane top chrome (not AppBar) when cues or a stuck link exist.
 - **Show / Hide split:** remounting the original list resets scroll — capture
   the top-visible anchor and `jumpTo` after layout on **both** directions
-  (RS-10, RS-11).
+  (RS-10, RS-11). Video frame strip MUST sit **outside** that remount branch
+  ([video-frames.md](video-frames.md)).
 - **Reading resume (RS-12 / LD-17):** Library loads `ReadingAnchor` and passes
   `initialReadingAnchor`; Reader restores after layout; persist on user settle
   / dispose (skip while `_syncing` unless forced pop).
+- **Video frames:** strip + one-way frames→cues + Drift attach — details in
+  [video-frames.md](video-frames.md).
 - **Target (later):** line-index aligned when Rust supplies paired lists;
   missing translation → placeholder row that keeps index alignment.
 - Token selection applies to the **original** pane only (RT-08).
@@ -130,6 +149,7 @@ Details: [split-scroll.md](split-scroll.md).
 | Delete translation (MVP) | Bottom-pane top chrome → empty + load; never AppBar Delete |
 | Scroll desync (MVP) | Re-run time-nearest sync from last scrolled pane; avoid raw `offset` copy |
 | Scroll desync (target paired) | Re-anchor both panes to same cue index |
+| Video strip / dead link / extract / bad pick | See [video-frames.md](video-frames.md) |
 | Tokenize pending | Plain text; taps/selection off until cache ready |
 | Tokenize FRB failure | Plain text + `readerTokenizeErrorSnack`; no CTA; no auto-retry |
 | Non-word gaps | Not exported as tokens; ignore / no hit target |
@@ -157,5 +177,7 @@ Canon product scenarios: `{app}/AGENTS.md`.
 - [ ] Split sync: MVP time-nearest (`startMs`) + settle; target index+placeholders when pairing exists
 - [ ] Show **and** Hide split preserve original scroll; Delete in bottom-pane chrome (not AppBar)
 - [ ] Reading anchor: restore on open; save on settle/dispose (not while syncing)
+- [ ] If video frames in scope: follow [video-frames.md](video-frames.md) checklist
+      (strip outside remount; AppBar load/remove; frames→cues; Drift; fakes)
 - [ ] Empty / long / no-translation (empty+load MVP) / tokenize degrade / desync handled
 - [ ] Not extending scaffold `MyHomePage` demo

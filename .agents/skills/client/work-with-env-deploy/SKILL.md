@@ -106,6 +106,13 @@ Offline MT (Web): `web/translate_bridge.js` (loaded from `web/index.html`),
 through `lib/data/translate/` — see `work-with-translate`. COOP/COEP remain
 required for FRB WASM even when Web MT uses the JS worker.
 
+Reader video frames (`reader/video-frames`): native dep
+`ffmpeg_kit_flutter_new_video` (+ `web` for canvas extract). Do **not** add a
+second FFmpegKit package in the same build. Extract is Dart-only under
+`lib/data/video/` — no Rust/WASM video crate. Widget tests inject
+`FakeVideoFrameExtractor` (never call real FFmpeg in CI). Details:
+`work-with-reader` / `video-frames.md`.
+
 Startup contract: `main()` must `await RustLib.init()` before
 `TranslationReaderApp` (which then opens Drift). If init fails, fix
 FRB/WASM/native glue — do not bypass init for “UI-only” smoke.

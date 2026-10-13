@@ -9,12 +9,14 @@ Highlight: `work-with-reader` / `highlight.md`.
 
 | Surface | Path | Role |
 |---------|------|------|
-| Reader (cues + split + tap + highlight) | `lib/features/reader/reader_screen.dart` | Stateful; batch tokenize + mark; contiguous Add (phrase); in-vocab edit; AppBar split toggle; delete translation in bottom-pane top chrome |
+| Reader (cues + split + tap + highlight) | `lib/features/reader/reader_screen.dart` | Stateful; batch tokenize + mark; contiguous Add (phrase); in-vocab edit; AppBar split toggle (+ load/remove video when `reader/video-frames`); delete translation in bottom-pane top chrome |
 | Cue row | `lib/features/reader/cue_row.dart` | Timestamp + text; original pane token hit-targets + vocab highlight paint |
 | Char slice helper | `lib/features/reader/cue_char_slice.dart` | Unicode scalar slice matching Rust char spans |
 | Tokenize / mark seams | `lib/features/reader/tokenize_cues_fn.dart` (+ mark / lemma-keys typedefs) | Injectable FRB seams for tests |
-| Nearest-time helper | `lib/features/reader/nearest_cue_index.dart` | Pure `nearestCueIndex` (`BigInt` `startMs`) |
+| Nearest-time helper | `lib/features/reader/nearest_cue_index.dart` | Pure `nearestCueIndex` (`BigInt` `startMs`); reuse for video page→cue sync |
 | Time format | `lib/features/reader/cue_time_format.dart` | `HH:MM:SS,mmm` |
+| Video frame strip (`reader/video-frames`) | `lib/features/reader/video_frame_strip.dart` (+ `video_frame_page_math.dart`, `cue_text_at_second.dart`, `video_frame_cache.dart`) | 3 slots/page + pager above cues; **outside** split remount branch; injectable extractor/cache |
+| Video extract facade | `lib/data/video/` (`video_frame_extractor*.dart`, `video_usable_path*.dart`, `reader_video_picker.dart`, `video_frame_errors.dart`) | Native FFmpegKit / web canvas; mirror translate platform split; no Rust video API |
 | Add-vocab sheet | local in `reader_screen.dart` (`_AddVocabSheet`) | Surface (single or phrase join) + translation + context → Drift (morph / phrase key) |
 | Edit-vocab sheet | local in `reader_screen.dart` | In-vocab tap: lemma/surface RO + translation/context + delete |
 | Highlight paint | `cue_row` + `ReaderColors` | `is_in_vocab` → `lemmaHighlight` theme token |
@@ -94,12 +96,18 @@ Engine details: meta `work-with-translate`.
   Persist hidden linked document via Drift (`DocumentRepository`). Errors map
   like Library open (`ParseErrorKind`).
 - **Delete** translation: bottom-pane top chrome only (not AppBar). AppBar keeps
-  the split toggle. Stuck link without cues: Delete in that chrome, then Load.
+  the split toggle (+ video load/remove when implementing `reader/video-frames`).
+  Stuck link without cues: Delete in that chrome, then Load.
 - **Show / Hide split:** preserve original scroll (capture top-visible →
   post-frame `jumpTo`); do not reset the original list to cue 0 (RS-10, RS-11).
+  If video strip is present, keep it **above** the remounted body so page state
+  survives Show/Hide.
 - **Reading resume:** optional `initialReadingAnchor` from Library; restore
   after layout; save on settle/dispose via `DocumentRepository.saveReadingAnchor`
   (RS-12 / LD-17).
+- **Video frames (`reader/video-frames`):** attach/detach via Drift; Library open
+  best-effort restores attachment; one-way sync frames→cues only — details
+  `work-with-reader` / [video-frames.md](../work-with-reader/video-frames.md).
 - **Target (later):** sync **by cue index** when Rust supplies paired lists;
   placeholders keep alignment — see `work-with-reader` / `split-scroll.md`.
 - Toggle Reader ↔ Split from Reader chrome (app bar action or mode switch);
@@ -109,11 +117,13 @@ Engine details: meta `work-with-translate`.
 ## Layering
 
 ```text
-ReaderScreen (single-pane or split mode)
+ReaderScreen
+  → Column: optional VideoFrameStrip → single-pane or split mode body
   → widgets: cue list, token spans, CTA, add/edit sheets, empty+load, divider
-  → orchestration: DocumentRepository + parseSubtitles; tokenizeCues +
-      markVocabTokens (FRB); DictionaryRepository for sheet save/delete
+  → orchestration: DocumentRepository (+ video attach/cache); parseSubtitles;
+      tokenizeCues + markVocabTokens (FRB); DictionaryRepository; VideoFrameExtractor
       → FRB api (parse + tokenize + lemma mark); theme ReaderColors for paint
+      → video extract: Dart facade only (no FRB video)
 ```
 
 ## Do not

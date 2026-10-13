@@ -33,6 +33,11 @@ Default post-scaffold **home** destination in [shell.md](shell.md).
   Linked rows stay hidden in the folder list (`DocumentRepository.listInFolder`).
 - **Reading anchor (LD-17 / RS-12):** best-effort `loadReadingAnchor(doc.id)` →
   pass `initialReadingAnchor` into `ReaderScreen`. Fail must not block open.
+- **Video attachment (`reader/video-frames` / LD-18…):** best-effort
+  `getVideoAttachment(doc.id)` → pass into `ReaderScreen` so the strip can
+  restore. Fail / dead link MUST NOT block original open (keep JPEG cache;
+  re-pick in Reader). Details: `work-with-reader` /
+  [video-frames.md](../work-with-reader/video-frames.md).
 - Empty state (root or folder): clear CTA to create a folder (and import when inside a folder) — not the scaffold Rust demo form.
 
 ## Layering
@@ -42,14 +47,15 @@ LibraryScreen
   → orchestration (list folders/documents, import bytes/path, delete)
       → Drift repositories / DAOs   # user persist source of truth
   → on document tap: loadBytes → FRB parseSubtitles → (optional linked translation)
+      → optional getVideoAttachment (best-effort)
       → Navigator.push(ReaderScreen(
             originalCues, originalDocumentId, documentRepository,
             dictionaryRepository,   # pass-through from AppShell (reader/tap)
             translationCues?, translationDocumentId?,
-            initialReadingAnchor?, parseSubtitles?, tokenizeCues?))
+            initialReadingAnchor?, video attachment?, parseSubtitles?, tokenizeCues?))
   → original fail: SnackBar; no Reader route
   → translation fail: ignore; still push Reader with original (+ link id if any)
-  → reading-anchor fail: ignore; still push Reader (open at top)
+  → reading-anchor / video-meta fail: ignore; still push Reader
 ```
 
 - Flutter: pick file, Drift CRUD for folders/documents, show list, open-flow orchestration, Reader UI; pass `dictionaryRepository` into Reader for add-vocab sheet.
@@ -63,6 +69,7 @@ shell tab). Wire persist through `lib/data/library/*` — see `work-with-drift`.
 
 ## Out of scope here
 
-- In-player video sync (AGENTS: out of scope).
+- Full A/V **playback** / in-player sync timeline (product is cues-first +
+  optional still-frame strip — not a video player).
 - Cloud sync of libraries.
 - Content-catalog / marketplace UI (not a product surface).

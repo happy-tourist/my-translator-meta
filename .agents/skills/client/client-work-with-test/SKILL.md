@@ -106,6 +106,10 @@ List every external dependency that must be controlled:
   thin orchestration/repository interface (or callbacks) into the widget under
   test and use a fake → [frb-boundary.md](frb-boundary.md).
 - **File pickers / platform channels** — fake at the call site the screen owns.
+- **Video extract / JPEG cache (`reader/video-frames`)** — inject
+  `FakeVideoFrameExtractor` + `MemoryVideoFrameCache` (and fake
+  `ReaderVideoPicker`); never call real FFmpegKit / canvas in widget tests →
+  `work-with-reader` / `video-frames.md`.
 - **Timers / animation** — `tester.pump` / `pumpAndSettle` / fake async as
   needed → [widget-tests.md](widget-tests.md).
 - Pure Dart SUT: do **not** fake it; call it directly.

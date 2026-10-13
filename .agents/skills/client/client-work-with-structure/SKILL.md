@@ -66,6 +66,8 @@ Skills for this client live under `.agents/skills/client/` in
 | Entry | `lib/main.dart` | `RustLib.init()` + `runApp`; no feature markup |
 | App shell | `lib/app/` | `MaterialApp`, Drift open, Library\|Vocab shell |
 | Data (Drift) | `lib/data/` | Database, repositories, document content store |
+| Data (video extract) | `lib/data/video/` | FE-only frame probe/extract facade (FFmpegKit / web canvas; no FRB) |
+| Data (translate facade) | `lib/data/translate/` | Offline MT: native FRB ORT \| Web Transformers.js |
 | Features | `lib/features/<area>/` | Screen + local widgets + optional controller for one product area |
 | Shared widgets | `lib/widgets/` or `lib/shared/` | Cross-feature UI once reused |
 | Orchestration | beside screen or `…/controllers/` | Loading/error flags, Drift/FRB calls, UI models |
@@ -78,7 +80,7 @@ Skills for this client live under `.agents/skills/client/` in
 |------|--------|-----------------|
 | Upload / Library | `features/upload/` | Folders + import (`library_screen.dart`) — **present** |
 | Vocab | `features/vocab/` | Dictionary list / add / remove — **present** |
-| Reader | `features/reader/` | Line list, contiguous tap Add, lemma/phrase highlight/edit (`reader/highlight`) |
+| Reader | `features/reader/` | Line list, contiguous tap Add, lemma/phrase highlight/edit (`reader/highlight`), optional video strip (`reader/video-frames`) |
 | Split view | under `reader/` (or `features/split/`) | Original ↔ translation panes (`reader/split`) |
 | Settings | `features/settings/` | Languages; later optional AI (later) |
 
@@ -139,6 +141,10 @@ Decide in this order:
    translate on web — see `work-with-translate` + OpenSpec design D4.
 4b. **User persist (folders / documents / dictionary / settings)?** → Drift
    in `lib/` (data layer / repositories) — not Rust SQLite / FRB storage.
+4c. **Video frame probe / JPEG extract (`reader/video-frames`)?** → Flutter
+   facade under `lib/data/video/` (platform conditional export; injectable
+   fake in tests) — **not** Rust/FRB. Strip UI under `features/reader/`;
+   attach/cache via Drift — see `work-with-reader` / `video-frames.md`.
 5. **Page-local sheet / dialog?** → Keep in the screen or extract a widget —
    **do not** invent a global dialogs registry.
 

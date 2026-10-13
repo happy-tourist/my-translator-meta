@@ -40,6 +40,13 @@ UI maps these to short copy (SnackBar / inline) — see
   document only. Clamp alignment to `0.0…1.0`. Library open loads best-effort
   and passes `initialReadingAnchor` into `ReaderScreen`; persist failures must
   not block UI.
+- **Video attachment (`add-reader-video-frames` / LD-18…LD-23):**
+  `attachVideo` (`clearFrameCache` default true) / `detachVideo` /
+  `getVideoAttachment` / `saveVideoLastFramePage` + frame JPEG
+  `putFrameCache` / `getFrameCache` on the **original**; cascade on
+  `deleteDocument`; Library open best-effort restore (fail must not block);
+  durable link may die → keep cache + re-pick with `clearFrameCache: false`
+  (LD-22); replace with different duration clears prior JPEG (LD-23).
 - **Shared parse seams (Library + Reader):**
   `lib/data/library/parse_subtitles_fn.dart` (`ParseSubtitlesFn`),
   `lib/data/library/parse_error_messages.dart` (`messageForParseError`).
@@ -49,7 +56,7 @@ UI maps these to short copy (SnackBar / inline) — see
   `normalizeSurface(join)` — repository does **not** embed WordNet.
   `normalizeSurface` collapses internal whitespace (phrase parity with Rust).
   Lookup: exact `lemma` first; multi-word also accepts legacy rows that only
-  differ by irregular whitespace. Schema 4+: `surface_key` column; post-open
+  differ by irregular whitespace. Schema 5+: `surface_key` column; post-open
   idempotent stub→morph `migrateStubKeysIfNeeded` (OpenSpec
   `add-reader-lemma-highlight` D4 / D5.1).
 

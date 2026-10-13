@@ -6,7 +6,7 @@ Read with [SKILL.md](SKILL.md).
 
 | Piece | Path | Role |
 |-------|------|------|
-| Tables | `lib/data/database/tables.dart` | `Folders`, `Documents` (nullable `translationDocumentId`; `lastReadStartMs` / `lastReadAlignment` for resume), `DictionaryEntries` (`lemma` UNIQUE morph + nullable `surfaceKey`) |
+| Tables | `lib/data/database/tables.dart` | `Folders`, `Documents` (nullable `translationDocumentId`; `lastReadStartMs` / `lastReadAlignment`; video attach cols), `DocumentVideoFrames` (JPEG BLOB cache), `DictionaryEntries` (`lemma` UNIQUE morph + nullable `surfaceKey`) |
 | DB class | `lib/data/database/app_database.dart` | `@DriftDatabase`, `schemaVersion`, `driftDatabase(...)` |
 | Generated | `lib/data/database/app_database.g.dart` | **GENERATED** — never hand-edit |
 | Open helper | `lib/data/database/database_provider.dart` | `openAppDatabase()` + readiness `SELECT 1` |
@@ -59,12 +59,16 @@ data wipe — see `work-with-env-deploy` and `{app}/AGENTS.md`.
 Bump `schemaVersion` and add a Drift `MigrationStrategy` when altering tables.
 Do not silently wipe user data in product builds without an OpenSpec decision.
 
-**Present:** `schemaVersion` **4** —
+**Present:** `schemaVersion` **5** —
 
 - from `< 2`: nullable `Documents.translationDocumentId` (self-FK → `Documents.id`)
 - from `< 3`: nullable `lastReadStartMs` + `lastReadAlignment` (reading resume)
 - from `< 4`: nullable `DictionaryEntries.surfaceKey` (DDL only). Morph rewrite
   of legacy stub lemmas is **post-open** `migrateStubKeysIfNeeded` (FRB after
   `RustLib.init`), not inside Drift `onUpgrade` every cold start.
+- from `< 5`: video attachment meta on the original (`videoUri` /
+  `videoSandboxPath` / `videoDurationSec` / `videoLastFramePage`) +
+  `DocumentVideoFrames` JPEG BLOB cache (visited seconds). Cascade clear on
+  `deleteDocument` / folder delete. No Rust SQLite for video.
 
 Regenerate `.g.dart` after table edits.
