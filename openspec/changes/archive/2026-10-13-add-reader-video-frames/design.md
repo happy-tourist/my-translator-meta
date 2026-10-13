@@ -85,8 +85,8 @@ Extract / Drift / AppBar orchestration без изменений.
 
 ## Migration Plan
 
-- Small UI polish on existing `VideoFramePages` + Reader `buildCueText`.
-- No schema bump.
+- UI polish on existing `VideoFramePages` + Reader `buildCueText` (bottom pager, scroll-to-first, cue file timestamps).
+- Schema **6** already applied: `DocumentVideoMedia` for durable video bytes (Web reopen); no further bump for this polish.
 
 ## Open Questions
 

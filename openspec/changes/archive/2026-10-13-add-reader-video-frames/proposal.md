@@ -45,7 +45,7 @@
 
 ## Impact
 
-- Flutter: polish `VideoFramePages` (pager bottom, scroll controller jump, `CueRow.showTimestamp: true` when embedding cues); specs/skills; extract/Drift unchanged.
+- Flutter: `VideoFramePages` polish (pager bottom, scroll-to-first, `CueRow.showTimestamp: true`); Drift schema 6 `DocumentVideoMedia` + restore path; specs/skills (`video-frames.md`).
 - Main specs after sync: `reader/video-frames`, `library/documents`.
 
 ## References

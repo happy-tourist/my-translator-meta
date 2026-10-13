@@ -59,29 +59,29 @@
 
 ## ADDED Requirements
 
-### Requirement: Persist video attachment without copying full media
-Система SHALL при успешной привязке видео из Reader сохранять на **оригинальном** документе: durable platform reference на выбранный файл (где ОС это позволяет), длительность в секундах и кэш JPEG уже извлечённых секунд. Система MAY сохранять `last_second` и/или page index (якорь paged UI). Система MUST NOT требовать копирования всего видеофайла в хранилище субтитров. Привязка и кэш MUST переживать перезапуск приложения на поддерживаемых платформах. Система MUST сохранять JPEG посещённых секунд по мере ленивого извлечения. Повторная успешная привязка другого файла к тому же оригиналу SHALL заменить метаданные ссылки и MUST очистить кэш кадров предыдущего файла (см. UI `reader/video-frames`).
+### Requirement: Persist video attachment and durable media
+Система SHALL при успешной привязке видео из Reader сохранять на **оригинальном** документе: durable platform reference (или sentinel для Drift-media), длительность в секундах, кэш JPEG уже извлечённых секунд и, для durable reopen, **копию медиа** (`DocumentVideoMedia`: bytes + fileName). На **Web** система MUST сохранять media bytes и MUST NOT полагаться на ephemeral `blob:` URL как sandboxPath (использовать sentinel вроде `drift-media`); при reopen — воссоздать session object URL из bytes. На **native** система MAY хранить sandbox filesystem path и MAY также сохранять media bytes. Система MAY сохранять `last_second` и/или page index (якорь paged UI). Привязка, кэш и media MUST переживать перезапуск на поддерживаемых платформах. Система MUST сохранять JPEG посещённых секунд по мере ленивого извлечения. Повторная успешная привязка другого файла к тому же оригиналу SHALL заменить метаданные ссылки / media и MUST очистить кэш кадров предыдущего файла (см. UI `reader/video-frames`).
 
 #### Scenario [LD-20]: Persist video durable link and frame cache
 - **GIVEN** Reader открыт для оригинала, пользователь успешно привязал видео и просмотрел хотя бы одну секунду на странице кадров (кадр извлечён/закэширован)
 - **WHEN** приложение перезапускается и пользователь снова открывает тот же оригинал
-- **THEN** метаданные привязки и JPEG уже посещённых секунд доступны сессии Reader
+- **THEN** метаданные привязки, JPEG уже посещённых секунд и (на Web) media bytes доступны сессии Reader для restore paged frames без обязательного повторного pick
 
 #### Scenario [LD-23]: Replace video clears previous frame cache
-- **GIVEN** оригинал уже имеет привязку видео и кэш JPEG для части секунд
+- **GIVEN** оригинал уже имеет привязку видео, media и кэш JPEG для части секунд
 - **WHEN** пользователь успешно привязывает другой видеофайл к тому же оригиналу
-- **THEN** метаданные указывают на новый файл, кэш кадров предыдущего файла очищен, оригинал и перевод (если есть) остаются
+- **THEN** метаданные и media указывают на новый файл, кэш кадров предыдущего файла очищен, оригинал и перевод (если есть) остаются
 
 ### Requirement: Remove video attachment from Reader clears storage
-При удалении видео из chrome Reader система SHALL снять привязку с оригинала и MUST удалить кэш кадров этого документа. Оригинал и перевод (если есть) MUST остаться.
+При удалении видео из chrome Reader система SHALL снять привязку с оригинала и MUST удалить кэш кадров и media (`DocumentVideoMedia`) этого документа. Оригинал и перевод (если есть) MUST остаться.
 
 #### Scenario [LD-21]: Remove video clears attachment and frame cache
-- **GIVEN** оригинал имеет привязку видео и кэш кадров
+- **GIVEN** оригинал имеет привязку видео, media и кэш кадров
 - **WHEN** пользователь удаляет видео в Reader
-- **THEN** durable link и кэш кадров очищены, оригинал остаётся в папке
+- **THEN** durable link, media и кэш кадров очищены, оригинал остаётся в папке
 
 ### Requirement: Dead video link keeps cache and allows re-attach
-Если при open или при запросе кадра секунды durable link недоступен, система SHALL сохранить уже закэшированные JPEG и MUST позволять пользователю заново выбрать видеофайл (re-pick), восстанавливая возможность извлечения недостающих секунд. Уже сохранённые кадры MUST оставаться доступны для соответствующих секунд.
+Если при open или при запросе кадра секунды durable link / session playback ref недоступен, система SHALL сохранить уже закэшированные JPEG и MUST позволять пользователю заново выбрать видеофайл (re-pick), восстанавливая возможность извлечения недостающих секунд. Когда media bytes сохранены, система SHOULD восстановить playback ref из них без re-pick. Уже сохранённые кадры MUST оставаться доступны для соответствующих секунд.
 
 #### Scenario [LD-22]: Dead video link keeps cached frames and allows re-pick
 - **GIVEN** оригинал имеет кэш кадров для части секунд, а durable link больше не действителен
