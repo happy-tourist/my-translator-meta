@@ -20,19 +20,19 @@
 - [x] 3.3 Реализовать `WebCanvasFrameExtractor` (`package:web` / canvas seek) за тем же фасадом
 - [x] 3.4 Platform select default extractor; отдельный injectable `ReaderVideoPicker` + фильтр MP4/MKV (и понятная ошибка VF-11)
 
-## 4–7. Prior presentation (DONE, superseded by §8)
-
-> Infinite interleaved `VideoSecondTimeline` + interval-cover text + timestamp — shipped then product-rejected.
-> Keep extract/Drift/AppBar orchestration; rewrite UI per §8.
+## 4–7. Prior presentation (DONE, superseded)
 
 - [x] 4.x–7.x prior tasks (historical)
 
 ## 8. UX revision 2 — paged vertical triple + end-second text
 
-- [x] 8.1 Прочитать revised `proposal.md` / `design.md` D4–D6 / `specs/reader/video-frames/spec.md` (VF-01…VF-13); skill `work-with-reader/video-frames.md`
-- [x] 8.2 Pure helpers: page-of-3 math (page ↔ seconds); `round(endMs/1000)` → attachment second + multi-cue collect; unit VF-02/VF-04 (no timestamp contract)
-- [x] 8.3 UI: replace infinite timeline with **column of 3 frames + pager arrows** in original body (replace cue list); no timestamp under frames; empty text OK (VF-01…VF-03, VF-10)
-- [x] 8.4 Wire Reader: Load/restore → jump to **page** containing reading second; Remove → cue list @ same second; split one-way sync on page change (VF-05…VF-09, VF-13)
-- [x] 8.5 Widget/unit tests VF-01…VF-13 under paged column + end-second text; remove/rewrite infinite-timeline / timestamp tests
-- [x] 8.6 Update meta skill `video-frames.md` (+ related reader/pages notes) под столбец×3 + end-second; cleanup мёртвого infinite-list API если не referenced
-- [x] 8.7 `flutter analyze` + targeted `flutter test` (VF-* / LD-*); Rust: no new video/FRB (D1) / `cargo check` green
+- [x] 8.1–8.7 prior ship (column×3 + end-second; pager was top; timestamps off)
+
+## 9. UX polish — bottom pager, scroll-to-first, cue times from file
+
+- [x] 9.1 Прочитать revised proposal/design D4–D5 / specs VF-03/04/14/15; skill `video-frames.md`
+- [x] 9.2 `VideoFramePages`: перенести pager (`[<] n/N [>]`) **под** список кадров (низ original pane) — VF-14
+- [x] 9.3 При смене страницы (prev/next/goToPage) прокрутить список кадров к **первому** слоту (ScrollController / jumpTo 0) — VF-15
+- [x] 9.4 Под кадром с текстом: `CueRow` / embed с `showTimestamp: true` (`startMs → endMs` из файла); пустой слот без метки — VF-03/VF-04
+- [x] 9.5 Обновить widget-тесты VF-03/04/14/15; skill `video-frames.md`
+- [x] 9.6 `flutter analyze` + targeted `flutter test` по video/reader tests

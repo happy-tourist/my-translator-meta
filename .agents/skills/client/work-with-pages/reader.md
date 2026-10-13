@@ -10,12 +10,12 @@ Highlight: `work-with-reader` / `highlight.md`.
 | Surface | Path | Role |
 |---------|------|------|
 | Reader (cues + split + tap + highlight) | `lib/features/reader/reader_screen.dart` | Stateful; batch tokenize + mark; contiguous Add (phrase); in-vocab edit; AppBar split toggle (+ load/remove video when `reader/video-frames`); delete translation in bottom-pane top chrome |
-| Cue row | `lib/features/reader/cue_row.dart` | Timestamp + text; original pane token hit-targets + vocab highlight paint; under-frame embed: `showTimestamp: false`, `padding: EdgeInsets.zero`, `keySuffix` (VF-12) |
+| Cue row | `lib/features/reader/cue_row.dart` | Timestamp + text; original pane token hit-targets + vocab highlight paint; under-frame embed: `showTimestamp: true` (file start→end), `padding: EdgeInsets.zero`, `keySuffix` (VF-04 / VF-12) |
 | Char slice helper | `lib/features/reader/cue_char_slice.dart` | Unicode scalar slice matching Rust char spans |
 | Tokenize / mark seams | `lib/features/reader/tokenize_cues_fn.dart` (+ mark / lemma-keys typedefs) | Injectable FRB seams for tests |
 | Nearest-time helper | `lib/features/reader/nearest_cue_index.dart` | Pure `nearestCueIndex` (`BigInt` `startMs`); reuse for page→translation sync |
 | Time format | `lib/features/reader/cue_time_format.dart` | `HH:MM:SS,mmm` |
-| Video frame pages (`reader/video-frames`) | `lib/features/reader/video_frame_pages.dart` (+ `video_frame_page_math.dart`, `video_second_math.dart`, `cue_text_at_second.dart`, `video_frame_cache.dart`) | Vertical column of ≤3 frames + pager **replacing** original cues; injectable extractor/cache |
+| Video frame pages (`reader/video-frames`) | `lib/features/reader/video_frame_pages.dart` (+ `video_frame_page_math.dart`, `video_second_math.dart`, `cue_text_at_second.dart`, `video_frame_cache.dart`) | Vertical column of ≤3 frames + bottom pager **replacing** original cues; injectable extractor/cache |
 | Video extract facade | `lib/data/video/` (`video_frame_extractor*.dart`, `video_usable_path*.dart`, `reader_video_picker.dart`, `video_frame_errors.dart`) | Native FFmpegKit / web canvas; mirror translate platform split; no Rust video API |
 | Add-vocab sheet | local in `reader_screen.dart` (`_AddVocabSheet`) | Surface (single or phrase join) + translation + context → Drift (morph / phrase key) |
 | Edit-vocab sheet | local in `reader_screen.dart` | In-vocab tap: lemma/surface RO + translation/context + delete |

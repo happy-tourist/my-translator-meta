@@ -9,7 +9,7 @@ are Flutter-only (native FFmpegKit / web canvas). Persist = Drift via
 
 | Piece | Path | Role |
 |-------|------|------|
-| Pages UI | `lib/features/reader/video_frame_pages.dart` | Vertical column of ≤3 frames + pager arrows; injectable extractor + cache |
+| Pages UI | `lib/features/reader/video_frame_pages.dart` | Vertical column of ≤3 frames + pager arrows under list; injectable extractor + cache |
 | Page math | `lib/features/reader/video_frame_page_math.dart` | Pure page↔seconds (`videoFramePageCount` / `videoFrameSecondsForPage` / `videoFramePageFirstSecond` / `videoFramePageForSecond`) |
 | Second helpers | `lib/features/reader/video_second_math.dart` | `clampReadingTimeToSecond` / `clampReadingTimeToPage` (VF-05) |
 | Cue under slot | `lib/features/reader/cue_text_at_second.dart` | `cueAttachmentSecond` / `cueIndicesAtEndSecond` / `cueTextAtSecond` — `round(endMs/1000)` (D5 / VF-04) |
@@ -27,7 +27,8 @@ Package imports: `package:my_translator_app/data/video/…`,
 `package:my_translator_app/features/reader/…`.
 
 **Removed:** infinite `VideoSecondTimeline` / horizontal `VideoFrameStrip` over cues —
-do not revive; **paged vertical triple** is the canon (design D4 revision 2).
+do not revive; **paged vertical triple + bottom pager** is the canon
+(design D4 revision 3).
 
 ## UX contracts
 
@@ -36,13 +37,19 @@ do not revive; **paged vertical triple** is the canon (design D4 revision 2).
   frames (VF-01). One model slot per whole-video second `0..durationSeconds-1`
   (VF-02); UI shows ≤3 per page. Do not show pages when `durationSeconds < 1`
   (VF-11).
-- Each slot: JPEG (or load/error placeholder) + optional cue text. **No timestamp**
-  under frames (VF-03). Lazy extract for the current page; cache hit skips
-  re-extract. Tap/highlight: `buildCueText` embeds `CueRow` with
-  `showTimestamp: false`, zero padding, and `keySuffix: 's$second'` (VF-12).
+- **Pager chrome** (`[<] n/N [>]`) is pinned at the **bottom** of the original
+  pane, under the scrollable frame list — not above it (VF-14).
+- On page change (`prev` / `next` / `goToPage`): scroll the frame list to the
+  **first** slot (`ScrollController.jumpTo(0)` in a post-frame callback)
+  (VF-15).
+- Each slot: JPEG (or load/error placeholder) + optional cue text. Lazy extract
+  for the current page; cache hit skips re-extract. Tap/highlight: `buildCueText`
+  embeds `CueRow` with `showTimestamp: true` (file `startMs → endMs`), zero
+  padding, and `keySuffix: 's$second'` (VF-04 / VF-12). Empty slot → no CueRow /
+  no time label (VF-03).
 - Cue text under second `t`: all cues with `round(endMs/1000) == t`, in list order;
   join `textLines` / multi-cue with `\n`. Empty on start/middle seconds of the same
-  cue (VF-04). Empty text → frame remains (VF-03).
+  cue (VF-04). Empty text → frame remains without timestamp (VF-03).
 - AppBar: Load / Remove video **next to** split toggle; Delete translation stays
   in bottom-pane chrome only.
 - Jump on Load / restore: `T = clamp(floor(readingTimeMs/1000), 0, duration-1)`
@@ -105,14 +112,18 @@ Widget tests: inject fakes into `VideoFramePages` / `ReaderScreen`; do not
 call real FFmpegKit in CI. Pure helpers:
 `test/features/reader/video_frame_page_math_test.dart`,
 `video_second_math_test.dart`, `cue_text_at_second_test.dart`,
-`video_frame_pages_test.dart`; Reader VF-01…VF-13 in `reader_screen_test.dart`.
+`video_frame_pages_test.dart` (VF-01…VF-04, VF-10, VF-14, VF-15); Reader
+VF-01…VF-13 in `reader_screen_test.dart`.
 
 ## Anti-patterns
 
 | Avoid | Prefer |
 |-------|--------|
 | Rust / FRB video API | Dart facade only |
-| Infinite all-seconds list / timestamp under frames | Paged column of 3 + arrows; no timestamp |
+| Infinite all-seconds list / top pager | Paged column of 3; pager **under** frames |
+| Keeping list scroll after next/prev | `jumpTo(0)` / first slot visible (VF-15) |
+| `showTimestamp: false` under frames with text | `CueRow(showTimestamp: true)` file start→end |
+| Invented “frame second” time labels | Subtitle-file `startMs → endMs` only; empty = no label |
 | Horizontal strip of 3 over unchanged cue list | Replace cue list with vertical triple |
 | Cue list + pages stacked together | Pages **or** cues in original pane |
 | Interval-cover `[start,end)` text | `round(endMs/1000)` end-second text |

@@ -129,8 +129,9 @@ Details: [tap.md](tap.md).
 - **Reading resume (RS-12 / LD-17):** Library loads `ReadingAnchor` and passes
   `initialReadingAnchor`; Reader restores after layout; persist on user settle
   / dispose (skip while `_syncing` unless forced pop).
-- **Video frames:** paged vertical column of 3 + arrows replacing original cues +
-  one-way page→translation + Drift attach — details in
+- **Video frames:** paged vertical column of 3 + **bottom** pager replacing
+  original cues; cue text under frames uses file `startMs → endMs`; one-way
+  page→translation + Drift attach — details in
   [video-frames.md](video-frames.md).
 - **Target (later):** line-index aligned when Rust supplies paired lists;
   missing translation → placeholder row that keeps index alignment.
