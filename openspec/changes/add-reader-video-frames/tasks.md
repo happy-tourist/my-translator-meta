@@ -20,34 +20,19 @@
 - [x] 3.3 Реализовать `WebCanvasFrameExtractor` (`package:web` / canvas seek) за тем же фасадом
 - [x] 3.4 Platform select default extractor; отдельный injectable `ReaderVideoPicker` + фильтр MP4/MKV (и понятная ошибка VF-11)
 
-## 4. Pure helpers и strip UI
+## 4–7. Prior presentation (DONE, superseded by §8)
 
-> **Superseded (UX revision):** page-of-3 strip. 4.2–4.3 invalidated → см. §7. Cue-at-second helper остаётся полезным.
+> Infinite interleaved `VideoSecondTimeline` + interval-cover text + timestamp — shipped then product-rejected.
+> Keep extract/Drift/AppBar orchestration; rewrite UI per §8.
 
-- [x] 4.1 Прочитать `specs/reader/video-frames/spec.md`; `design.md` (D4, D5); skills `work-with-pages` / `reader.md`, `work-with-reader`
-- [x] 4.2 ~~Pure helpers: page→seconds math~~ → **переписать:** helpers clamp/jump `readingTimeMs → second`; unit VF-02/VF-04/VF-05 math (page-of-3 math не acceptance)
-- [x] 4.3 ~~Виджет полосы 3 слота~~ → **заменить:** виджет/список second-timeline row (кадр + timestamp + текст|пусто + placeholder) с injectable extractor/cache (VF-01…VF-03, VF-10)
+- [x] 4.x–7.x prior tasks (historical)
 
-## 5. Врезка в Reader + sync
+## 8. UX revision 2 — paged vertical triple + end-second text
 
-> **Superseded:** `Column(strip?, cues)`. Replace + jump + one-way split sync → §7 / unchecked ниже.
-
-- [x] 5.1 Прочитать `design.md` (D4, D6), VF-*; текущий `reader_screen.dart`
-- [x] 5.2 AppBar load/remove: оркестрация pick → usable path → probe → attach → **replace original body timeline** + **jump к текущему reading time**; remove → detach + **restore cue list @ same second** (VF-01, VF-05, VF-08, VF-11)
-- [x] 5.3 Body: при video — timeline в original pane (не strip над cues); split — кадры только сверху; original scroll → sync bottom; bottom scroll ↛ original; Show split не сбрасывает second (VF-06, VF-07, VF-09)
-- [x] 5.4 Open из Library: best-effort `getVideoAttachment` (fail не блокирует open) → Reader (LD-19); re-pick при мёртвой ссылке (LD-22) — **дополнить jump VF-13**
-- [x] 5.5 Widget-тесты VF-01…VF-13 (убрать/переписать strip pager tests) с fake extractor
-
-## 6. Verify
-
-- [x] 6.1 `flutter analyze` в sibling app — без новых ошибок по затронутым файлам
-- [x] 6.2 `flutter test` по добавленным/затронутым тестам (VF-* revision / LD-18…LD-23)
-- [x] 6.3 Негативная проверка Rust: **нет** новых video/FFmpeg модулей в `rust/`, **нет** изменений публичного FRB API ради video (D1); `cargo check` в `rust/` зелёный
-
-## 7. UX revision — interleaved seconds (новый scope после strip)
-
-- [x] 7.1 Прочитать revised `proposal.md` / `design.md` D4–D6 / `specs/reader/video-frames/spec.md` (VF-01…VF-13); skill `work-with-reader/video-frames.md` — обновить канон strip→timeline при apply или в check-changes
-- [x] 7.2 Убрать использование `VideoFrameStrip` 3-в-ряд из `reader_screen`; внедрить virtualized second list (reuse `ItemScrollController` / `ScrollablePositionedList` паттерн Reader)
-- [x] 7.3 Persist якорь: `last_second` (переиспользовать/переименовать `lastFramePage`) + запись при скролле; restore jump VF-13
-- [x] 7.4 Split listeners: при video отключить sync bottom→original; сохранить original→bottom
-- [x] 7.5 Cleanup мёртвого page-of-3 UI/tests или оставить только если ещё referenced; обновить meta skill `video-frames.md` под interleaved
+- [x] 8.1 Прочитать revised `proposal.md` / `design.md` D4–D6 / `specs/reader/video-frames/spec.md` (VF-01…VF-13); skill `work-with-reader/video-frames.md`
+- [x] 8.2 Pure helpers: page-of-3 math (page ↔ seconds); `round(endMs/1000)` → attachment second + multi-cue collect; unit VF-02/VF-04 (no timestamp contract)
+- [x] 8.3 UI: replace infinite timeline with **column of 3 frames + pager arrows** in original body (replace cue list); no timestamp under frames; empty text OK (VF-01…VF-03, VF-10)
+- [x] 8.4 Wire Reader: Load/restore → jump to **page** containing reading second; Remove → cue list @ same second; split one-way sync on page change (VF-05…VF-09, VF-13)
+- [x] 8.5 Widget/unit tests VF-01…VF-13 under paged column + end-second text; remove/rewrite infinite-timeline / timestamp tests
+- [x] 8.6 Update meta skill `video-frames.md` (+ related reader/pages notes) под столбец×3 + end-second; cleanup мёртвого infinite-list API если не referenced
+- [x] 8.7 `flutter analyze` + targeted `flutter test` (VF-* / LD-*); Rust: no new video/FRB (D1) / `cargo check` green

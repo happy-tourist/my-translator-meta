@@ -1,111 +1,109 @@
 ## Context
 
-Первая реализация change уже в app: Dart-фасад extract (`lib/data/video/`), Drift schema v5 + JPEG BLOB cache, AppBar load/remove, **полоса 3-в-ряд** (`VideoFrameStrip`) над неизменным cue list. Explore-revision: полоса **не** соответствует продукту — нужен **replace** original pane вертикальным second-timeline с jump-on-load.
+В app уже есть: Dart-фасад extract (`lib/data/video/`), Drift schema v5 + JPEG BLOB cache, AppBar load/remove, и **infinite** `VideoSecondTimeline` (все секунды + timestamp + текст по interval-cover). Explore (2026-10-13): продукт — **replace** original на **страницы по 3 кадра в столбец** + стрелки; текст по **округлянному концу** cue; **без** timestamp.
 
-Инфра extract/persist/picker **переиспользуется**; presentation + sync rules переписываются.
+Инфра extract/persist/picker **переиспользуется**; presentation + text math + pager переписываются.
 
 ## Goals / Non-Goals
 
 **Goals:**
 
-- Вертикальный поток: каждая секунда → кадр → текст|пусто + timestamp.
-- При Load/restore: replace cue list; jump к `floor(readingTimeMs/1000)`.
-- Remove → обычный cue list на том же времени.
-- Кадры только в original; original→translation sync при split; bottom↛original при video.
-- Lazy extract вокруг viewport; tap/highlight на тексте под кадром.
+- Replace cue list → вертикальная страница из 3 кадров (`t, t+1, t+2`) + prev/next.
+- Кадр на каждую целую секунду видео; lazy extract текущей страницы + cache.
+- Текст под кадром `t`: все cues с `round(endMs/1000) == t` (join через `\n`); иначе пусто; timestamp не показывать.
+- Load/restore → страница, содержащая секунду reading time; Remove → cue list @ том же времени.
+- Split: кадры только original; original page/second → sync bottom; bottom ↛ original.
 - Без нового Rust/FRB video API.
 
 **Non-Goals:**
 
-- FFmpeg / unbundle в `rust/`; WASM WebCodecs.
-- Копирование всего видео в sandbox.
-- Кадры в нижней панели split.
-- Аудио / плеер.
-- Decode всех секунд сразу.
+- Горизонтальная полоса 3-в-ряд над cues.
+- Infinite scroll всех секунд.
+- FFmpeg в `rust/`; WASM WebCodecs.
+- Кадры в нижней панели split; аудио / плеер.
 
 ## Decisions
 
 ### D1 — Слой: только Flutter (+ Drift), без Rust video API
 
-- Без изменений относительно первой реализации: decode/orchestration в Dart; persist Drift; `rust/` / FRB surface для video не трогаем.
+- Без изменений: decode/orchestration в Dart; persist Drift; `rust/` / FRB для video не трогаем.
 
 ### D2 — Фасад extract + platform backends
 
-- Без изменений API: `probeDuration`, `extractJpegAtSecond`; `NativeFfmpegFrameExtractor` / `WebCanvasFrameExtractor`; usable filesystem path (не `content://`).
-- Пакет уже pinned: `ffmpeg_kit_flutter_new_video` (D3 fallback выполнен).
+- Без изменений API: `probeDuration`, `extractJpegAtSecond`; native FFmpeg / web canvas; usable path (не сырой `content://`).
 
 ### D3 — Пакет FFmpeg на native
 
 - **Закрыто:** `ffmpeg_kit_flutter_new_video: ^2.5.7`. Не смешивать второй native FFmpeg.
 
-### D4 — UI Reader: interleaved second timeline (REVISION)
+### D4 — UI Reader: paged vertical triple (REVISION 2)
 
-- **Было:** `Column(VideoFrameStrip?, cuesBody)` — strip 3-в-ряд + pager.
-- **Стало:** при attachment original body — **один** virtualized list длиной `durationSeconds`; item `t` = frame + timestamp + optional cue text. Обычный cue list **скрыт/заменён**, не дублируется под timeline.
-- Split: верх = timeline (или cues без video); низ = translation cues **без** кадров.
-- Remount Show/Hide split: timeline state (current second / scroll) MUST переживать remount original list (ключ/контроллер вне ветки, которая dispose'ится зря) — аналог прежнего remount boundary.
-- Ошибка строки → placeholder кадра; pick/probe → SnackBar. Injectable extractor/picker/cache для тестов.
-- Удалить/перестать использовать pager page-of-3 math как UX (helpers MAY остаться мёртвыми до cleanup).
+- **Было (rev1):** virtualized list всех секунд (`VideoSecondTimeline`).
+- **Стало:** при attachment original body — **одна страница** из трёх слотов в **столбец** + стрелки pager. Cue list **заменён**, не дублируется под страницами.
+- Page math: секунды `0..durationSeconds-1`; page size = 3; page index / last incomplete page — как у прежнего page-of-3 helpers (восстановить `video_frame_page_math` или эквивалент).
+- Remount Show/Hide split: page state / контроллеры MUST переживать remount (ключ вне dispose-ветки).
+- Ошибка слота → placeholder кадра; pick/probe fail → SnackBar (VF-11). Injectable extractor/picker/cache для тестов.
+- **Не** возвращать горизонтальный `VideoFrameStrip` над cues.
 
-### D5 — Текст под кадром
+### D5 — Текст под кадром: end-second (REVISION 2)
 
-- Без изменений: покрытие `[startMs, endMs)` → join `textLines` через `\n`; иначе пусто, строка кадра остаётся.
+- Секунда текста для cue: `attachmentSecond = round(endMs / 1000)` (обычное арифметическое округление; clamp в `[0, durationSeconds-1]` при показе, если нужно).
+- Под кадром `t`: **все** cues с этим `attachmentSecond`, в порядке списка оригинала; display = join `text_lines` через `\n`, cue между собой тоже через `\n` (или эквивалент «оба текста видны»).
+- Cue **не** рисуется под кадрами start/middle — только под концом.
+- Пустой текст → кадр остаётся; **timestamp / time label под кадром MUST NOT** показываться.
 
-### D6 — Sync (REVISION)
+### D6 — Sync
 
 ```
-reading position (cue scroll / anchor)
-        |
-        v  on Load / restore
-   jump timeline to second T
-        |
-        v  user scrolls timeline
-   sync translation (if split) via nearestCueIndex(T*1000)
-        |
-   user scrolls translation
-        X  do NOT move timeline (video on)
+reading position
+      |
+      v  on Load / restore
+ jump to page containing second T
+      |
+      v  user changes page (arrows)
+ sync translation (if split) via nearestCueIndex(T*1000)
+      |
+ user scrolls translation
+      X  do NOT change page (video on)
 ```
 
-- **Jump source при Load:** время видимого верха текущего cue list (или reading anchor, если list ещё не built) → `T = clamp(floor(ms/1000), 0, duration-1)`.
-- **Remove:** capture current timeline second → restore cue list → `scrollTo` nearest cue at `T*1000`.
-- **Split on:** выровнять bottom к текущей секунде; не сбрасывать T.
-- **Отмена VF-08 старой модели** («cue scroll не двигает strip»): strip больше нет; при video list **и есть** timeline — скролл cues без video не применим; при video bottom не двигает original.
+- **T при Load:** `clamp(floor(readingTimeMs/1000), 0, duration-1)` → открыть страницу, содержащую T.
+- **Remove:** capture current page/second → restore cue list → `scrollTo` nearest cue at `T*1000`.
+- **Split on:** выровнять bottom к текущей секунде страницы; не сбрасывать page.
 
 ### D7 — Persist P1
 
-- Schema v5 уже есть: video meta + `DocumentVideoFrames` BLOB.
-- Предпочтительно хранить / писать **`last_second`** (или переиспользовать `lastFramePage` как second index с миграцией семантики — зафиксировать в apply: колонка `last_frame_page` MAY быть переименована/переиспользована как last second без нового bump, если совместимо; иначе bump v6).
-- JPEG cache keyed by `documentId` + `second` — без изменений.
-- LD-22/LD-23 heuristics (clear cache on replace; keep on same-duration re-pick) — сохранить.
+- Schema v5: video meta + `DocumentVideoFrames` BLOB — без обязательного bump.
+- Якорь: `videoLastFramePage` как **1-based page** снова **или** хранить last_second и вычислять page при restore — зафиксировать в apply одно; предпочтительно **last_second** (уже в коде) → page = f(second).
+- JPEG cache keyed by `documentId` + `second`. LD-22/LD-23 без изменений.
 
 ### D8 — Форматы pick
 
-- Без изменений: `ReaderVideoPicker`, mp4/mkv, VF-11.
+- Без изменений: MP4/MKV, VF-11.
 
-### D9 — Тесты (REVISION)
+### D9 — Тесты (REVISION 2)
 
-- Unit: cue-at-second; second clamp/jump helpers (не page-of-3 как acceptance).
-- Widget: VF-01…VF-13 с fake extractor; split sync one-way; remove restore.
-- Repository unit: LD-* остаются.
+- Unit: page math; `round(endMs/1000)` attachment; multi-cue same end; no timestamp when empty.
+- Widget: VF-* под paged column; jump page; remove restore; split one-way.
+- Repository LD-* остаются.
 
-Чеклист — `tasks.md` (секции 1–3/часть 6 — done; presentation rewrite — новые unchecked).
+Чеклист — `tasks.md` §8 (новый scope); 1–7 = prior ship, superseded for presentation.
 
 ## Risks / Trade-offs
 
 | Risk | Mitigation |
 |------|------------|
-| Длинный список (часы × 3600 rows) | Virtualized list (`ScrollablePositionedList` / аналог); lazy extract + cache |
-| Jump неточный (cue vs continuous time) | floor(visible cue startMs/1000); clamp |
-| Remount split сбрасывает scroll | Контроллер/ключ timeline вне dispose-ветки |
-| Старые widget-тесты strip | Переписать/удалить под VF-* revision |
-| Семантика `last_frame_page` | Явно last_second в apply + тесты restore |
+| Путаница strip vs column | Spec/skills: явно «столбец 3 + стрелки», не horizontal strip |
+| endMs exclusive half-open vs round | Продукт: round(endMs/1000); unit tests edge 51000 / 51700 |
+| Infinite list код / тесты | Заменить или удалить; не оставлять dual UX |
+| Remount split | Page state вне dispose-ветки |
 
 ## Migration Plan
 
-- UI rewrite поверх существующего extract/Drift; пользователи со strip UX получат interleaved после обновления.
-- Persist: совместимый cache JPEG; якорь page→second.
-- Rollback: вернуть cue-only body; meta/cache можно оставить.
+- UI rewrite поверх extract/Drift; пользователи с infinite list получат paged column.
+- Persist JPEG совместим; якорь second→page.
+- Rollback: cue-only body.
 
 ## Open Questions
 
-- Нет продуктовых. Apply: выбрать virtual list API уже в Reader (`ItemScrollController` / `ScrollablePositionedList`) и точную колонку last_second.
+- Нет продуктовых. Apply: точный widget name / reuse page math helpers; join separator для multi-cue.

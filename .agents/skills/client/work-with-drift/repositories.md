@@ -49,8 +49,8 @@ UI maps these to short copy (SnackBar / inline) — see
   (LD-22); replace with different duration clears prior JPEG (LD-23).
   **`VideoAttachment.lastFramePage` / `saveVideoLastFramePage`:** API names keep
   the historical column (`videoLastFramePage`); **semantics = 0-based
-  `last_second`** (timeline row index), not page-of-3. Validate `≥ 0` (not
-  `≥ 1`). UI: `work-with-reader` / `video-frames.md`.
+  `last_second`**; page = `videoFramePageForSecond` on restore). Validate
+  `≥ 0` (not `≥ 1`). UI: `work-with-reader` / `video-frames.md`.
 - **Shared parse seams (Library + Reader):**
   `lib/data/library/parse_subtitles_fn.dart` (`ParseSubtitlesFn`),
   `lib/data/library/parse_error_messages.dart` (`messageForParseError`).

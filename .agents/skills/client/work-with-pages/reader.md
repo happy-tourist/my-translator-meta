@@ -10,12 +10,12 @@ Highlight: `work-with-reader` / `highlight.md`.
 | Surface | Path | Role |
 |---------|------|------|
 | Reader (cues + split + tap + highlight) | `lib/features/reader/reader_screen.dart` | Stateful; batch tokenize + mark; contiguous Add (phrase); in-vocab edit; AppBar split toggle (+ load/remove video when `reader/video-frames`); delete translation in bottom-pane top chrome |
-| Cue row | `lib/features/reader/cue_row.dart` | Timestamp + text; original pane token hit-targets + vocab highlight paint; timeline embed: `showTimestamp: false`, `padding: EdgeInsets.zero`, `keySuffix` (VF-12) |
+| Cue row | `lib/features/reader/cue_row.dart` | Timestamp + text; original pane token hit-targets + vocab highlight paint; under-frame embed: `showTimestamp: false`, `padding: EdgeInsets.zero`, `keySuffix` (VF-12) |
 | Char slice helper | `lib/features/reader/cue_char_slice.dart` | Unicode scalar slice matching Rust char spans |
 | Tokenize / mark seams | `lib/features/reader/tokenize_cues_fn.dart` (+ mark / lemma-keys typedefs) | Injectable FRB seams for tests |
-| Nearest-time helper | `lib/features/reader/nearest_cue_index.dart` | Pure `nearestCueIndex` (`BigInt` `startMs`); reuse for timeline→translation sync |
+| Nearest-time helper | `lib/features/reader/nearest_cue_index.dart` | Pure `nearestCueIndex` (`BigInt` `startMs`); reuse for page→translation sync |
 | Time format | `lib/features/reader/cue_time_format.dart` | `HH:MM:SS,mmm` |
-| Video second timeline (`reader/video-frames`) | `lib/features/reader/video_second_timeline.dart` (+ `video_second_math.dart`, `cue_text_at_second.dart`, `video_frame_cache.dart`) | Virtualized one-row-per-second list **replacing** original cues; injectable extractor/cache |
+| Video frame pages (`reader/video-frames`) | `lib/features/reader/video_frame_pages.dart` (+ `video_frame_page_math.dart`, `video_second_math.dart`, `cue_text_at_second.dart`, `video_frame_cache.dart`) | Vertical column of ≤3 frames + pager **replacing** original cues; injectable extractor/cache |
 | Video extract facade | `lib/data/video/` (`video_frame_extractor*.dart`, `video_usable_path*.dart`, `reader_video_picker.dart`, `video_frame_errors.dart`) | Native FFmpegKit / web canvas; mirror translate platform split; no Rust video API |
 | Add-vocab sheet | local in `reader_screen.dart` (`_AddVocabSheet`) | Surface (single or phrase join) + translation + context → Drift (morph / phrase key) |
 | Edit-vocab sheet | local in `reader_screen.dart` | In-vocab tap: lemma/surface RO + translation/context + delete |
@@ -100,14 +100,14 @@ Engine details: meta `work-with-translate`.
   Stuck link without cues: Delete in that chrome, then Load.
 - **Show / Hide split:** preserve original scroll (capture top-visible →
   post-frame `jumpTo`); do not reset the original list to cue 0 (RS-10, RS-11).
-  With video timeline, keep timeline scroll controllers / key outside the
-  remount branch so second state survives Show/Hide.
+  With video pages, keep `VideoFramePages` / key outside the remount branch so
+  page state survives Show/Hide.
 - **Reading resume:** optional `initialReadingAnchor` from Library; restore
   after layout; save on settle/dispose via `DocumentRepository.saveReadingAnchor`
   (RS-12 / LD-17).
 - **Video frames (`reader/video-frames`):** attach/detach via Drift; Library open
-  best-effort restores attachment; original pane = interleaved timeline
-  (replaces cues); one-way timeline→translation when split — details
+  best-effort restores attachment; original pane = paged vertical triple
+  (replaces cues); one-way page→translation when split — details
   `work-with-reader` / [video-frames.md](../work-with-reader/video-frames.md).
 - **Target (later):** sync **by cue index** when Rust supplies paired lists;
   placeholders keep alignment — see `work-with-reader` / `split-scroll.md`.
@@ -120,8 +120,8 @@ Engine details: meta `work-with-translate`.
 ```text
 ReaderScreen
   → single-pane or split mode body
-  → original pane: VideoSecondTimeline (when attached) OR cue list
-  → widgets: cue list / timeline rows, token spans, CTA, add/edit sheets,
+  → original pane: VideoFramePages (when attached) OR cue list
+  → widgets: cue list / frame slots, token spans, CTA, add/edit sheets,
       empty+load, divider
   → orchestration: DocumentRepository (+ video attach/cache); parseSubtitles;
       tokenizeCues + markVocabTokens (FRB); DictionaryRepository; VideoFrameExtractor

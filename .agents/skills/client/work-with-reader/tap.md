@@ -33,9 +33,9 @@ long-press). Selection never spans cues.
 | Other cue, non-vocab | Move selection to that cue’s `[T,T]` (no gap-flash) |
 
 - Per-token hit targets (`GestureDetector` / span); Keys
-  `readerCueToken_${cueIndex}_${tokenIndex}` (list pane). Under video timeline
-  rows, `CueRow.keySuffix` appends `_s$second` so the same cue spanning several
-  seconds stays unique (VF-12) — see [video-frames.md](video-frames.md).
+  `readerCueToken_${cueIndex}_${tokenIndex}` (list pane). Under video frame
+  slots, `CueRow.keySuffix` appends `_s$second` so under-frame Keys stay unique
+  (VF-12) — see [video-frames.md](video-frames.md).
 - Paint priority in `cue_row`: **flash > selection > vocab highlight > body**.
   Gap-flash uses `ColorScheme.tertiaryContainer` / `onTertiaryContainer`
   (not `ReaderColors.lemmaHighlight`).

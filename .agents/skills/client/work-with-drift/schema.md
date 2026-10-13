@@ -69,8 +69,8 @@ Do not silently wipe user data in product builds without an OpenSpec decision.
 - from `< 5`: video attachment meta on the original (`videoUri` /
   `videoSandboxPath` / `videoDurationSec` / `videoLastFramePage`) +
   `DocumentVideoFrames` JPEG BLOB cache (visited seconds). Column
-  `videoLastFramePage` stores **0-based last timeline second** (D7 reuse;
-  not page-of-3). Cascade clear on `deleteDocument` / folder delete. No Rust
-  SQLite for video.
+  `videoLastFramePage` stores **0-based last video second** (D7 reuse;
+  page = `videoFramePageForSecond` on restore). Cascade clear on
+  `deleteDocument` / folder delete. No Rust SQLite for video.
 
 Regenerate `.g.dart` after table edits.
