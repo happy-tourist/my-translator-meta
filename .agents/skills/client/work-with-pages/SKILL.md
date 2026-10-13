@@ -100,7 +100,8 @@ lib/src/rust/          → GENERATED FRB (never hand-edit)
 ## Screen Composition
 
 **Screen owns the view; Drift owns user persist; Rust owns parse + tokenize +
-lemmatize/mark (highlight change) / offline translate (later).**
+lemmatize/mark; offline translate = native FRB + Web JS behind
+`lib/data/translate/` facade (OpenSpec `translate/offline`).**
 
 - Screens compose widgets and call a thin orchestration layer (screen state,
   `ChangeNotifier`, or small service — package choice not mandated).

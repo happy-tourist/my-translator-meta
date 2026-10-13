@@ -14,9 +14,10 @@ Canon for **user data** in **my_translator_app**: **Drift** in Flutter `lib/data
 Product: **Translation Reader**. Paths relative to app root
 (`../my_translator_app` from meta; see `docs/projects-map.md`).
 
-**Compute** (parse / tokenize / lemmatize / offline translate) stays in Rust via
-FRB. Do **not** add `rusqlite` / `rust/src/db` / FRB CRUD for folders, documents,
-or dictionary entries.
+**Compute** (parse / tokenize / lemmatize; offline translate on **native**) stays
+in Rust via FRB. Web offline translate uses the JS exception behind
+`lib/data/translate/` — still not Drift. Do **not** add `rusqlite` /
+`rust/src/db` / FRB CRUD for folders, documents, or dictionary entries.
 
 ## When to Use
 

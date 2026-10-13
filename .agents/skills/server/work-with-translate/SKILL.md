@@ -1,37 +1,37 @@
 ---
 name: work-with-translate
 description: >-
-  Offline word/phrase translation in Translation Reader Rust core (`rust/`):
-  gloss lookup, language-pair settings, lemma-aware results for the reader
-  card, save-into-dictionary handoff. Use when implementing or changing
-  offline translate modules, translate FRB API, source/target language settings
-  for content translation, or distinguishing local offline engines from
-  optional future AI providers. Not for Flutter card chrome alone
-  (work-with-reader), not for ARB UI locale (work-with-localization), not for
-  AI/cloud translate implementation.
+  Offline word/phrase translation in Translation Reader: native Rust ORT
+  (OPUS-MT EN→RU ONNX) behind thin FRB, Web Transformers.js exception behind
+  the same Dart facade. Use when implementing or changing offline translate
+  modules, translate FRB API, language-pair args, or distinguishing local
+  offline engines from optional future AI providers. Not for Flutter card
+  chrome alone (work-with-reader), not for ARB UI locale
+  (work-with-localization), not for AI/cloud translate implementation.
 ---
 
-# Work With Translate (Rust offline)
+# Work With Translate (offline)
 
 Target **offline word/phrase translation** for **Translation Reader**
-(`my_translator_app`). Logic lives in **Rust** under `{app}/rust/`; Flutter
-shows the card and calls a thin FRB surface. Path package /
-crate: `rust_lib_my_translator_app`. Resolve `{app}` via
-`docs/projects-map.md` (key `app`). Read `{app}/AGENTS.md` before changing
-the crate.
+(`my_translator_app`). Resolve `{app}` via `docs/projects-map.md` (key `app`).
+Read `{app}/AGENTS.md` before changing the crate.
 
-**Scaffold today:** product translate is **not implemented**. Demo
-`process_text` / `add_numbers` are unrelated — do not grow them into a
-translate engine. Prescribe the contracts below so modules land correctly.
+**Product engine (locked for current OpenSpec):** OPUS-MT **en→ru** ONNX
+(`onnx-community/opus-mt-en-ru`, CC-BY 4.0) in app assets.
+
+| Platform | Compute | Notes |
+|----------|---------|--------|
+| **Native** | Rust `ort` + tokenizer in `{app}/rust/src/translate/`, thin FRB | Must follow this skill |
+| **Web** | Transformers.js worker + `dart:js_interop` | **Intentional exception** — not Rust WASM; same Dart facade + error kinds |
+
+Demo `process_text` / `add_numbers` are unrelated — do not grow them into MT.
 
 ## When to Use
 
-- Offline translate of a **word** (token / lemma) or **phrase** (token span)
-- Language-pair settings that drive translate direction (learning content
-  source → target)
-- Wiring translate results into dictionary “add” and reader card data
-- Designing / changing the thin `rust/src/api/` translate exports
-- Choosing where a concrete offline engine or dictionary pack plugs in
+- Offline translate of a **word** or **phrase** (surface as displayed)
+- Language-pair args for translate direction (learning content source → target)
+- Designing / changing thin `rust/src/api/translate` exports
+- Wiring gloss into Vocab / Reader Add-Edit (save still Drift, not translate)
 
 **Not this skill:**
 
@@ -43,242 +43,178 @@ translate engine. Prescribe the contracts below so modules land correctly.
 | UI chrome locale (ARB) | `work-with-localization` |
 | Rust test harness layout | `server-work-with-test` |
 | **Optional AI** explain/translate providers | Out of scope — boundary only (below) |
+| Web worker / COOP-COEP run | `work-with-env-deploy` + OpenSpec design |
 
 ## Core Principles
 
-1. **Offline by default.** No network required for word/phrase gloss. No
+1. **Offline by default.** No network for gloss after install with assets. No
    required API keys at app start.
-2. **Heavy logic in Rust.** Flutter must not invent translations, stemming,
-   or engine selection rules in Dart.
+2. **Native heavy logic in Rust.** On native, Flutter must not invent glosses
+   or run ONNX in Dart. On Web, JS engine is the documented exception behind
+   one facade.
 3. **Thin FRB API.** Public surface in `rust/src/api/`; algorithms in
-   internal modules (e.g. `translate/`). Never hand-edit
-   `frb_generated.rs` or `lib/src/rust/**`.
-4. **Engine not locked.** This skill defines the **module / trait
-   boundary**, not a concrete vendor, crate, or dictionary pack.
-5. **Scaffold is not product.** Until modules exist, add
-   `translate` + thin `api` + tests together — do not fake glosses in Flutter.
+   `translate/`. Never hand-edit `frb_generated.rs` or `lib/src/rust/**`.
+4. **One string in → one gloss out.** Word and phrase share `translate_text`
+   (MT string in); do not join per-token glosses in UI.
+5. **Scaffold is not product.** Add `translate` + thin `api` + tests together.
 
 ## Boundary: Optional AI (out of scope)
 
-Product vision allows **optional AI later** (phrase nuance, phrasal verbs,
-context). That path is **out of scope for this skill**.
-
 - Do **not** implement cloud providers, API-key settings, or prompt pipelines
   under this skill.
-- Offline translate must remain usable **without** any AI provider configured.
-- If a change mixes offline + AI, keep a clear seam (e.g. separate module /
-  trait); offline path must not depend on network or keys.
-- Mention AI only as “later / explicit / optional” — never as the default
-  gloss source for the reader card.
+- Offline path must remain usable **without** any AI provider.
+- Mention AI only as “later / explicit / optional”.
 
-## Developer Decision (flag, do not invent)
+## Engine + packaging (locked)
 
-**Concrete offline engine and dictionary pack are a developer decision.**
+- Model: OPUS-MT en→ru ONNX in `{app}/assets/models/opus-mt-en-ru/`
+  (`onnx-community/opus-mt-en-ru`, CC-BY 4.0). See that folder’s `README.md`.
+- **Native required basenames** (FRB `OfflineModelAsset.name`):
+  `tokenizer.json`, `encoder_model_uint8.onnx`, `decoder_model_uint8.onnx`
+  (paths under `assets/models/opus-mt-en-ru/` + `onnx/`; pubspec must list
+  both dirs — Flutter assets are non-recursive).
+- **Web-only extra:** `decoder_model_merged_uint8.onnx` (+ `config.json` /
+  `generation_config.json` / `tokenizer_config.json` for Transformers.js local
+  load). Worker: `web/translate_worker.js`; bridge: `web/translate_bridge.js`
+  (script in `web/index.html`); lib pin under `web/transformers/`.
+- Native load: Flutter `AssetBundle` bytes → FRB
+  `init_offline_translate(Vec<OfflineModelAsset { name, bytes }>)`.
+  Public API MUST NOT take OS model paths.
+- Cargo: ORT/tokenizer deps under
+  `[target.'cfg(not(target_arch = "wasm32"))'.dependencies]`
+  (`ort` 2.0.0-rc.14; `tokenizers` with `fancy-regex`, no default `onig`;
+  `ndarray`); wasm32 stubs of the same FRB symbols → `EngineUnavailable`.
+- Do **not** put heavy model load in `#[frb(init)] init_app`.
 
-Until decided, agents must:
-
-- Implement against a **stable interface** (trait / module API) inside
-  `rust/src/translate/` (name may vary; keep logic out of `api/`).
-- **Not** hard-lock Cargo deps to a specific MT engine, binary model, or
-  proprietary pack without an explicit product/dev decision.
-- **Flag** in OpenSpec / task notes: *engine + pack TBD* when AC needs a
-  real gloss and none is chosen yet.
-- Stub / fixture-backed implementations are OK for tests and early UI wiring
-  if labeled as temporary behind the same interface.
-
-Acceptable interface shape (illustrative — adapt names to the crate):
+Trait (internal; names may vary):
 
 ```rust
-// rust/src/translate/mod.rs (target — not in scaffold)
+// rust/src/translate/mod.rs
 
-/// Offline gloss engine. Swap implementations without changing FRB shapes.
 pub trait OfflineTranslator: Send + Sync {
-    fn translate_word(
+    fn translate(
         &self,
-        query: &WordQuery,
-    ) -> Result<TranslationResult, TranslateError>;
-
-    fn translate_phrase(
-        &self,
-        query: &PhraseQuery,
+        text: &str,
+        source_lang: &str,
+        target_lang: &str,
     ) -> Result<TranslationResult, TranslateError>;
 }
 ```
-
-Packaging notes (non-prescriptive): on-device dictionary file, embedded
-resource, or platform asset loaded by Rust — all fine **after** a decision;
-document load path next to the chosen impl, not in Flutter.
 
 ## Language Pair Settings
 
 | Setting | Role | Owner |
 |---------|------|--------|
-| Source language | Subtitle / learning content language | App settings (Drift later) / explicit FRB args |
-| Target language | Gloss language for the card | Same |
+| Source / target lang | Learning pair for gloss | Explicit FRB/facade args (`en` / `ru` v1) |
 | UI locale (ARB) | App chrome strings | Flutter — **not** this skill |
 
 Rules:
 
-- Translate APIs take an explicit pair **or** read the persisted default pair
-  from settings — pick one contract and keep FRB stable; prefer passing pair
-  (or pair id) when the reader session may override defaults.
-- Do not conflate UI locale with learning pair (see
-  `work-with-localization`).
-- Unsupported pair → typed error (not empty success, not panic).
+- Prefer passing pair on each call; normalize casefold to lower ASCII.
+- v1 supported pair only: `en` → `ru`. Else `UnsupportedLanguagePair`.
+- Do not conflate UI locale with learning pair.
 
-## Integration: Tokenize / Lemmatize
+## Integration: Tokenize / Lemmatize / Dictionary
 
-Reader tap resolves a **token span** with surface form + **lemma** (Rust NLP).
-Translate must consume that, not re-tokenize in Dart.
-
-| Input | Word path | Phrase path |
-|-------|-----------|-------------|
-| Surface | Token text under tap | Contiguous selected text |
-| Lemma | Required when NLP has it; key for dict save / highlight | Optional per-token lemmas; do **not** force a single lemma for multi-word unless product defines it |
-| Context | Cue / line id or snippet for later dict attach | Same |
-
-Contract with NLP modules (target layout `lemma/` / tokenize):
-
-1. Prefer `lemma_id` / lemma string from the already-tokenized span.
-2. If only surface is available (tokenize pending), either refuse with a clear
-   error or look up after tokenize — **do not** guess stems in the translate
-   module differently from the lemma module.
-3. Phrase: one `translate_phrase` call for the whole span (matches
-   `work-with-reader` / `tap.md`). Do not translate each token and join.
-
-## Integration: Dictionary (save translation)
-
-Translate **produces** gloss data; dictionary **persists** user vocab.
-
-| Step | Owner |
-|------|--------|
-| Offline gloss for card | `translate` |
-| User taps “Add to vocab” | Flutter → Drift dictionary repository |
-| Store lemma + translation(s) + context | Flutter Drift (`dictionary/entries`) |
-| Refresh highlight marks | Dictionary / lemma match — not translate |
-
-Rules:
-
-- Translate must return fields the dict add API can accept (lemma when known,
-  chosen gloss string, optional alternates, context handle).
-- Do **not** auto-write dictionary on every translate; save is an explicit
-  user action (unless a future AC says otherwise).
-- Do not duplicate dict CRUD inside `translate/`.
-- Phrase add: only if dictionary API supports phrase entries; otherwise return
-  gloss for display and leave add disabled or defined by dict skill/AC.
+- **Translate query** for Vocab/Reader Translate button = **surface as
+  displayed** (no separate morph re-stem in translate for this product path).
+- Lemma remains for dict identity / highlight — owned by tokenize/lemmatize +
+  Drift; translate does not write dict.
+- Phrase: one `translate_text` for the whole string; never token-join glosses.
+- Save to vocab is explicit user Add/Save — never auto on translate.
 
 ## Target Module Layout
 
 ```text
 my_translator_app/rust/src/
-  api/                 # thin FRB: translate_word / translate_phrase (+ types)
-  translate/           # OfflineTranslator impl(s), errors, pair checks
-  lemma/               # tokenize + lemmatize (peer — not owned here)
-  dict/                # vocab persist (peer — not owned here)
+  api/translate.rs     # thin FRB: init_offline_translate, translate_text, kinds
+  translate/           # OfflineTranslator impl(s), ORT session, errors
+  tokenize/ lemmatize/ # peers — not owned here
   frb_generated.rs     # GENERATED — never edit
 ```
 
-Dependency direction:
-
 ```text
-api (FRB) → translate → (reads) settings / lemma ids
-                ↘ does not own dict writes
-Flutter → generated api → orchestrates translate then optional dict add
+api (FRB) → translate → (ORT session; no dict writes)
+Flutter facade (lib/data/translate/):
+  offline_translate_platform → native | web
+  native: AssetBundle bytes → init_offline_translate → translate_text
+  web: JS worker (no FRB translate calls)
+UI: Vocab + Reader sheets inject OfflineTranslateFn (design D4)
 ```
 
-## Thin FRB API (target shapes)
-
-Export from `rust/src/api/` only. Names illustrative; keep args/results
-FFI-friendly (owned `String`, plain structs, `Result` / FRB error mapping).
+## Thin FRB API (native — locked shapes)
 
 | Export | Responsibility |
 |--------|----------------|
-| `translate_word` | Surface + lemma + language pair → gloss result |
-| `translate_phrase` | Phrase text (+ optional token ids) + pair → gloss result |
-| (settings) | Get/set learning language pair — may live in settings API |
+| `init_offline_translate` | `Vec<OfflineModelAsset>` → `Result<(), TranslateErrorKind>` |
+| `translate_text` | `text, source_lang, target_lang` → `Result<TranslationResult, TranslateErrorKind>` |
+| `is_offline_translate_ready` | `() -> bool` — skip re-init when session already live |
 
-Result should be enough for the reader card (see `work-with-reader`):
+`TranslationResult { primary_gloss: String }` — non-empty on `Ok`.
 
-- Headword / phrase text (echo or normalized)
-- Lemma (word path)
-- One primary translation; optional alternates
-- Stable miss/unsupported signaling (empty gloss ≠ success if lookup failed)
-
-Keep `api/` free of engine I/O details (file paths to packs, model load) —
-hide those behind the offline trait/impl.
+Keep `api/` free of file-path I/O; only named bytes.
 
 ## Errors
 
-Use a typed `TranslateError` (or equivalent) with stable kinds agents and UI
-can map:
-
 | Kind | When |
 |------|------|
-| `EmptyQuery` | Empty / whitespace-only word or phrase |
-| `UnsupportedLanguagePair` | Pair not available for offline engine/pack |
-| `NotFound` | No gloss in offline data (card may show “no translation”) |
-| `EngineUnavailable` | Pack missing / not loaded / init failed |
-| `Internal` | Unexpected failure — log details; safe message outward |
+| `EmptyQuery` | Empty / whitespace-only text |
+| `UnsupportedLanguagePair` | Not en→ru after normalize |
+| `EngineUnavailable` | No init / bad assets / session fail / wasm stub |
+| `InferenceFailed` | Session up, inference failed |
+| `Internal` | Unexpected — safe message outward |
+
+`NotFound` is for dictionary-style packs only — **not** used for OPUS-MT.
 
 Rules:
 
-- Prefer `Result` / mapped FRB errors over panics for user input.
-- Flutter surfaces: transient SnackBar or card error slot
-  (`client-work-with-errors`) — Rust supplies kind + safe message, not Material
-  widgets.
-- Do not require network errors on the offline path.
+- `Result` / typed kinds over panics for user input.
+- Flutter Translate button: **SnackBar** + Keys (design D4.5) — not
+  `vocabFormError` / sheet validation slots; see `client-work-with-errors`.
+- No network-required errors on the offline path.
 
 ## Tests
 
-Follow **server-work-with-test**. Place unit tests next to `translate/`
-(`#[cfg(test)]`). Cover at least:
+Follow **server-work-with-test**. `#[cfg(test)]` next to `translate/`:
 
-- Word: known fixture lemma → expected primary gloss
-- Phrase: multi-word fixture → single phrase result (not token join)
-- Empty query → `EmptyQuery`
-- Unsupported pair → `UnsupportedLanguagePair`
-- Missing gloss → `NotFound` (or agreed empty-miss contract)
-- Stub/fake `OfflineTranslator` behind the trait for api/orchestration tests
-  without a real pack
+- Word + phrase → non-empty `primary_gloss` (fixture/fake or real after spike)
+- Empty → `EmptyQuery`; bad pair → `UnsupportedLanguagePair`
+- No init / bad assets → `EngineUnavailable`; inference fail → `InferenceFailed`
+- Fake `OfflineTranslator` for api tests without full ORT in CI when needed
 
-Run `cargo test` from `{app}/rust`. Do not prove offline translate only via
-`flutter test`.
-
-OpenSpec scenarios for offline translate **must** include `cargo test` tasks
-mapped to `SC-…` IDs — not `cargo check` alone.
+Run `cargo test` from `{app}/rust`. OpenSpec TO-* must map to `cargo test`,
+not `cargo check` alone. Web UX covered by Flutter injectable facade tests.
 
 ## Flutter UX Expectations (do not implement UI here)
 
-From `work-with-reader` / `tap.md` — Rust must enable:
-
-1. Tap token → word card: lemma, translation(s), context, Add to vocab.
-2. Phrase select → phrase card: full phrase + one phrase translation.
-3. Loading / error flags owned by Flutter orchestration; data from FRB.
-4. No Dart-local invented glosses; no per-token translate+concat for phrases.
+1. Translate button on Vocab add + Reader Add/Edit sheets → fill Translation.
+2. Loading on button covers lazy init + inference.
+3. No Dart-invented glosses on native; Web uses JS engine only via facade.
+4. Attribution OPUS-MT + accuracy disclaimer — UI copy, not Rust.
+5. Placement, Keys, injectable `OfflineTranslateFn`, SnackBar errors, disable
+   rules — OpenSpec change design **D4** (`add-offline-opus-translate` or
+   synced main specs); keep skills from inventing alternate Keys.
 
 ## Anti-Patterns
 
 | Avoid | Prefer |
 |-------|--------|
-| Cloud/AI as default gloss | Offline engine behind trait; AI later, separate |
-| API keys required to open reader | Offline path with zero keys |
-| Gloss logic in `api/` or Dart | Internal `translate/` + thin export |
-| Hard-coding an engine crate “because popular” | Flag developer decision; keep interface |
-| Auto-save every lookup to dict | Explicit add via dictionary API |
-| Re-stem in translate ≠ lemma module | Consume lemma from tokenize/lemmatize |
-| Phrase = join of word glosses | `translate_phrase` once |
-| Extending `process_text` demo into MT | New modules + real FRB names |
+| Cloud/AI as default gloss | Offline OPUS path; AI later, separate |
+| ORT linked into wasm32 FRB | target-conditional deps + stubs |
+| Model OS paths on FRB | Flutter bytes → `init_offline_translate` |
+| Heavy load in `init_app` | Explicit init on first Translate |
+| Gloss logic in `api/` or Dart (native) | `translate/` + thin export |
+| Auto-save every lookup | Explicit dict Add/Save |
+| Phrase = join of word glosses | One `translate_text` |
+| Extending `process_text` into MT | New `api/translate` + domain module |
 | Hand-edit generated FRB/Dart | Codegen after `api/` change |
 
 ## Checklist
 
 - [ ] Offline-only path; no required API keys
-- [ ] Optional AI mentioned only as out-of-scope boundary
-- [ ] `OfflineTranslator` (or equivalent) boundary; concrete engine/pack flagged TBD if undecided
-- [ ] Language pair from settings / explicit args; not UI locale
-- [ ] Word uses lemma from NLP; phrase is one call
-- [ ] Dict save is separate explicit step; result fields align with dict add
-- [ ] Thin `api/` exports; core in `translate/`
-- [ ] Typed errors for empty / unsupported / miss / unavailable
-- [ ] `cargo test` coverage in Rust; scaffold demo not abused
-- [ ] Flutter card remains in `work-with-reader` scope
+- [ ] Native = Rust ORT; Web = Transformers.js exception documented
+- [ ] `init_offline_translate` + `translate_text`; wasm stubs
+- [ ] Pair args explicit; en→ru only in v1
+- [ ] Surface query; dict save separate
+- [ ] Typed errors including `InferenceFailed`
+- [ ] `cargo test` for TO-*; scaffold demo not abused

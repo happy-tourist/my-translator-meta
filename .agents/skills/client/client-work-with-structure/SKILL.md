@@ -19,8 +19,10 @@ Use this skill when creating or relocating UI under `lib/` in
 Stack (from `{app}/AGENTS.md`): Flutter / Dart (`lib/`), Rust compute (`rust/`),
 **flutter_rust_bridge** generated Dart (`lib/src/rust/` — do not edit by hand),
 **Drift** for user persistence. No backend. Heavy compute (parse, tokenize,
-lemmatize, offline translate) stays in Rust; Flutter is screens, gestures,
-thin FRB orchestration, and Drift data layer (folders / documents / dictionary).
+lemmatize; offline translate **on native**) stays in Rust. **Web** offline
+translate may use Transformers.js behind `lib/data/translate/` (same UX
+contract — see `work-with-translate`). Flutter is screens, gestures, thin
+FRB/facade orchestration, and Drift data layer (folders / documents / dictionary).
 
 Path package: `package:my_translator_app/...`.
 
@@ -42,8 +44,10 @@ Skills for this client live under `.agents/skills/client/` in
 7. Keep Drift / FRB I/O in a thin orchestration layer (screen state, a dedicated
    controller/notifier, or a small service class). Prefer widgets that take
    props/callbacks over calling repositories or generated API deep in leaves.
-8. Do **not** reimplement parse / lemma / translate rules in Dart. User persist
-   belongs in Drift (`work-with-drift`), not Rust SQLite.
+8. Do **not** reimplement parse / lemma / translate rules in Dart on **native**
+   (call FRB). On **Web**, offline translate may use the documented JS engine
+   only via `lib/data/translate/` facade — never invent glosses in widgets.
+   User persist belongs in Drift (`work-with-drift`), not Rust SQLite.
 9. Do **not** mandate Riverpod, Bloc, Provider, or go_router until
    `{app}/AGENTS.md` (or an OpenSpec change) adopts one. StatefulWidget /
    `ChangeNotifier` / plain async methods are fine; if a package is added later,
@@ -128,8 +132,11 @@ Decide in this order:
    feature needs it.
 3. **Async FRB / session / list loading?** → thin orchestration next to the
    screen (or `controllers/`), not inline business rules in `build()`.
-4. **Parse / tokenize / lemma / offline translate?** → Rust (`rust/src/…` +
-   thin `rust/src/api/`), then codegen — not Dart.
+4. **Parse / tokenize / lemma / offline translate (native)?** → Rust
+   (`rust/src/…` + thin `rust/src/api/`), then codegen — not Dart.
+   **Web offline translate exception:** Transformers.js behind
+   `lib/data/translate/` facade (conditional `io`/`html`); UI never calls FRB
+   translate on web — see `work-with-translate` + OpenSpec design D4.
 4b. **User persist (folders / documents / dictionary / settings)?** → Drift
    in `lib/` (data layer / repositories) — not Rust SQLite / FRB storage.
 5. **Page-local sheet / dialog?** → Keep in the screen or extract a widget —
@@ -160,8 +167,10 @@ Decide in this order:
 
 **Put in Rust (via FRB)**
 
-- Subtitle parse, NLP (tokenize/lemma), offline translate — compute only.
-  User persistence is Drift, not Rust SQLite.
+- Subtitle parse, NLP (tokenize/lemma), offline translate **on native** —
+  compute only. User persistence is Drift, not Rust SQLite.
+- **Web:** offline translate compute lives in JS worker; Dart owns only the
+  facade under `lib/data/translate/` (same UX contract).
 
 ### What NOT to put
 
@@ -224,15 +233,17 @@ lib/src/rust/frb_generated.dart
 document store. Reader/parse later via FRB. No SRT grammar in Dart.
 
 **Reader** — screen shows cue lines; tap/selection → orchestration asks Rust
-for token/lemma + translate → shows word/phrase card; “add to vocab” → Drift
+for token/lemma → CTA/sheet; Translate via `OfflineTranslateFn` fills
+Translation; “add to vocab” → Drift
 dictionary (same store as Vocab UI). Highlight spans from Rust-prepared token
 data; Flutter paints.
 
 **Split view** — two synced scroll views (original / translation). Translation
 text and alignment data from Rust; Flutter owns scroll controllers and layout.
 
-**Vocab** — list/add/delete via Drift. Empty state supports in-UI add; Reader
-add is later. No second source of truth in SharedPreferences.
+**Vocab** — list/add/delete via Drift + Translate via `OfflineTranslateFn`.
+Empty state supports in-UI add; Reader sheets use the same dictionary store.
+No second source of truth in SharedPreferences.
 
 **Settings** — languages (and later optional AI). Persist via Drift when
 settings land; UI does not invent a parallel prefs schema for core data.

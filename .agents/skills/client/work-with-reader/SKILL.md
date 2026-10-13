@@ -49,7 +49,7 @@ skills by name.
 | Parse SRT/VTT/ASS → cues | Rust |
 | Batch tokenize cue display strings (`tokenize_cues`) | Rust (`panko` wrap); Flutter caches |
 | Morph lemmatize / lemma_key / is_in_vocab (morph + phrase) | Rust (`add-reader-lemma-highlight`); Flutter paints flags + passes morph/phrase key into Drift |
-| Offline word/phrase translate | **Later** Rust |
+| Offline word/phrase translate (Vocab + Reader sheets) | Native: Rust FRB (`work-with-translate`); Web: JS behind `lib/data/translate/` facade |
 | Dictionary CRUD persist | Flutter Drift (`DictionaryRepository`; morph lemma from call site) |
 | Token spans for hit-test | Rust prepares; Flutter paints |
 | Line list, gestures, selection chrome, CTA/Add/edit sheets | Flutter |
@@ -85,7 +85,8 @@ paint uses `cueCharSlice` (runes), matching Rust Unicode scalar spans.
 | CTA | Add sheet → manual translation + context → Drift (single: morph; phrase: casefold(join)) |
 | After Add/edit save or delete | Refresh marks via `markVocabTokens` |
 | Drag / long-press select | **Later** (tap-contiguous is shipped) |
-| Instant word card + offline gloss | **Later** |
+| Translate button on Add/Edit sheets (fill Translation) | Shipped path: OpenSpec `translate/offline` + design D4; not instant word card |
+| Instant word card on every tap | **Later** (out of this translate change) |
 
 Details: [tap.md](tap.md).
 

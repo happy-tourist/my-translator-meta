@@ -10,13 +10,13 @@ how to grow it, and allowed internal edges.
 — not `rust/src/db` / `rusqlite`. See `{app}/AGENTS.md` and
 `work-with-dictionary`.
 
-## Scaffold vs target (reminder)
+## Scaffold vs shipped (reminder)
 
-| Today | Target |
+| Today | Notes |
 |-------|--------|
-| `lib.rs` → `api` + `frb_generated` | Same + private `mod` for each compute domain below |
-| `api/simple.rs` demo | Thin `api/<area>.rs` per compute surface |
-| No parse / NLP / translate | Add modules on first real feature file |
+| `lib.rs` → `parse` / `tokenize` / `lemmatize` / `translate` + `api` + `frb_generated` | Shipped compute modules |
+| `api/simple.rs` demo | Still present — do not grow into product MT |
+| Thin `api/parse`, `api/tokenize`, `api/translate` | Real FRB surfaces |
 | No user SQLite in Rust | Keep it that way — Drift owns user rows |
 
 Do not pre-create empty module trees. Do not invent `db/` for user CRUD.
@@ -29,7 +29,7 @@ Do not pre-create empty module trees. Do not invent `db/` for user CRUD.
 | **parse** | `rust/src/parse/` | SRT / VTT / ASS(SSA) → cues, timings, plain text lines | Tokenization, dictionary persist, UI layout |
 | **tokenize** (shipped) | `tokenize/` + `api/tokenize.rs` | Word tokens + char spans for Reader tap | File format parsing, Drift/user store |
 | **lemmatize** | `lemmatize/` (+ thin exports on `api/tokenize.rs`) | Morph keys / `is_in_vocab` for highlight | Shipped (`wordnet-lemmatizer`; D1–D3) |
-| **translate** | `rust/src/translate/` | Offline gloss for word/phrase; later provider adapters behind one façade | Cue parsing, vocab row persistence |
+| **translate** | `rust/src/translate/` + `api/translate.rs` | Native ORT OPUS-MT EN→RU; wasm stubs → `EngineUnavailable` | Cue parsing, vocab row persistence, Web JS engine |
 | **dictionary** (optional later) | helpers only if needed | Lemma-key / membership helpers for highlight | User CRUD store (→ Drift), raw SQL |
 | **frb_generated** | `rust/src/frb_generated.rs` | Tooling output | Any hand edits |
 | **config** (when needed) | helper module under init | Feature flags for compute crates | Flutter theme / ARB strings / user DB paths |
@@ -61,13 +61,13 @@ Allowed (prefer acyclic):
 
 ```text
 api
-  → parse | tokenize | lemmatize | (later translate)
+  → parse | tokenize | lemmatize | translate
 tokenize
   → (pure; no api/; wraps panko)
 parse
   → (no translate required)
 translate / lemmatize
-  → (later; optional caches — not user vocab Drift)
+  → (optional caches — not user vocab Drift; translate not on wasm32)
 ```
 
 Avoid:
@@ -103,8 +103,9 @@ malformed files; no UI string tables.
 **tokenize_lemmatize** — language-aware split; lemma for each token;
 stable ids for highlight paint; morphology match for vocab keys.
 
-**translate** — offline lookup first; optional AI later as adapter behind
-same API so Flutter does not branch on providers.
+**translate** — native ORT OPUS-MT EN→RU (`init_offline_translate` /
+`translate_text`); Web MT is Flutter/JS behind `lib/data/translate/` (not
+this crate). Optional AI later as a separate adapter — do not fold into ORT.
 
 **api** — mirror the compute table above; keep functions short; map domain
 errors to FRB-friendly messages/codes (error-handling skill when present).

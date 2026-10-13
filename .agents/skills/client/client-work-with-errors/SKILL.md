@@ -239,7 +239,8 @@ Reserve for confirms and true blockers. Do not wrap every FRB failure in
 | Situation | Pattern |
 |-----------|---------|
 | Parse / open subtitle | Orchestration sets `error`, optionally re-throws; screen skips navigate-to-reader on failure |
-| Reader tap → translate / lemma | Orchestration or screen method sets error; SnackBar or card error slot |
+| Reader tap → lemma / vocab sheet | Orchestration or screen method sets error; SnackBar or card error slot |
+| Offline Translate button (Vocab / Reader sheets) | Map `OfflineTranslateErrorKind` → SnackBar with Key (`vocabTranslateErrorSnack` / `reader*TranslateErrorSnack`); **not** inline validation slots; do not change Translation on Err — see OpenSpec design D4.5 |
 | Add/remove dictionary entry (Drift) | Orchestration sets error; SnackBar or inline on vocab |
 | List vocab / library folders | Orchestration catch sets `error`, keeps list empty or prior data; **no** silent swallow |
 | Drift DB open | `TranslationReaderApp` error+retry — not a feature SnackBar |
@@ -283,28 +284,44 @@ try {
 }
 ```
 
-### 2. Tap-to-translate (transient SnackBar)
+### 2. Offline Translate button (SnackBar + Keys — design D4.5)
 
 ```dart
-Future<void> translateTap(String lemma) async {
+Future<void> onTranslate() async {
+  setState(() => translating = true);
   try {
-    final t = await translateWord(lemma: lemma);
+    final outcome = await offlineTranslate(text: surface);
     if (!mounted) return;
-    showWordCard(t);
-  } on AnyhowException catch (e) {
+    switch (outcome) {
+      case OfflineTranslateOk(:final primaryGloss):
+        translationController.text = primaryGloss;
+      case OfflineTranslateErr(:final kind):
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            key: const Key('vocabTranslateErrorSnack'), // or reader*TranslateErrorSnack
+            content: Text(offlineTranslateUserMessage(kind)),
+          ),
+        );
+    }
+  } catch (e, st) {
+    debugPrint('translate unexpected: $e\n$st');
     if (!mounted) return;
     ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text(mapFrbUserMessage(e.message))),
+      SnackBar(
+        key: const Key('vocabTranslateErrorSnack'),
+        content: Text(
+          offlineTranslateUserMessage(OfflineTranslateErrorKind.internal),
+        ),
+      ),
     );
-  } on PanicException catch (e) {
-    debugPrint('panic: ${e.message}');
-    if (!mounted) return;
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text('Translation failed. Try again.')),
-    );
+  } finally {
+    if (mounted) setState(() => translating = false);
   }
 }
 ```
+
+Do **not** write Translation on Err; do **not** reuse `vocabFormError` /
+sheet validation slots for Translate failures.
 
 ### 3. Empty dictionary (not an error)
 

@@ -74,7 +74,7 @@ in `simple` — do **not** grow product features by stuffing logic into
 | `init_app` (`#[frb(init)]`) | `setup_default_user_utils()` | Real init hook — keep / extend carefully |
 
 Domain morph lives in `rust/src/lemmatize/` (not a separate `api/lemmatize`
-module). Add named `api/` modules for translate as OpenSpec lands them; leave
+module). `api/translate` is shipped (OPUS native); leave
 demo helpers until UI no longer needs them.
 
 ## Core Rules
@@ -106,7 +106,7 @@ they specify):
 | **tokenize** | Batch `tokenize_cues` → word tokens + char spans + morph fields | Shipped (`api/tokenize.rs`) |
 | **dictionary** | (not FRB persist) | User CRUD = Drift; do not add Rust SQLite dict API unless OpenSpec says so |
 | **lemmatize / mark** | `lemma_key` fill + `mark_vocab_tokens` (morph + phrase) + `lemma_keys_for_surfaces` | Shipped (`lemmatize/` + thin exports on `api/tokenize.rs`) |
-| **translate** | Offline word/phrase translate | Later compute; keep provider/AI behind domain; thin export |
+| **translate** | Offline gloss: `init_offline_translate` + `translate_text` (OPUS native; see `work-with-translate`) | Web uses JS facade — not these FRB calls; wasm stubs OK |
 | **(later) AI** | Optional explain/translate | Only when product opts in; still thin `api/` |
 
 Register each new file in `api/mod.rs` (`pub mod parse;`, …).

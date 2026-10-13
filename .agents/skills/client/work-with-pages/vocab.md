@@ -21,6 +21,12 @@ Primary shell destination alongside Library ([shell.md](shell.md)).
   - single-word input → FRB `lemmaKeysForSurfaces` (morph);
   - multi-word input → `normalizeSurface` casefold identity (no WordNet).
   Store `surface_key` = `normalizeSurface(input)` (whitespace collapsed).
+- **Translate** on add form (`vocabTranslateButton`) — injectable
+  `OfflineTranslateFn` (lemma field surface as displayed); fills
+  `vocabTranslationField`; disabled when lemma empty or while loading;
+  re-enables after success/error; errors → SnackBar `vocabTranslateErrorSnack`
+  (not `vocabFormError`); attribution `vocabTranslateAttribution` (D4.6).
+  Add stays independent of Translate. See `work-with-translate`.
 - Remove entry; validation on empty lemma/translation after trim.
 - Opening an entry may deep-link back to a document/cue **later** — do not invent cross-navigation until OpenSpec says so.
 - **Reader add/edit** (`reader/tap` / `reader/highlight`) — same Drift
@@ -31,7 +37,8 @@ Primary shell destination alongside Library ([shell.md](shell.md)).
 
 ```text
 VocabularyScreen
-  → orchestration: list / add / delete / (optional) update
+  → orchestration: list / add / delete / (optional) update / Translate
+      → OfflineTranslateFn (lib/data/translate/)  # gloss only
       → lemmaKeysForSurfaces (FRB)   # morph for single-word manual add
       → Drift dictionary repository  # persist authority
 ```
@@ -40,6 +47,7 @@ VocabularyScreen
 - Do not keep a second source of truth in `SharedPreferences`.
 - Do **not** wait for FRB dictionary storage API — persist is Drift, not Rust SQLite.
 - Do **not** put WordNet in Dart; repo accepts morph/phrase lemma from call site.
+- Do **not** invent glosses in the widget — only via `OfflineTranslateFn`.
 
 ## Relationship to Reader
 

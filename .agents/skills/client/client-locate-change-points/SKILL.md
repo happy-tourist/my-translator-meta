@@ -61,12 +61,15 @@ Composition roots under `lib/`:
 Allowed dependency direction:
 
 ```text
-lib/app + lib/features  →  lib/data (Drift)  and/or  lib/src/rust/api/* (generated)
+lib/app + lib/features  →  lib/data (Drift | translate facade)
+  and/or  lib/src/rust/api/* (generated, native compute)
   →  rust/src/api/*  →  rust compute modules
 ```
 
-Flutter owns UI + Drift user persist; parse / lemmatize / offline translate stay
-in Rust. Do not reimplement NLP/parse in Dart.
+Flutter owns UI + Drift user persist; parse / lemmatize / offline translate
+(**native**) stay in Rust. Web offline translate: JS behind `lib/data/translate/`
+(see `work-with-translate`). Do not reimplement NLP/parse or invent glosses in
+widgets.
 
 ### Current product shell (confirmed)
 
@@ -87,7 +90,7 @@ in Rust. Do not reimplement NLP/parse in Dart.
 |------|----------------|------------------------------|
 | Subtitle library | folders + file-pick UX; Drift persist | parse SRT/VTT/ASS → cues (later) |
 | Reader (lines, tap, highlight) | gestures, layout, paint tokens | tokenize / lemmatize / match |
-| Word/phrase card | sheet/dialog UI, «add to dict» | translate (Rust); add → Drift |
+| Vocab / Reader Translate → Translation field | sheet UI + `OfflineTranslateFn` | native FRB / Web JS behind `lib/data/translate/`; add → Drift |
 | Split view + sync scroll | two panes, scroll sync | translation lines / data |
 | Dictionary screen | list/add/delete UI + Drift | — (persist not in Rust) |
 | Settings | languages UI | persist settings (Drift later) |
@@ -119,7 +122,7 @@ in Rust. Do not reimplement NLP/parse in Dart.
 | User folders / documents / dictionary | Drift repositories in `lib/data/` |
 | Parse subtitles (later) | Rust + thin `api/`; Flutter shows cues |
 | Tokens / lemmas / highlight keys | Rust prepares; Flutter paints |
-| Offline translate word/phrase | Rust; Flutter shows result card |
+| Offline translate word/phrase | `lib/data/translate/` facade; Vocab/Reader Translate fills Translation (not instant word card) |
 | Errors / loading | Flutter UI state around async Drift/FRB calls |
 
 ### Forms, i18n, tests, config
@@ -140,7 +143,7 @@ in Rust. Do not reimplement NLP/parse in Dart.
 | Library folders/documents | `lib/data/library/*`, `lib/features/upload/library_screen.dart` |
 | Dictionary CRUD | `lib/data/dictionary/*`, `lib/features/vocab/vocabulary_screen.dart` |
 | Reader + tap + highlight | `lib/features/reader/`; Related: tokenize/lemmatize/mark FRB (`add-reader-lemma-highlight`) |
-| Word/phrase card + offline gloss (later) | reader widgets + Drift dictionary repo |
+| Offline Translate (Vocab / Reader sheets) | `lib/data/translate/`; Vocab + Reader sheets; native FRB / Web JS |
 | Split view | `lib/features/reader/` (mode); Related: translation cues from parse |
 | Settings (later) | `features/settings/`; Related: Drift settings when added |
 | Generated Dart bindings | `lib/src/rust/**` (read-only) |

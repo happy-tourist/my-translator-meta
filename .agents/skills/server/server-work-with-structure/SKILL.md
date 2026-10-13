@@ -15,7 +15,9 @@ description: >-
 Use this skill when creating or relocating code under `rust/` in
 **my_translator_app** (product: **Translation Reader**).
 
-Rust is the in-process **compute** core (parse, NLP, offline translate).
+Rust is the in-process **compute** core (parse, NLP, offline translate on
+native). Web offline translate is a Flutter/JS facade exception — see
+`work-with-translate`; do not expect ORT in wasm32.
 User persistence (library folders/documents, dictionary) is **Drift** in
 Flutter — do **not** require `rust/src/db` / `rusqlite` for user data.
 Flutter talks to Rust through **flutter_rust_bridge** (FRB): generated Dart →
@@ -62,24 +64,25 @@ Read the matching file in this folder when the change involves that area
 |-------|------|
 | Target module map (parse / NLP / dict / translate / db; owns vs not) | [content.md](content.md) |
 
-## Folder Map (`rust/src`) — scaffold vs target
+## Folder Map (`rust/src`) — shipped vs leftovers
 
-### Scaffold today
+### Shipped today
 
 ```text
 rust/src/
-├── lib.rs              # pub mod api; mod frb_generated;
+├── lib.rs              # mod parse / tokenize / lemmatize / translate + api + frb_generated
+├── parse/ tokenize/ lemmatize/ translate/
 ├── api/
-│   ├── mod.rs          # pub mod simple;
-│   └── simple.rs       # process_text / add_numbers demo
+│   ├── mod.rs          # parse, tokenize, translate, simple
+│   ├── parse.rs / tokenize.rs / translate.rs
+│   └── simple.rs       # process_text / add_numbers demo (do not grow)
 └── frb_generated.rs    # GENERATED — do not edit
 ```
 
-`lib.rs` does not declare parse / NLP / dict / translate / db yet.
 Scaffold leftovers (`process_text` → `to_uppercase`, `add_numbers`) — do
-not extend for product features; replace or leave unused as real APIs land.
+not extend for product features. No `rust/src/db` for user data (Drift).
 
-### Target layout
+### Layout (roles)
 
 | Layer | Path | Role |
 |-------|------|------|
@@ -87,7 +90,7 @@ not extend for product features; replace or leave unused as real APIs land.
 | FRB public surface | `rust/src/api/` | Thin `#[frb]` functions / types only; one file (or submodule) per product area |
 | Parse | `rust/src/parse/` (or `parse.rs`) | SRT / VTT / ASS(SSA) → cues / timings |
 | Tokenize / lemmatize | `rust/src/tokenize/` + `lemmatize/` | Word spans; EN WordNet morph keys + mark helpers |
-| Translate | `rust/src/translate/` | Offline word/phrase translate; later optional AI adapters |
+| Translate | `rust/src/translate/` + `api/translate.rs` | Native ORT OPUS-MT EN→RU; wasm stubs |
 | Dictionary (NLP helpers only) | optional module later | Lemma-key helpers — **not** user CRUD store |
 | User persistence | **Flutter Drift** (`lib/`) | folders / documents / dictionary — **not** `rust/src/db` |
 | Generated | `rust/src/frb_generated.rs` | **GENERATED** — never hand-edit |

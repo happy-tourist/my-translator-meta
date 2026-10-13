@@ -100,6 +100,12 @@ explicit user override (and expect a separate empty DB).
 Drift Web assets (required beside FRB WASM): `web/sqlite3.wasm`,
 `web/drift_worker.js` — see `work-with-drift` / `{app}/AGENTS.md`.
 
+Offline MT (Web): `web/translate_bridge.js` (loaded from `web/index.html`),
+`web/translate_worker.js`, vendored `web/transformers/`, plus Flutter assets
+`assets/models/opus-mt-en-ru/` (same pubspec dirs as native). UI still goes
+through `lib/data/translate/` — see `work-with-translate`. COOP/COEP remain
+required for FRB WASM even when Web MT uses the JS worker.
+
 Startup contract: `main()` must `await RustLib.init()` before
 `TranslationReaderApp` (which then opens Drift). If init fails, fix
 FRB/WASM/native glue — do not bypass init for “UI-only” smoke.

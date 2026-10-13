@@ -67,7 +67,7 @@ Load **in this order**:
 
 Treat explicit prohibitions and exceptions as atomic: «не отображать», «не добавлять», «скрыть», «только для…», «кроме…».
 
-Heavy compute (parse, lemma, translate) belongs in **Rust**; user persistence (library / dictionary) belongs in **Drift** on Flutter. Flutter must bind FRB for compute, not reimplement NLP/parse. Flag Flutter inventing core compute rules when AC puts them in Rust as `code-only` / `extra` as appropriate.
+Heavy compute (parse, lemma; offline translate on **native**) belongs in **Rust**; user persistence (library / dictionary) belongs in **Drift** on Flutter. Web offline translate may use Transformers.js behind `lib/data/translate/` (same UX contract — not a Dart-invented gloss). Flutter must bind FRB for native compute, not reimplement NLP/parse. Flag Flutter inventing core compute rules when AC puts them in Rust as `code-only` / `extra` as appropriate.
 
 A tester's guess is only a lead. Dialog wording is clarification only when it explicitly updates expected behavior relative to the active change.
 

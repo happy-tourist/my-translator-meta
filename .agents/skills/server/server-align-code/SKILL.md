@@ -14,7 +14,7 @@ description: >-
 
 Read-only **Rust-core** alignment audit for Translation Reader (`my_translator_app` → `rust/`). Report findings in **Russian** across three tiers: hard gaps, warnings, recommendations.
 
-Stack context: Rust edition 2021 crate `rust_lib_my_translator_app` in `rust/`; public FFI in `rust/src/api/**`; FRB 2.13 glue (native FFI / WASM). Generated never hand-edit: `rust/src/frb_generated.rs`, `lib/src/rust/**`. Target core modules: parse / tokenize / lemmatize / dictionary / translate / db — scaffold today mostly `api/simple.rs` (`process_text`, `add_numbers`, `init_app`). Judge code vs **OpenSpec change**, not imaginary full product.
+Stack context: Rust edition 2021 crate `rust_lib_my_translator_app` in `rust/`; public FFI in `rust/src/api/**`; FRB 2.13 glue (native FFI / WASM). Generated never hand-edit: `rust/src/frb_generated.rs`, `lib/src/rust/**`. Shipped compute: parse / tokenize / lemmatize / translate (native ORT); scaffold leftovers `api/simple.rs` (`process_text`, `add_numbers`, `init_app`). User persist = Drift (not `rust/src/db`). Judge code vs **OpenSpec change**, not imaginary full product.
 
 **Paths:** this skill lives in **my_translator_meta** at `.agents/skills/server/server-align-code/`. Resolve app via [`docs/projects-map.md`](../../../../docs/projects-map.md) key `app` (default `../my_translator_app`). Runtime paths below are relative to **`{app}`**. OpenSpec lives in **meta** (`.`). Before deep reads — `{app}/AGENTS.md`.
 
@@ -178,7 +178,7 @@ Find strong untouched analogues for the same domain/flow. Prefer same layer:
 |---------|---------|
 | Public FFI | `rust/src/api/**/*.rs`, `rust/src/api/mod.rs` |
 | Crate root | `rust/src/lib.rs` |
-| Core modules (target) | parse / tokenize / lemmatize / dictionary / translate / db under `rust/src/` as they appear |
+| Core modules (shipped + optional) | parse / tokenize / lemmatize / translate under `rust/src/`; dict helpers optional; no user `db/` |
 | FRB init | `#[frb(init)]` / `init_app` in `api/` |
 | Errors | `Result` types, `thiserror`/`anyhow` patterns if present |
 | Persistence (user data) | **Drift in Flutter `lib/`** — not `rusqlite` / `rust/src/db` |

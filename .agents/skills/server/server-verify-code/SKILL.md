@@ -36,7 +36,7 @@ plus DRY / KISS / YAGNI balance.
 **`rust_lib_my_translator_app`** (`cdylib` + `staticlib`),
 **flutter_rust_bridge** **2.13** — public FFI in `rust/src/api/**`, generated
 `rust/src/frb_generated.rs` (never hand-edit). Heavy **compute** (parse,
-tokenize, lemmatize, offline translate) lives in Rust modules outside thin
+tokenize, lemmatize, offline translate on native) lives in Rust modules outside thin
 `api/` exports. User persist = Drift in Flutter (not Rust SQLite). Verify with
 `cargo` in `{app}/rust`.
 

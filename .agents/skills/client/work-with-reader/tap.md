@@ -48,21 +48,29 @@ long-press). Selection never spans cues.
 2. CTA → `showModalBottomSheet` (`Key('readerAddVocabSheet')`):
    - surface read-only (`readerAddVocabSurface`) — single token surface, or
      casefold(join) for multi-token
+   - **Translate** (`readerAddVocabTranslate`) → `OfflineTranslateFn(text: surface)`;
+     loading on button; after first start stays disabled until sheet closes;
+     Ok fills `readerAddVocabTranslation`; Err → SnackBar
+     `readerAddVocabTranslateErrorSnack` (do not touch Translation)
+   - attribution (`readerAddVocabTranslateAttribution`) — D4.6 copy from facade
    - translation editable, initially empty, required (`readerAddVocabTranslation`)
    - context editable, prefill = full cue text (`readerAddVocabContext`)
    - Save (`readerAddVocabSave`); validation error (`readerAddVocabValidationError`)
-3. Persist via injected `DictionaryRepository.add`:
+3. Edit sheet (in-vocab): same Translate Keys with `readerEditVocab*` prefix.
+4. Persist via injected `DictionaryRepository.add`:
    - **single:** `lemma: token.lemmaKey`,
      `surfaceKey: normalizeSurface(token.surface)`
    - **phrase:** `lemma` = `surfaceKey` =
      `normalizeSurface(join(surfaces, " "))` (no WordNet)
-4. Success → close sheet, clear selection, **refresh** marks via
+5. Success → close sheet, clear selection, **refresh** marks via
    `markVocabTokens` ([highlight.md](highlight.md)).
-5. Tokenize / mark FRB failure → plain text, taps off, SnackBar
+6. Tokenize / mark FRB failure → plain text, taps off, SnackBar
    `readerTokenizeErrorSnack` (no auto-retry).
 
 ## DI / test seams
 
+- `AppShell` → one shared `OfflineTranslateFn` → Library/Reader + Vocab
+  (design D4.1); override in widget tests.
 - `AppShell` → `LibraryScreen(dictionaryRepository:)` →
   `ReaderScreen(dictionaryRepository:)` (required).
 - Optional `ReaderScreen.tokenizeCues` / `TokenizeCuesFn`,
@@ -73,7 +81,7 @@ long-press). Selection never spans cues.
 
 | Later | Notes |
 |-------|--------|
-| Word / phrase card with offline gloss | FRB translate + richer chrome |
+| Instant word/phrase card chrome (beyond Translate-on-sheet) | Richer card UX; gloss engine already via `lib/data/translate/` |
 | Drag / long-press select | Product may add; tap-contiguous is shipped |
 | Tap on translation pane | Out of scope until a change says so |
 
@@ -85,6 +93,6 @@ long-press). Selection never spans cues.
 | Single-token-only as current canon | Contiguous tap expand/shrink/gap-flash (one cue) |
 | Dart `RegExp` / UTF-16 `substring` for tokens | Rust spans + `cueCharSlice` |
 | Per-row FRB tokenize on list rebuild | Batch once on open, cache |
-| Invent local translation in the sheet | Manual translation field → Drift |
+| Invent local glosses in the sheet | Offline Translate via `OfflineTranslateFn` facade, then Drift save |
 | Dict writes outside `DictionaryRepository` | Same persist path as Vocab |
 | Stub `normalizeLemma(surface)` as morph identity | Single: `token.lemmaKey`; phrase: casefold(join) |

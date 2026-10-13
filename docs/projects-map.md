@@ -73,13 +73,17 @@ app: ../my_translator_app
 | `app` | `../my_translator_app/` | Flutter + Rust + FRB (Translation Reader) |
 | `app.agents` | `../my_translator_app/AGENTS.md` | продукт / стек / домены |
 | `app.lib` | `../my_translator_app/lib/` | Flutter UI |
-| `app.data` | `../my_translator_app/lib/data/` | Drift user persist (folders / documents / dictionary) |
+| `app.data` | `../my_translator_app/lib/data/` | Drift user persist + offline translate facade (`data/translate/`) |
+| `app.data.translate` | `../my_translator_app/lib/data/translate/` | Dart facade: native FRB ORT \| Web Transformers.js |
+| `app.assets.opus` | `../my_translator_app/assets/models/opus-mt-en-ru/` | OPUS-MT EN→RU ONNX + tokenizer |
 | `app.rust` | `../my_translator_app/rust/` | Rust crate (`rust_lib_my_translator_app`) |
 | `app.rust.tokenize` | `../my_translator_app/rust/src/tokenize/` | panko tokenize (char spans) |
 | `app.rust.lemmatize` | `../my_translator_app/rust/src/lemmatize/` | EN WordNet morph keys |
+| `app.rust.translate` | `../my_translator_app/rust/src/translate/` | native ORT offline MT (не wasm32) |
 | `app.rust.api` | `../my_translator_app/rust/src/api/` | публичный FRB API (источник правды FFI) |
 | `app.rust.generated` | `../my_translator_app/lib/src/rust/` | GENERATED Dart bindings (не править вручную) |
 | `app.frb` | `../my_translator_app/flutter_rust_bridge.yaml` | конфиг codegen |
+| `app.web.translate` | `../my_translator_app/web/` | `translate_bridge.js` / `translate_worker.js` / `transformers/` |
 | `app.tests` | `../my_translator_app/test/` | Flutter unit/widget tests |
 | `app.integration_test` | `../my_translator_app/integration_test/` | Flutter integration tests |
 | `app.rust.tests` | `../my_translator_app/rust/` | `cargo test` (unit рядом с модулями) |

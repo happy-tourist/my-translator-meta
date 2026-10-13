@@ -262,8 +262,10 @@ Apply always; sibling skills win when they exist and conflict on a detail.
 ### Language and architecture
 
 - **Dart** + **Flutter** widgets in `lib/`; UI and orchestration only.
-- **Heavy compute in Rust** (parse, tokenize, lemmatize, offline translate).
-  User persistence (library / dictionary / settings) → **Drift** in Flutter.
+- **Heavy compute in Rust** (parse, tokenize, lemmatize; offline translate on
+  **native**). Web offline translate may use Transformers.js behind
+  `lib/data/translate/` — not a Dart-invented gloss. User persistence
+  (library / dictionary / settings) → **Drift** in Flutter.
   Do **not** reimplement NLP/parse rules in Dart.
 - Dependency direction:
 

@@ -54,25 +54,35 @@ shell tab. Ctor requires `dictionaryRepository` (Shell → Library → Reader).
 
 ### Later
 
-- Offline translate / richer word-card chrome; drag / long-press select.
+- Instant word/phrase card chrome (beyond Translate-on-sheet); drag /
+  long-press select.
 
 ## Add-vocab sheet
 
 Minimum fields:
 
 - Surface (read-only from selection: single surface or phrase join)
-- Translation (required, initially empty — user-entered)
+- **Translate** (`readerAddVocabTranslate`) → injectable `OfflineTranslateFn`
+  (surface as displayed); fills Translation; loading on button; stays disabled
+  until sheet closes after first start; errors → SnackBar
+  `readerAddVocabTranslateErrorSnack` (not validation slot)
+- Attribution / disclaimer Keys (`readerAddVocabTranslateAttribution`) —
+  copy from `lib/data/translate/offline_translate.dart` (D4.6)
+- Translation (required, initially empty — user or Translate)
 - Context (editable; prefill = full cue text)
 - Save → Drift upsert: single morph `lemmaKey` + `surfaceKey`; phrase
   casefold(join); same policy as Vocab UI
 
 Not a shell destination. Success closes sheet, clears selection, refreshes marks.
+Engine details: meta `work-with-translate`.
 
 ## Edit-vocab sheet (in-vocab)
 
 - Prefill from Drift lookup by `lemma_key`; lemma/surface read-only;
   translation/context editable; Save upsert; Delete removes entry.
-- Locked Keys: see OpenSpec change `add-reader-lemma-highlight` design D5.
+- Same Translate pattern: `readerEditVocabTranslate` /
+  `readerEditVocabTranslateErrorSnack` / `readerEditVocabTranslateAttribution`.
+- Locked Keys: see OpenSpec `reader/tap` + `add-reader-lemma-highlight` design D5.
 
 ## Split view
 

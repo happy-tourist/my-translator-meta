@@ -78,7 +78,8 @@ context: |
   Проект: my_translator_app — Flutter / Dart (sdk ^3.13), Material, flutter_rust_bridge 2.13,
   generated lib/src/rust/, widget/integration tests.
   User persistence: **Drift** в Flutter `lib/data/` (folders / documents / dictionary; settings later).
-  Compute (parse / tokenize / lemmatize / offline translate) — в Rust; не дублировать NLP в Dart.
+  Compute (parse / tokenize / lemmatize; offline translate на native) — в Rust; не дублировать NLP в Dart.
+  Web offline translate: Transformers.js за Dart-фасадом `lib/data/translate/` (исключение; см. skill work-with-translate / OpenSpec translate/offline).
   Архитектура: lib/app shell (Library|Vocab) + lib/features/* + lib/data Drift; FRB calls тонкие (compute).
   Сейчас: product shell Library + Vocabulary; Drift repos; Rust scaffold API ещё в crate, не home UI.
   Client Drift skill: `.agents/skills/client/work-with-drift`.
