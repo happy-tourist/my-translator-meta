@@ -1,0 +1,5 @@
+change: add-offline-opus-translate
+phase: done
+apply_block: null
+blocker: "app push rejected: decoder ONNX >100MB — need Git LFS or alternate hosting; local commit c804c4c ahead of origin"
+updated: "2026-10-13T09:20:00Z"

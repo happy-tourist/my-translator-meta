@@ -1,6 +1,6 @@
 ## Context
 
-См. `proposal.md` — Why / Scope. Сейчас перевод в Vocab и Reader Add/Edit вводится вручную; модуля `translate/` и FRB translate API нет. Канон skills утверждал «offline translate в Rust»; на Web FRB = WASM, а CT2/`trad` на Web нежизнеспособны. Explore зафиксировал dual runtime на одной модели OPUS-MT EN→RU ONNX.
+См. `proposal.md` — Why / Scope. До этого change перевод в Vocab и Reader Add/Edit вводился вручную; модуля `translate/` и FRB translate API не было. Канон skills утверждал «offline translate в Rust»; на Web FRB = WASM, а CT2/`trad` на Web нежизнеспособны. Explore зафиксировал dual runtime на одной модели OPUS-MT EN→RU ONNX. Apply завершён: dual facade + FRB/Web engines + UI Translate на Vocab/Reader sheets (tasks 18/18).
 
 Runtime: sibling `../my_translator_app` — Flutter UI + Rust FRB; user persist = Drift (без изменений схемы словаря в этом change).
 
@@ -236,9 +236,10 @@ Transient translate errors → **SnackBar** с Key из D4.4 (паттерн `li
 - Новые deps: Cargo (`ort`, tokenizer — non-wasm), Flutter (js interop / web assets), npm или vendored transformers для web worker — зафиксировать версии в apply notes / lockfiles.
 - Rollback: убрать кнопку и facade; assets можно оставить без вызова.
 
-## Open Questions (закрываются spike, не product-human)
+## Open Questions — resolved (spike 2.0)
 
-- Точный набор ONNX-файлов (encoder/decoder uint8 vs merged) — **spike 2.0**; записать в asset-заметку.
-- `tokenizer.json` vs SPM для native — **spike 2.0**; тот же список имён для Web local files.
+- **ONNX set:** `encoder_model_uint8.onnx` + `decoder_model_uint8.onnx` (не merged).
+- **Tokenizer:** `tokenizer.json` (не SPM); тот же список basenames для native FRB init и Web local assets.
+- **Cargo (non-wasm):** `ort = "2.0.0-rc.14"`, `tokenizers` 0.21 (`default-features=false`, `fancy-regex`), `ndarray = "0.17"` — см. app `rust/src/translate/SPIKE.md` + `assets/models/opus-mt-en-ru/README.md`.
 
-Чеклист реализации — `tasks.md`.
+Чеклист реализации — `tasks.md` (все пункты отмечены выполненными).
