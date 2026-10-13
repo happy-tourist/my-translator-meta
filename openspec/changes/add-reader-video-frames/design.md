@@ -56,9 +56,16 @@ Extract / Drift / AppBar orchestration без изменений.
 
 - Unchanged: Load → page containing `floor(readingTimeMs/1000)`; page change → sync translation; bottom ↛ original; Remove → cues @ T.
 
-### D7–D8 — Persist / pick
+### D7 — Persist + durable video media (REVISION 4)
 
-- Unchanged (last_second → page; MP4/MKV).
+- Schema **6**: `DocumentVideoMedia` — full video `bytes` + `fileName` per original document.
+- **Web:** on Load, always persist media bytes; do **not** store ephemeral `blob:` URLs as sandboxPath (use sentinel `drift-media`). On reopen, recreate session object URL from bytes.
+- **Native:** may keep sandbox filesystem path; still MAY store media bytes for reopen if path dies.
+- JPEG cache + last_second unchanged. Detach/delete cascades media + frames.
+
+### D8 — Форматы pick
+
+- Без изменений: MP4/MKV, VF-11.
 
 ### D9 — Tests (REVISION 3)
 

@@ -27,7 +27,8 @@
 ## Out of scope
 
 - Видеоплеер, scrubber, аудио.
-- Копия всего видео в sandbox; Rust/WASM video decode.
+- Rust/WASM video decode.
+- Копия видео **в sandbox приложения / Drift media** — **in scope** (durable Web reopen); не в отдельный «облачный» storage.
 - Кадры в нижней панели split.
 - Горизонтальная полоса 3-в-ряд над cue list; infinite all-seconds list.
 - Обязательный decode всех секунд сразу; облачный sync.

@@ -36,3 +36,10 @@
 - [x] 9.4 Под кадром с текстом: `CueRow` / embed с `showTimestamp: true` (`startMs → endMs` из файла); пустой слот без метки — VF-03/VF-04
 - [x] 9.5 Обновить widget-тесты VF-03/04/14/15; skill `video-frames.md`
 - [x] 9.6 `flutter analyze` + targeted `flutter test` по video/reader tests
+
+## 10. Durable video copy (Web reopen)
+
+- [x] 10.1 Schema 6: `DocumentVideoMedia` (full video bytes + fileName); cascade on delete/detach
+- [x] 10.2 `attachVideo` stores media bytes; Web persist `sandboxPath=drift-media` (not blob URL)
+- [x] 10.3 Restore: `getVideoMedia` → session object URL / sandbox file via `playbackRefFromMediaBytes`
+- [x] 10.4 Unit test media persist + detach clears; analyze/tests green

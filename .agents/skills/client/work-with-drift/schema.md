@@ -59,7 +59,7 @@ data wipe — see `work-with-env-deploy` and `{app}/AGENTS.md`.
 Bump `schemaVersion` and add a Drift `MigrationStrategy` when altering tables.
 Do not silently wipe user data in product builds without an OpenSpec decision.
 
-**Present:** `schemaVersion` **5** —
+**Present:** `schemaVersion` **6** —
 
 - from `< 2`: nullable `Documents.translationDocumentId` (self-FK → `Documents.id`)
 - from `< 3`: nullable `lastReadStartMs` + `lastReadAlignment` (reading resume)
@@ -72,5 +72,7 @@ Do not silently wipe user data in product builds without an OpenSpec decision.
   `videoLastFramePage` stores **0-based last video second** (D7 reuse;
   page = `videoFramePageForSecond` on restore). Cascade clear on
   `deleteDocument` / folder delete. No Rust SQLite for video.
+- from `< 6`: `DocumentVideoMedia` — full video bytes + `fileName` for durable
+  Web reopen (blob URLs die on reload). Cleared on detach/delete with frames.
 
 Regenerate `.g.dart` after table edits.

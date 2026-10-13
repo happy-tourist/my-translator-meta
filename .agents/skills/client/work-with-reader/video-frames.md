@@ -91,7 +91,8 @@ second FFmpegKit package), `web` (canvas interop). See `work-with-env-deploy`.
 
 ## Persist (pointer)
 
-Schema 5: `Documents.videoUri` / `videoSandboxPath` / `videoDurationSec` /
+Schema 6: `DocumentVideoMedia` (full video bytes for Web reopen) +
+Schema 5 cols: `Documents.videoUri` / `videoSandboxPath` / `videoDurationSec` /
 `videoLastFramePage` (**semantics = last_second**; page =
 `videoFramePageForSecond` on restore) +
 `DocumentVideoFrames` JPEG BLOB. Repo ops and LD-18…LD-23 → `work-with-drift`
