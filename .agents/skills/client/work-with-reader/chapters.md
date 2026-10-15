@@ -36,12 +36,18 @@ and passes chapter payloads — do **not** push EPUB as empty `originalCues`.
 5. Tap / highlight / Add-edit sheets apply to **paragraph tokens** the same
    way as cue tokens ([tap.md](tap.md), [highlight.md](highlight.md)).
 
-## Tokenize
+## Tokenize / hit-test (D11–D12)
 
-On open and on each **original** chapter change: batch-tokenize
-**current chapter paragraphs** (`tokenizeCues` with paragraph strings), then
-`markVocabTokens`. Translation pane stays plain (no highlight), same as
-subtitle split.
+On open and on each **original** chapter change: progressive tokenize of
+**current chapter paragraphs** (`tokenizeCues` — prefix then idle remainder),
+then `markVocabTokens` (highlight MAY lag; tap on ready prefix is OK).
+In-memory `Map<chapterIndex, tokens>` for the Reader session; pager return
+is a cache hit; re-mark after vocab mutate. Translation pane stays plain
+(no highlight), same as subtitle split.
+
+Book paragraph rows use **lightweight hit-test** (`CueRow.lightweightHitTest`:
+`Text.rich` TextSpans + one gesture → char → `tokenIndex`). Do **not** use
+WidgetSpan-per-word in book mode; subtitle CueRow path stays WidgetSpan.
 
 ## Reading resume (LD-28 / RC-06)
 

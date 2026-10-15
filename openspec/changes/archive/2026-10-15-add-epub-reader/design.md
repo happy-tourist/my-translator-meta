@@ -1,6 +1,6 @@
 ## Context
 
-См. `proposal.md` (Why / Scope). Сейчас Library/Reader заточены под субтитры: Drift bytes → FRB `parse_subtitles` → `CueDto` list; split sync по `startMs`; optional `VideoFramePages` с нижним pager. EPUB отсутствует в deps и specs. Нужен параллельный book-path с тем же learning UX и Web+native bytes-контрактом.
+См. `proposal.md` (Why / Scope). Базовый EPUB path (parse / Library / book UI / split) уже реализован в sibling app. На Web скролл абзацев и split jank: `CueRow` строит `WidgetSpan`+`GestureDetector` на каждый токен; batch tokenize/mark на всю главу; divider `setState` пересобирает обе панели. Follow-up — post-load Flutter perf без смены `parse_epub`.
 
 ## Goals / Non-Goals
 
@@ -9,11 +9,13 @@
 - Синхронный EPUB parse в Rust (thin FRB), вход **bytes**, выход главы → plain абзацы.
 - Book-режим в существующем Reader: абзацы + нижний chapter pager; split EPUB↔EPUB sync по индексу главы.
 - Import `.epub` в Drift без кэша глав (re-parse on open).
+- **Perf follow-up:** book-mode lightweight hit-test; progressive tokenize + chapter token cache; split divider без per-drag rebuild списков.
 
 **Non-Goals:**
 
 - Rich HTML, картинки, сноски; запись EPUB; video для EPUB; смешанный EPUB↔SRT split.
 - Отдельный top-level screen вне `features/reader`.
+- Lazy parse тел глав / смена FRB `parse_epub` payload; переписывание subtitle WidgetSpan CueRow (кроме optional shared helper).
 
 ## Decisions
 
@@ -72,7 +74,7 @@ pub fn parse_epub(bytes: Vec<u8>) -> Result<ParsedEpub, EpubParseErrorKind>;
 - Точки: `lib/features/upload/library_screen.dart` (format allowlist + open branch), `lib/data/library/document_format.dart` (+ repo reject messages), `lib/data/library/parse_error_messages.dart` (+ EPUB kinds), `lib/features/reader/reader_screen.dart` и соседние виджеты chapter pager / paragraph list.
 - **Не** создавать `lib/screens/reader_screen.dart`.
 - **Session contract (locked):** Library open для `format == epub` вызывает FRB `parse_epub` и пушит `ReaderScreen` в **book-режиме** с payload глав (`ParsedEpub` / эквивалент: список глав → абзацы), плюс `documentFormat: 'epub'` (или явный `ReaderMode.book`). Subtitle open остаётся `parse_subtitles` → `originalCues`. Не открывать EPUB через пустой `CueDto` list.
-- **Paragraph → learning pipeline (locked minimal reuse):** тексты абзацев текущей главы → `tokenize_cues(texts: …)` / `mark_vocab_tokens` как сейчас для cue display-strings. UI-строка абзаца: reuse token-tap из `CueRow` **с `showTimestamp: false`** (или тонкий paragraph row с тем же token hit-target). Допустим adapter `CueDto` только как внутренний display/tokenize носитель; **запрещено** использовать `startMs` абзацев для split-sync или reading-anchor book-пути.
+- **Paragraph → learning pipeline (locked minimal reuse):** тексты абзацев текущей главы → `tokenize_cues(texts: …)` / `mark_vocab_tokens` как сейчас для cue display-strings. UI-строка абзаца: `showTimestamp: false`; hit-test — **D11** (не WidgetSpan-на-слово). Допустим adapter `CueDto` только как внутренний display/tokenize носитель; **запрещено** использовать `startMs` абзацев для split-sync или reading-anchor book-пути. Progressive tokenize / cache — **D12**.
 - Chrome pager: паттерн как у `VideoFramePages` (`[<] n/N [>]` снизу списка абзацев), единица = глава; при смене главы — заменить абзацы и сбросить scroll к началу.
 - EPUB: **скрыть** AppBar Load/Replace/Remove video (`readerLoadVideo` / `readerRemoveVideo`); не вызывать video restore на open.
 
@@ -118,23 +120,46 @@ pub fn parse_epub(bytes: Vec<u8>) -> Result<ParsedEpub, EpubParseErrorKind>;
 | Медиа | без картинок/сносок |
 | Persist | bytes + re-parse; Web binary-safe (D6 base64) |
 
+### D11 — Book-mode lightweight hit-test (locked)
+
+- **Проблема:** `_SelectableCueText` строит `WidgetSpan` + `GestureDetector` + `Text` на каждый token — на Web EPUB-главе это тысячи виджетов → jank скролла/split.
+- **Выбор:** в **book-режиме** paragraph row использует `Text.rich` из `TextSpan` (стили selection / flash / `isInVocab`) + **один** gesture layer на абзац; tap → map local offset → char index (`cueCharSlice` / TextPainter) → `tokenIndex` → существующий `_onOriginalTokenTap`.
+- **Subtitle:** оставить текущий WidgetSpan CueRow path без изменений (короткие cues).
+- **Тесты:** Keys `readerCueToken_*` для book заменить/дополнить Semantics или finder по `cueListIndex`+`tokenIndex`; RC-04/RC-07 обязаны зелёными.
+- **Альтернативы:** (B) только chunk/cache без смены hit-test — отвергнуто (недостаточно для Web scroll); (C) dual path уже выбран (book vs subtitle).
+
+### D12 — Progressive tokenize + chapter cache (locked)
+
+- Показывать plain paragraphs сразу; `tokenize_cues` чанками (например первые N абзацев / idle callback на остаток); `mark_vocab_tokens` MAY после tokenize чанка или вторым проходом.
+- Highlight MAY отставать от tap-ready (продуктово ок).
+- In-memory `Map<chapterIndex, List<CueTokensDto>>` (и mark-ready flag) на время Reader session; invalidate generation при смене главы in-flight уже есть; при Add/edit/delete vocab — re-mark затронутых кешей / текущей главы как сейчас.
+- Не персистить token cache в Drift.
+
+### D13 — Book split divider without per-drag list rebuild (locked)
+
+- Divider ratio через `ValueNotifier` / аналог: менять только высоты `SizedBox`, не вызывать полный `setState` на `ReaderScreen`, пересоздающий оба paragraph `ListView` на каждый pointer-move.
+- Включение split по-прежнему строит две панели один раз; последующий drag — дешёвый.
+
 ## Risks / Trade-offs
 
 | Risk | Mitigation |
 |------|------------|
 | `rbook` + `zip` раздувают WASM / getrandom | `default-features = false`; early wasm check (D7); без JS EPUB fallback |
 | TOC vs spine / fragment href | D3: fragment ignore v1; fixtures nested TOC + same-file fragments |
-| Длинные главы → тяжёлый tokenize | абзацный список; lazy tokenize текущей главы при необходимости |
+| Длинные главы → тяжёлый tokenize | D12 progressive + chapter cache; не весь book tokenize |
 | Неравное N глав у «готовых» переводов | продукт предполагает равенство; clamp + ошибка на load |
-| Map абзацев на cue pipeline | D4: tokenize texts + CueRow `showTimestamp: false`; без time-sync |
+| Map абзацев на cue pipeline | D4 + D11 lightweight hit-test; без time-sync |
 | Web UTF-8 `Documents.content` ломает EPUB ZIP | D6: base64 (locked) или Blob companion |
+| Hit-test miss на wrap / Unicode | переиспользовать char-span модель + widget tests RC-04/07 |
+| Тесты зависят от `readerCueToken_*` Widget Keys | обновить book finders; subtitle Keys не ломать |
 
 ## Migration Plan
 
 - Новый format `epub` в allowlist; schema bump **не** обязателен для якоря главы (reuse `lastReadStartMs` format-gated) и для Web persist (base64 в `content`).
 - Schema bump только если выбран Blob-companion вместо base64.
 - Rollback: feature за format gate; subtitle flows не ломать.
+- Perf follow-up: только Flutter book path; откат = вернуть CueRow tokens path для book (хуже perf, поведение RC-04 сохраняется).
 
 ## Open Questions
 
-- Нет открытых. Paragraph resume — out of scope v1 (D6). FRB DTO/error names — D2. Web binary persist — D6. Book session / adapter — D4.
+- Нет открытых. Paragraph resume — out of scope v1 (D6). FRB DTO/error names — D2. Web binary persist — D6. Book session / adapter — D4. Hit-test / progressive tokenize / divider — D11–D13.

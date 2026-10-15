@@ -12,6 +12,9 @@
 | RC-04 | Tap/highlight on paragraph like cues | Flutter widget: tap word on paragraph → CTA/sheet path as subtitle cues |
 | RC-05 | No video chrome for EPUB document | Flutter widget: book session → no Load video for this document kind |
 | RC-06 | Restore chapter from reading anchor | Flutter widget: reopen with saved chapter index → that chapter shown |
+| RC-07 | Book hit-test without per-word WidgetSpan | Flutter widget: tap word → CTA; paragraph tree MUST NOT use one WidgetSpan/GestureDetector per token |
+| RC-08 | Progressive tokenize keeps early tap | Flutter widget: after open, tap on early paragraph works before full-chapter tokenize/mark completes |
+| RC-09 | Chapter token cache on pager return | Flutter widget: leave chapter and return → no full re-tokenize wait (cache hit); selection/highlight still work |
 
 ## ADDED Requirements
 
@@ -37,7 +40,7 @@
 - **THEN** пейджер сообщает N страниц (глав), по одной на главу
 
 ### Requirement: Learning gestures on paragraphs
-На абзацах book-режима система SHALL поддерживать те же learning-потоки, что и на тексте cues в subtitle-режиме: contiguous tap/selection → add-vocab, lemma/phrase highlight и offline translate по выбранному фрагменту (поведение детализировано в `reader/tap`, `reader/highlight`, `translate/offline`). Таймкоды cue для абзацев не требуются и MUST NOT отображаться как subtitle time range (design D4: `showTimestamp: false` / эквивалент). Абзацы текущей главы SHALL токенизироваться через существующий `tokenize_cues(texts: …)` (список строк абзацев), без отдельного FRB tokenize API.
+На абзацах book-режима система SHALL поддерживать те же learning-потоки, что и на тексте cues в subtitle-режиме: contiguous tap/selection → add-vocab, lemma/phrase highlight и offline translate по выбранному фрагменту (поведение детализировано в `reader/tap`, `reader/highlight`, `translate/offline`). Таймкоды cue для абзацев не требуются и MUST NOT отображаться как subtitle time range (design D4: `showTimestamp: false` / эквивалент). Абзацы текущей главы SHALL токенизироваться через существующий `tokenize_cues(texts: …)` (список строк абзацев), без отдельного FRB tokenize API. Реализация hit-target в book-режиме MUST NOT требовать отдельный `WidgetSpan`/`GestureDetector` на каждый word-токен (design D11); subtitle CueRow path MAY сохранять прежнюю модель.
 
 #### Scenario [RC-04]: Tap/highlight on paragraph like cues
 - **GIVEN** Reader в book-режиме с видимым абзацем, содержащим слово
@@ -59,3 +62,27 @@
 - **GIVEN** для EPUB сохранён якорь на главу k (валидный индекс)
 - **WHEN** пользователь снова открывает этот документ
 - **THEN** Reader показывает главу k, а не обязательно первую
+
+### Requirement: Lightweight book-mode word hit-test
+В book-режиме система SHALL разрешать tap по слову абзаца без построения отдельного интерактивного виджета на каждый токен (запрет per-token `WidgetSpan` + `GestureDetector` в paragraph row). Hit-test MUST отображать координату тапа на `tokenIndex` существующего batch tokenize (char spans) и вызывать тот же learning path, что RC-04. Subtitle-режим CueRow MAY продолжать использовать WidgetSpan-per-token.
+
+#### Scenario [RC-07]: Book hit-test without per-word WidgetSpan
+- **GIVEN** Reader в book-режиме, абзац токенизирован (хотя бы частично для этого абзаца)
+- **WHEN** пользователь тапает по слову в абзаце
+- **THEN** открывается тот же CTA/sheet path, что RC-04, и в дереве paragraph row нет отдельного WidgetSpan-hit-target на каждый токен
+
+### Requirement: Progressive chapter tokenize with optional delayed highlight
+Система SHALL показывать plain-text абзацы текущей главы немедленно и MAY выполнять `tokenize_cues` / `mark_vocab_tokens` прогрессивно (сначала префикс абзацев / видимая зона, затем остаток). Tap на уже токенизированном префиксе MUST работать до завершения tokenize всей главы. Lemma/phrase highlight MAY появиться позже tokenize (после mark); отсутствие полного highlight MUST NOT блокировать tap/CTA на готовых токенах.
+
+#### Scenario [RC-08]: Progressive tokenize keeps early tap
+- **GIVEN** Reader открыл EPUB-главу с многими абзацами
+- **WHEN** tokenize/mark всей главы ещё не завершены, но первые абзацы уже имеют токены
+- **THEN** tap по слову в таком абзаце активирует learning path; полный highlight словаря MAY ещё отсутствовать
+
+### Requirement: In-memory chapter token cache
+Пока Reader session открыт, система SHALL кешировать результат tokenize (+ mark, когда готов) по 0-based индексу главы оригинала. При возврате на ранее посещённую главу через pager система MUST использовать кеш и MUST NOT обязательно запускать полный повторный `tokenize_cues` для этой главы (invalidate при изменении словаря / re-mark после Add/edit/delete — как сейчас для cues).
+
+#### Scenario [RC-09]: Chapter token cache on pager return
+- **GIVEN** пользователь токенизировал главу 1, перешёл на главу 2, затем вернулся на главу 1 в той же сессии
+- **WHEN** глава 1 снова отображается
+- **THEN** токены/highlight главы 1 доступны без обязательного полного повторного batch tokenize этой главы

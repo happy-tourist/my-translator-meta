@@ -98,6 +98,13 @@ Persist the **original** pane position only (not translation scroll):
 
 Do **not** write the translation pane’s scroll as the resume key.
 
+## Book split divider (D13 / RS-17)
+
+In EPUB book split, drive pane heights with a `ValueNotifier` (or equivalent)
+so drag updates only `SizedBox` heights — do **not** `setState` the whole
+`ReaderScreen` on every pointer move (that rebuilds both paragraph lists).
+Subtitle split MAY keep the older setState divider path.
+
 ## Delete chrome (RS-07 / D8)
 
 - **AppBar** actions: split toggle (+ Load/Remove video when `reader/video-frames`)

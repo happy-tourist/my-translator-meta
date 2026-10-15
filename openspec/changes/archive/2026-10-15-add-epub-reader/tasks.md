@@ -42,3 +42,13 @@
 - [x] 5.1 `cargo test` в `rust/` (PE-*) зелёный
 - [x] 5.2 `flutter analyze` в app без новых ошибок по затронутым путям
 - [x] 5.3 `flutter test` по library/reader/epub/split тестам change — зелёный (включая LD-27 Web binary roundtrip)
+
+## 6. Perf follow-up — Web book scroll / split (D11–D13)
+
+- [x] 6.1 Прочитать design D11–D13 + delta RC-07…RC-09 / RS-17; skills `work-with-reader` / `chapters.md`, `split-scroll.md`
+- [x] 6.2 Book paragraph row: lightweight hit-test (TextSpan + paragraph gesture → tokenIndex); **не** WidgetSpan-на-слово; subtitle CueRow path не ломать (RC-07)
+- [x] 6.3 Progressive `tokenize_cues` / mark текущей главы (префикс → idle rest); tap на готовом префиксе до конца главы (RC-08); highlight MAY отставать
+- [x] 6.4 In-memory cache tokenize(+mark) по `chapterIndex`; pager return = cache hit (RC-09); invalidate/re-mark после vocab mutate
+- [x] 6.5 Book split divider: heights via `ValueNotifier` (или эквивалент) без per-drag полного rebuild paragraph lists (RS-17)
+- [x] 6.6 Обновить widget-тесты RC-04/07…09, RS-17 (+ regression book/split); finders без обязательных `readerCueToken_*` Widget Keys в book
+- [x] 6.7 `flutter analyze` + targeted `flutter test`; ручной smoke Web `--web-port=5555` + COOP/COEP — скролл/split ощутимо легче

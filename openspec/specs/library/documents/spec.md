@@ -7,7 +7,7 @@
 ## Requirements
 
 ### Requirement: Import subtitle into folder
-Система SHALL позволять импортировать файл субтитров (SRT, VTT или ASS/SSA) только внутрь существующей папки и сохранять документ в локальном хранилище библиотеки. Поддерживаемые расширения: `.srt`, `.vtt`, `.ass`, `.ssa` (`.ssa` хранится как format `ass`).
+Система SHALL позволять импортировать файл субтитров (SRT, VTT или ASS/SSA) **или EPUB** только внутрь существующей папки и сохранять документ в локальном хранилище библиотеки. Поддерживаемые расширения: `.srt`, `.vtt`, `.ass`, `.ssa` (`.ssa` хранится как format `ass`), `.epub` (хранится как format `epub`).
 
 #### Scenario [LD-01]: Import valid subtitle file
 - **GIVEN** существует папка «S01»
@@ -19,6 +19,11 @@
 - **WHEN** пользователь импортирует файл `.ssa` (или `.ass`)
 - **THEN** документ сохраняется с format `ass` и виден в папке
 
+#### Scenario [LD-24]: Import valid EPUB file
+- **GIVEN** существует папка «S01»
+- **WHEN** пользователь импортирует валидный `.epub` файл
+- **THEN** документ сохраняется с format `epub` и виден в папке
+
 #### Scenario [LD-02]: Reject import without folder
 - **GIVEN** пользователь находится в корне библиотеки (список папок)
 - **WHEN** он пытается импортировать файл без выбора папки
@@ -26,7 +31,7 @@
 
 #### Scenario [LD-03]: Reject unsupported file type
 - **GIVEN** пользователь выбрал папку
-- **WHEN** он выбирает файл неподдерживаемого типа (не SRT/VTT/ASS/SSA)
+- **WHEN** он выбирает файл неподдерживаемого типа (не SRT/VTT/ASS/SSA/EPUB)
 - **THEN** система не сохраняет документ и сообщает в UI, что формат не поддерживается
 
 ### Requirement: List documents in folder
@@ -61,28 +66,33 @@
 - **THEN** привязка видео и кэш кадров этого документа удаляются и не остаются сиротами
 
 ### Requirement: Open document from folder into Reader
-Система SHALL при выборе видимого документа в папке загружать его содержимое из локального хранилища библиотеки, запрашивать парсинг субтитров и при успехе открывать Reader с разобранными cues. Если у документа есть связанный сохранённый перевод, система SHALL также загрузить и распарсить перевод (при успехе) и передать его в сессию Reader для нижней панели split. Если у документа сохранён якорь чтения, система SHALL передать его в сессию Reader для восстановления позиции (см. `reader/split` RS-12 и requirement Persist reading anchor ниже). Если у документа есть привязка видео (метаданные / durable link / кэш кадров), система SHALL передать их в сессию Reader для **paged vertical frames** (`reader/video-frames`). Import по-прежнему не обязан валидировать содержимое; проверка оригинала выполняется при открытии. Сбой загрузки/парсинга **перевода** или недоступность видео-ссылки при успешном оригинале MUST NOT блокировать открытие Reader с оригиналом.
+Система SHALL при выборе видимого документа в папке загружать его содержимое из локального хранилища библиотеки и парсить по формату: субтитры → `parse/subtitles` → Reader с cues; EPUB → `parse/epub` → Reader в book-режиме (`reader/chapters`). Если у документа есть связанный сохранённый перевод, система SHALL загрузить и распарсить перевод тем же семейством формата, что оригинал (субтитры↔субтитры, EPUB↔EPUB), и передать в сессию Reader для нижней панели split. Если у документа сохранён якорь чтения, система SHALL передать его в сессию Reader. Если у **subtitle**-документа есть привязка видео, система SHALL передать её для `reader/video-frames`. Для EPUB video attachment не требуется. Import по-прежнему не обязан валидировать содержимое; проверка оригинала выполняется при открытии. Сбой загрузки/парсинга **перевода** или недоступность видео-ссылки при успешном оригинале MUST NOT блокировать открытие Reader с оригиналом.
 
 #### Scenario [LD-10]: Open document opens Reader after successful parse
 - **GIVEN** в папке есть импортированный документ с валидным содержимым субтитров (хотя бы одна реплика) без перевода
 - **WHEN** пользователь выбирает этот документ
 - **THEN** открывается Reader с репликами документа
 
+#### Scenario [LD-25]: Open EPUB opens Reader in book mode
+- **GIVEN** в папке есть импортированный EPUB, успешно парсящийся хотя бы в одну главу с абзацем, без перевода
+- **WHEN** пользователь выбирает этот документ
+- **THEN** открывается Reader в book-режиме с главами/абзацами документа
+
 #### Scenario [LD-16]: Open original loads linked translation for Reader
-- **GIVEN** оригинал имеет валидный связанный перевод в хранилище
+- **GIVEN** оригинал имеет валидный связанный перевод в хранилище того же семейства формата
 - **WHEN** пользователь открывает оригинал из папки
-- **THEN** Reader открывается с cues оригинала, и cues перевода доступны для нижней панели split без повторного выбора файла с устройства
+- **THEN** Reader открывается с содержимым оригинала, и перевод доступен для нижней панели split без повторного выбора файла с устройства
 
 #### Scenario [LD-19]: Open original restores video attachment for Reader
-- **GIVEN** оригинал имеет сохранённую привязку видео и опционально кэш кадров
-- **WHEN** пользователь открывает оригинал из папки
+- **GIVEN** subtitle-оригинал имеет сохранённую привязку видео и опционально кэш кадров
+- **WHEN** пользователь открывает этот оригинал из папки
 - **THEN** сессия Reader получает данные привязки (и кэш при наличии), так что paged vertical frames могут быть восстановлены без обязательного повторного выбора файла, если durable link / usable extract path ещё действителен; сбой загрузки video meta MUST NOT блокировать open оригинала (как у перевода / reading anchor)
 
 ### Requirement: Failed open shows error without leaving Library
-При ошибке загрузки содержимого, парсинга, encoding или нуле реплик система SHALL оставаться в Library (в текущей папке), SHALL показать пользователю заметную ошибку (SnackBar / эквивалент) и MUST NOT открывать Reader.
+При ошибке загрузки содержимого, парсинга (субтитры или EPUB), encoding, нуля реплик или нуля глав/абзацев система SHALL оставаться в Library (в текущей папке), SHALL показать пользователю заметную ошибку (SnackBar / эквивалент) и MUST NOT открывать Reader.
 
 #### Scenario [LD-11]: Failed open stays in Library with visible error
-- **GIVEN** в папке есть импортированный документ, содержимое которого не парсится успешно или даёт ноль реплик
+- **GIVEN** в папке есть импортированный документ, содержимое которого не парсится успешно (включая EPUB без текста / битый файл)
 - **WHEN** пользователь выбирает этот документ
 - **THEN** пользователь остаётся в Library, видит ошибку открытия, и Reader не открывается
 
@@ -155,29 +165,58 @@
 - **WHEN** пользователь открывает документ и запрашивает секунды с закэшированными кадрами, затем выполняет re-pick для секунд без кэша
 - **THEN** закэшированные кадры показываются без ошибки «нет файла»; после успешного re-pick недостающие секунды снова извлекаются
 
+### Requirement: EPUB original links only EPUB translation
+Для оригинала с format `epub` система MUST принимать и сохранять в слоте перевода только документ format `epub`. Попытка связать subtitle-файл как перевод EPUB MUST быть отклонена с заметной ошибкой; существующая subtitle↔subtitle связь не затрагивается.
+
+#### Scenario [LD-26]: Reject non-EPUB translation link for EPUB original
+- **GIVEN** Reader открыт для EPUB-оригинала, split включён, нижняя панель пуста
+- **WHEN** пользователь выбирает файл субтитров как перевод
+- **THEN** перевод не сохраняется как linked document, пользователь видит ошибку несовместимого формата, оригинал остаётся открытым
+
+### Requirement: Binary-safe EPUB persistence on Web
+На Web система MUST сохранять и загружать байты EPUB без UTF-8 text roundtrip, который портит ZIP (design D6: base64 в `Documents.content` format-gated, либо Blob companion). После import→load байты MUST быть пригодны для успешного `parse_epub` того же файла. Native sandbox path остаётся binary file I/O.
+
+#### Scenario [LD-27]: Web EPUB bytes roundtrip binary-safe
+- **GIVEN** валидные байты `.epub` импортированы на Web (или в Web-режиме content store)
+- **WHEN** система загружает bytes документа для open/parse
+- **THEN** полученные байты совпадают с исходными (или иначе успешно парсятся тем же `parse_epub`), а не являются результатом `utf8.decode`/`utf8.encode` поверх сырого ZIP
+
+### Requirement: EPUB reading anchor stores chapter index
+Для документа format `epub` система SHALL сохранять и восстанавливать якорь чтения как **0-based индекс главы** в существующей колонке `lastReadStartMs` (format-gated семантика; design D6). Для subtitle-документов `lastReadStartMs` остаётся cue start ms. Resume абзаца внутри главы в v1 не требуется. Сбой якоря MUST NOT блокировать open.
+
+#### Scenario [LD-28]: EPUB reading anchor is chapter index
+- **GIVEN** пользователь читал EPUB на главе k (0-based) и якорь сохранён
+- **WHEN** документ снова открывается
+- **THEN** Reader получает якорь с chapter index k (через `ReadingAnchor` / эквивалент) и показывает главу k (`reader/chapters` RC-06), без интерпретации значения как subtitle `startMs`
+
 ## Traceability
 
 | SC-ID | Scenario | Test intent |
 |-------|----------|-------------|
 | LD-01 | Import valid subtitle file | unit/integration: import → row in folder |
 | LD-02 | Reject import without folder | unit/widget: import to null/root rejected |
-| LD-03 | Reject unsupported file type | unit/widget: extension policy reject + UI message |
+| LD-03 | Reject unsupported file type | unit: reject non subtitle/epub; accept .epub |
 | LD-04 | List documents after import | unit/widget: two visible imports listed (unchanged intent) |
 | LD-05 | Delete one document | unit: delete visible doc without translation/video still works (unchanged) |
 | LD-06 | Documents survive restart | integration (close/reopen DB) + verify/ops Web same-origin restart |
 | LD-07 | Import ASS/SSA file | unit: `.ssa`/`.ass` → format `ass` |
 | LD-09 | Web import stores content | unit (fake platform) or verify/ops Web: content persisted |
 | LD-10 | Open document opens Reader after successful parse | Flutter widget: tap valid doc without translation → Reader |
-| LD-11 | Failed open stays in Library with visible error | Flutter widget: tap bad/empty → error, no Reader |
+| LD-11 | Failed open stays in Library with visible error | also for failed EPUB parse |
 | LD-12 | Hidden translation not listed | unit/widget: reader-attached translation absent from folder list |
 | LD-13 | Persist translation linked to original | unit: attach creates stored doc + link in same folder |
 | LD-14 | Delete translation unlinks and removes | unit: delete translation removes bytes/row and clears link |
 | LD-15 | Delete original cascades translation | unit: delete original removes linked translation too |
-| LD-16 | Open original loads linked translation for Reader | Flutter widget/unit: open with link → Reader session has translation cues available |
+| LD-16 | Open original loads linked translation for Reader | subtitle unchanged; epub loads linked epub translation |
 | LD-17 | Persist and load reading anchor for original | unit/widget: save anchor → reopen → Reader gets same startMs (+ alignment) |
 | LD-18 | Delete original cascades video attachment | unit: delete original clears video link + frame cache |
-| LD-19 | Open original restores video attachment for Reader | Flutter widget/unit: open with video meta → Reader can show paged vertical frames/cache |
+| LD-19 | Open original restores video attachment for Reader | subtitle-only; EPUB open MUST NOT require video |
 | LD-20 | Persist video durable link and frame cache | unit: attach saves link + duration; cached JPEG for visited seconds survive restart |
 | LD-21 | Remove video clears attachment and frame cache | unit: remove from Reader clears link + JPEG cache; original remains |
 | LD-22 | Dead video link keeps cached frames and allows re-pick | unit/widget: dead link → cached frames usable; re-pick restores extract for missing seconds |
 | LD-23 | Replace video clears previous frame cache | unit: attach while already linked → new link; previous JPEG cache cleared |
+| LD-24 | Import valid EPUB file | unit/widget: .epub → document format epub in folder |
+| LD-25 | Open EPUB opens Reader in book mode | Flutter: valid epub → Reader chapters/paragraphs |
+| LD-26 | Reject non-EPUB translation link for EPUB original | unit: EPUB original MUST NOT keep/open SRT as translation |
+| LD-27 | Web EPUB bytes roundtrip binary-safe | unit: store/load epub bytes on Web path → identical ZIP bytes for parse |
+| LD-28 | EPUB reading anchor is chapter index | unit/widget: save/load lastReadStartMs as chapter index for format epub |

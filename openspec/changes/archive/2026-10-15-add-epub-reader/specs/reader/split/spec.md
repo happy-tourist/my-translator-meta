@@ -17,6 +17,7 @@
 | RS-09 | Reopen restores translation in split | epub translation restores in book mode |
 | RS-12 | Reopen resumes at saved original anchor | Flutter: subtitle → cue time; epub → chapter index (RC-06 / LD-28) |
 | RS-16 | Mismatched chapter counts on translation load | Flutter: unequal N → clamp + visible error; equal N still RS-14/15 |
+| RS-17 | Split divider drag does not rebuild paragraph lists | Flutter: drag divider → pane heights change; paragraph ListViews not fully rebuilt each pointer move |
 
 ## MODIFIED Requirements
 
@@ -94,3 +95,11 @@
 - **GIVEN** split включён на EPUB-оригинале с N глав, пользователь загружает валидный EPUB-перевод с M глав, M ≠ N
 - **WHEN** загрузка/привязка перевода завершается
 - **THEN** пользователь видит заметную ошибку о несовпадении структуры; перевод MAY остаться доступным с clamp индекса, но MUST NOT молча притворяться, что N = M
+
+### Requirement: Book split chrome without per-drag paragraph rebuild
+В book-режиме split перетаскивание divider MUST изменять высоты панелей без полного пересоздания списков абзацев на каждый pointer-move (design D13). Chapter-index sync (RS-14) и независимый scroll абзацев сохраняются. Subtitle split divider MAY сохранить прежнее поведение, если book path изолирован.
+
+#### Scenario [RS-17]: Split divider drag does not rebuild paragraph lists
+- **GIVEN** EPUB split с загруженным переводом, обе панели показывают абзацы
+- **WHEN** пользователь перетаскивает split divider
+- **THEN** высоты панелей меняются, а списки абзацев не проходят полный rebuild на каждый шаг жеста (допустима лёгкая подстройка layout)
