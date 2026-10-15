@@ -35,10 +35,10 @@ context: |
   if unresolved, ask user for absolute my_translator_meta path.
   Runtime: один sibling Git-репозиторий my_translator_app (Flutter lib/ + Rust rust/ + in-process FRB).
 
-  Проект: My Translator — продукт Translation Reader (чтение субтитров + изучение слов в контексте).
-  Домены (target): parse/subtitles, reader/cues, reader/split, reader/tap, reader/highlight,
-  reader/video-frames, library/folders, library/documents, dictionary/entries, translate/offline,
-  settings/languages;
+  Проект: My Translator — продукт Translation Reader (чтение субтитров / EPUB + изучение слов в контексте).
+  Домены (target): parse/subtitles, parse/epub, reader/cues, reader/chapters, reader/split,
+  reader/tap, reader/highlight, reader/video-frames, library/folders, library/documents,
+  dictionary/entries, translate/offline, settings/languages;
   опциональный AI — позже и явно.
 
   Skills roots: .agents/skills/client/ (Flutter UI), .agents/skills/server/ (Rust core),

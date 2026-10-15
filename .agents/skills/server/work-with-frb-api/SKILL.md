@@ -69,6 +69,7 @@ in `simple` — do **not** grow product features by stuffing logic into
 | Rust | Behavior now | Product role |
 |------|--------------|--------------|
 | `api/parse.rs` | `parse_subtitles` | Shipped |
+| `api/epub.rs` | `parse_epub` → `ParsedEpub` / `EpubChapterDto` / `EpubParseErrorKind` | Shipped (`parse/epub`) |
 | `api/tokenize.rs` | `tokenize_cues`, `mark_vocab_tokens` (morph + phrase windows), `lemma_keys_for_surfaces`; `TokenDto.lemma_key` / `is_in_vocab` | Shipped |
 | `api/simple.rs` `process_text` / `add_numbers` | Demo uppercase / add | Demo only |
 | `init_app` (`#[frb(init)]`) | `setup_default_user_utils()` | Real init hook — keep / extend carefully |

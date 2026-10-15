@@ -91,6 +91,9 @@ Notes:
 - No `[features]` yet; add when optional crates (e.g. NLP, offline translate)
   need compile-time gates. User persistence is **not** a Cargo/SQLite feature —
   it is Drift in Flutter.
+- Product compute pins (do not casually swap): `fasrt = "=0.5.0"` (subtitles),
+  `rbook` `0.7` with `default-features = false` + `threadsafe`/`prelude`
+  (**no** `write`; wasm-safe EPUB — see `work-with-parse` / `epub.md`).
 
 ### `flutter_rust_bridge.yaml` (app root)
 

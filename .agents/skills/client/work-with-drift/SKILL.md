@@ -3,7 +3,8 @@ name: work-with-drift
 description: >-
   Use when adding or changing Flutter Drift user persistence in
   my_translator_app (Translation Reader): AppDatabase / tables, repositories
-  (folders, documents, dictionary), DocumentContentStore IO vs Web, DB open in
+  (folders, documents, dictionary), DocumentContentStore IO vs Web (subtitle
+  UTF-8 vs EPUB base64), format-gated ReadingAnchor, DB open in
   TranslationReaderApp, drift_dev codegen, or Web sqlite3.wasm / drift_worker.js.
   Not for Rust SQLite / FRB storage APIs.
 ---
@@ -23,7 +24,10 @@ in Rust via FRB. Web offline translate uses the JS exception behind
 
 - Schema / tables / migrations (`AppDatabase`, `tables.dart`)
 - Repositories (folders, documents, dictionary)
-- Subtitle bytes store (`DocumentContentStore` + platform split)
+- Document bytes store (`DocumentContentStore` + platform split; Web UTF-8
+  subtitles vs base64 EPUB)
+- Format helpers (`document_format.dart`: `srt`/`vtt`/`ass`/`epub`) and
+  format-gated `ReadingAnchor` (cue ms vs chapter index)
 - Open DB after `RustLib.init`, inject into shell / screens
 - `build_runner` / `drift_dev` codegen (`.g.dart`)
 - Web Drift assets and readiness
@@ -91,5 +95,6 @@ web/drift_worker.js
 - [ ] New user tables/repos under `lib/data/`, not `rust/src/db`
 - [ ] Codegen regenerated after schema edits; `.g.dart` not hand-patched
 - [ ] Shell/screens receive DB/repos via constructor (testable)
-- [ ] Native vs Web content store used correctly; Web assets present
+- [ ] Native vs Web content store used correctly; Web EPUB = base64 (not UTF-8
+      roundtrip); Web assets present
 - [ ] Repository/unit tests use `createTestDatabase()` / memory executor

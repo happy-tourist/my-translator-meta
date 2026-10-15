@@ -88,7 +88,7 @@ not extend for product features. No `rust/src/db` for user data (Drift).
 |-------|------|------|
 | Crate root | `rust/src/lib.rs` | `pub mod api;` + internal `mod`s + `mod frb_generated;` |
 | FRB public surface | `rust/src/api/` | Thin `#[frb]` functions / types only; one file (or submodule) per product area |
-| Parse | `rust/src/parse/` (or `parse.rs`) | SRT / VTT / ASS(SSA) → cues / timings |
+| Parse | `rust/src/parse/` (+ `epub/`) | SRT / VTT / ASS(SSA) → cues; EPUB → chapters / paragraphs |
 | Tokenize / lemmatize | `rust/src/tokenize/` + `lemmatize/` | Word spans; EN WordNet morph keys + mark helpers |
 | Translate | `rust/src/translate/` + `api/translate.rs` | Native ORT OPUS-MT EN→RU; wasm stubs |
 | Dictionary (NLP helpers only) | optional module later | Lemma-key helpers — **not** user CRUD store |

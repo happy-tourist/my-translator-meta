@@ -9,7 +9,7 @@ Highlight: `work-with-reader` / `highlight.md`.
 
 | Surface | Path | Role |
 |---------|------|------|
-| Reader (cues + split + tap + highlight) | `lib/features/reader/reader_screen.dart` | Stateful; batch tokenize + mark; contiguous Add (phrase); in-vocab edit; AppBar split toggle (+ load/remove video when `reader/video-frames`); delete translation in bottom-pane top chrome |
+| Reader (cues / EPUB book-mode + split + tap + highlight) | `lib/features/reader/reader_screen.dart` | Stateful; cues **or** chapter paragraphs + bottom chapter pager; batch tokenize + mark; contiguous Add (phrase); in-vocab edit; AppBar split toggle (+ load/remove video for **subtitles** only); delete translation in bottom-pane top chrome |
 | Cue row | `lib/features/reader/cue_row.dart` | Timestamp + text; original pane token hit-targets + vocab highlight paint; under-frame embed: `showTimestamp: true` (file start→end), `padding: EdgeInsets.zero`, `keySuffix` (VF-04 / VF-12) |
 | Char slice helper | `lib/features/reader/cue_char_slice.dart` | Unicode scalar slice matching Rust char spans |
 | Tokenize / mark seams | `lib/features/reader/tokenize_cues_fn.dart` (+ mark / lemma-keys typedefs) | Injectable FRB seams for tests |
@@ -20,7 +20,7 @@ Highlight: `work-with-reader` / `highlight.md`.
 | Add-vocab sheet | local in `reader_screen.dart` (`_AddVocabSheet`) | Surface (single or phrase join) + translation + context → Drift (morph / phrase key) |
 | Edit-vocab sheet | local in `reader_screen.dart` | In-vocab tap: lemma/surface RO + translation/context + delete |
 | Highlight paint | `cue_row` + `ReaderColors` | `is_in_vocab` → `lemmaHighlight` theme token |
-| Split view (MVP: `reader/split`) | Reader **mode** (same screen; `scrollable_positioned_list` panes) | Top: original; bottom: loaded translation; time-nearest + alignment settle; RS-10/11 scroll preserve on Show **and** Hide; RS-12 resume via `initialReadingAnchor` |
+| Split view (`reader/split` / EPUB chapters) | Reader **mode** (same screen; `scrollable_positioned_list` panes) | Subtitles: time-nearest + alignment settle; EPUB: shared chapter index + pager; RS-10/11 scroll preserve on Show/Hide (subtitles); resume via `initialReadingAnchor` (cue ms or chapter index) |
 
 Reader is usually **pushed** from the library ([upload.md](upload.md)), not a
 shell tab. Ctor requires `dictionaryRepository` (Shell → Library → Reader).
@@ -33,6 +33,16 @@ shell tab. Ctor requires `dictionaryRepository` (Shell → Library → Reader).
 - Full-list scroll; AppBar title = document title; back pops to Library.
 - Open only after successful parse with ≥1 cue; empty / parse fail stays in Library.
 - Split + reading resume — see [Split view](#split-view) below.
+
+### EPUB book-mode (current: `reader/chapters`)
+
+- `documentFormat == epub`: paragraph list of current chapter + **bottom
+  chapter pager**; no cue timestamps; no video chrome.
+- Library passes `originalChapters` (not empty-cue hack). Tokenize current
+  chapter paragraphs; invalidate on chapter change.
+- Split: EPUB↔EPUB only; sync by chapter index; mismatch notice when counts
+  differ. Details: `work-with-reader` /
+  [chapters.md](../work-with-reader/chapters.md).
 
 ### Tap → vocabulary (current: `reader/tap`)
 
@@ -90,14 +100,15 @@ Engine details: meta `work-with-translate`.
 
 - Two panes: **original** and **translation**, typically stacked (mobile) or
   side-by-side (wide) — prefer stacked first unless a mock says otherwise.
-- **MVP (`reader/split`):** translation = second subtitle file → same FRB
-  `parseSubtitles` as Library open (not offline word-translate / AI). Sync by
-  nearest `CueDto.startMs` then pixel settle; bottom empty + load until attached.
-  Persist hidden linked document via Drift (`DocumentRepository`). Errors map
-  like Library open (`ParseErrorKind`).
+- **Subtitles (`reader/split`):** translation = second subtitle file →
+  `parseSubtitles`. Sync by nearest `CueDto.startMs` then pixel settle;
+  bottom empty + load until attached. Persist via Drift. Errors:
+  `ParseErrorKind`.
+- **EPUB:** translation = second `.epub` → `parseEpub`. Sync by shared chapter
+  index; reject mixed families; unequal counts → clamp + notice.
 - **Delete** translation: bottom-pane top chrome only (not AppBar). AppBar keeps
-  the split toggle (+ video load/remove when implementing `reader/video-frames`).
-  Stuck link without cues: Delete in that chrome, then Load.
+  the split toggle (+ video load/remove for **subtitles** when
+  `reader/video-frames`). Stuck link: Delete in that chrome, then Load.
 - **Show / Hide split:** preserve original scroll (capture top-visible →
   post-frame `jumpTo`); do not reset the original list to cue 0 (RS-10, RS-11).
   With video pages, keep `VideoFramePages` / key outside the remount branch so

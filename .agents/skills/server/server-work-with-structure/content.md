@@ -16,7 +16,7 @@ how to grow it, and allowed internal edges.
 |-------|--------|
 | `lib.rs` → `parse` / `tokenize` / `lemmatize` / `translate` + `api` + `frb_generated` | Shipped compute modules |
 | `api/simple.rs` demo | Still present — do not grow into product MT |
-| Thin `api/parse`, `api/tokenize`, `api/translate` | Real FRB surfaces |
+| Thin `api/parse`, `api/epub`, `api/tokenize`, `api/translate` | Real FRB surfaces |
 | No user SQLite in Rust | Keep it that way — Drift owns user rows |
 
 Do not pre-create empty module trees. Do not invent `db/` for user CRUD.
@@ -26,7 +26,7 @@ Do not pre-create empty module trees. Do not invent `db/` for user CRUD.
 | Module | Suggested path | Owns | Does not own |
 |--------|----------------|------|--------------|
 | **api** | `rust/src/api/` | FRB-exported fns/types; edge checks; one-shot orchestration into internals | Parsers, lemma tables, Flutter widgets, user SQL |
-| **parse** | `rust/src/parse/` | SRT / VTT / ASS(SSA) → cues, timings, plain text lines | Tokenization, dictionary persist, UI layout |
+| **parse** | `rust/src/parse/` (+ `parse/epub/`) | SRT / VTT / ASS(SSA) → cues; EPUB → chapters/paragraphs | Tokenization, dictionary persist, UI layout |
 | **tokenize** (shipped) | `tokenize/` + `api/tokenize.rs` | Word tokens + char spans for Reader tap | File format parsing, Drift/user store |
 | **lemmatize** | `lemmatize/` (+ thin exports on `api/tokenize.rs`) | Morph keys / `is_in_vocab` for highlight | Shipped (`wordnet-lemmatizer`; D1–D3) |
 | **translate** | `rust/src/translate/` + `api/translate.rs` | Native ORT OPUS-MT EN→RU; wasm stubs → `EngineUnavailable` | Cue parsing, vocab row persistence, Web JS engine |
@@ -83,7 +83,8 @@ Avoid:
 
 | Area | Typical `api/` file | Calls into |
 |------|---------------------|------------|
-| parse | `api/parse.rs` | `parse/` |
+| parse (subtitles) | `api/parse.rs` | `parse/` |
+| parse (EPUB) | `api/epub.rs` | `parse/epub/` |
 | tokenize | `api/tokenize.rs` | `tokenize/` |
 | translate | `api/translate.rs` | `translate/` |
 | simple (scaffold) | `api/simple.rs` | demo only — retire for product |
@@ -97,7 +98,8 @@ Contract changes for compute: edit `api/` →
 
 ## Owns / tree comments (quick)
 
-**parse** — format detection; cue list with start/end/text; error types for
+**parse** — subtitle format detection; cue list with start/end/text; EPUB
+`parse/epub/` chapters/paragraphs; error types for
 malformed files; no UI string tables.
 
 **tokenize_lemmatize** — language-aware split; lemma for each token;

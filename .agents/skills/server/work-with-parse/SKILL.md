@@ -1,11 +1,12 @@
 ---
 name: work-with-parse
 description: >-
-  SRT / VTT / ASS(SSA) parsing, cue models, timestamps, encoding, and parse
-  errors in my_translator_app Rust core. Use when implementing or changing
-  subtitle parsers, format detection, FFI-friendly cue output, or thin FRB
-  export of parse results. Not for Flutter cue painting (work-with-reader) or
-  tokenization / lemmatization (work-with-tokenizematize).
+  SRT / VTT / ASS(SSA) and EPUB parsing in my_translator_app Rust core: cue
+  models, timestamps, encoding, EPUB chapters/paragraphs (`parse/epub`), and
+  parse errors. Use when implementing or changing subtitle/EPUB parsers,
+  format detection, FFI-friendly parse output, or thin FRB export. Not for
+  Flutter cue/book painting (work-with-reader) or tokenization /
+  lemmatization (work-with-tokenizematize).
 ---
 
 # Work With Parse
@@ -14,12 +15,14 @@ description: >-
 
 **Subtitle parse** for **Translation Reader** (`my_translator_app`) is
 **landed** under `rust/src/parse/` with thin FRB export `rust/src/api/parse.rs`
-(`parse_subtitles` → `ParsedSubtitles` / `ParseErrorKind`). Scaffold demo
-(`process_text` / `add_numbers`) may still exist — do **not** grow it into the
-parser.
+(`parse_subtitles` → `ParsedSubtitles` / `ParseErrorKind`). **EPUB parse**
+(`parse/epub`, OpenSpec change `add-epub-reader`): internal `rust/src/parse/epub/`
++ thin `api/epub.rs` — `parse_epub(bytes) → ParsedEpub` / `EpubParseErrorKind`
+(rbook; plain paragraphs; no rich HTML). Scaffold demo (`process_text` /
+`add_numbers`) may still exist — do **not** grow it into the parser.
 
 Logic lives in the **Rust internal `parse/` module**; Flutter only displays
-cues and orchestrates the FRB call. Path package for UI:
+cues / book paragraphs and orchestrates the FRB call. Path package for UI:
 `package:my_translator_app/...`. Canon: `{app}/AGENTS.md`.
 
 **Paths:** this skill lives in **my_translator_meta** at
@@ -27,13 +30,21 @@ cues and orchestrates the FRB call. Path package for UI:
 relative to the **my_translator_app** sibling (`../my_translator_app` from meta;
 see `docs/projects-map.md`).
 
+## Specialized Topics
+
+| Topic | File |
+|-------|------|
+| EPUB chapters / plain paragraphs (`parse/epub`) | [epub.md](epub.md) |
+
 ## When to Use
 
 - Add or change SRT / WebVTT / ASS(SSA) parsers
+- Add or change EPUB parse (`parse_epub`, TOC→chapters, plain strip, wasm-safe)
 - Define or evolve the cue / document output model (index, start/end, text)
+  or EPUB chapter/paragraph DTOs
 - Timestamps, encoding (UTF-8 / BOM / CRLF), format sniffing
-- Parse error kinds surfaced through FRB
-- Thin `rust/src/api/` export that returns cues to Flutter
+- Parse error kinds surfaced through FRB (`ParseErrorKind` vs `EpubParseErrorKind`)
+- Thin `rust/src/api/` export that returns cues or `ParsedEpub` to Flutter
 
 **Not this skill:** reader line paint / tap / highlight (`work-with-reader`);
 tokenize + lemmatize (`work-with-tokenizematize`); FRB codegen mechanics /
@@ -62,24 +73,27 @@ Keep grammar / detect / map **outside** `api/`; FFI stays thin:
 my_translator_app/rust/src/
   lib.rs                 # `mod parse;` + `pub mod api;`
   parse/
-    mod.rs               # Format enum, `parse_subtitles` / `parse_text`, re-exports
+    mod.rs               # Format enum, `parse_subtitles` / `parse_text`, re-exports + `epub`
     cue.rs               # Cue / ParsedDocument (internal; FRB DTO is api::ParsedSubtitles)
-    detect.rs            # extension hint + content sniff
+    detect.rs            # extension hint + content sniff (subtitles)
     srt.rs / vtt.rs / ass.rs   # map crate parsers → Cue (lossy where pinned)
-    error.rs             # ParseError kinds
+    error.rs             # ParseError kinds (subtitles)
     tests.rs + fixtures/ # unit fixtures (.srt / .vtt / .ass)
+    epub/                # EPUB domain — see [epub.md](epub.md)
   api/
     parse.rs             # Thin FRB: bytes + format_hint → ParsedSubtitles / ParseErrorKind
-    mod.rs               # `pub mod parse;`
+    epub.rs              # Thin FRB: bytes → ParsedEpub / EpubParseErrorKind
+    mod.rs               # `pub mod parse;` + `pub mod epub;`
 ```
 
-Timestamps: normalize via the pinned crate’s duration → `u64` ms (no separate
-`time.rs` required). Current pin: **`fasrt` 0.5** (see OpenSpec / Cargo.toml).
+Timestamps (subtitles): normalize via the pinned crate’s duration → `u64` ms
+(no separate `time.rs` required). Current pin: **`fasrt` 0.5**. EPUB pin:
+**`rbook` 0.7** (read-only features) — details in [epub.md](epub.md).
 
 Wiring:
 
-1. Change grammar / map / tests under `parse/`.
-2. Export only what Flutter needs from `api/parse.rs` (DTO map).
+1. Change grammar / map / tests under `parse/` (subtitles or `parse/epub/`).
+2. Export only what Flutter needs from `api/parse.rs` or `api/epub.rs`.
 3. Codegen / Dart call sites → **`work-with-frb-api`** (and client
    `work-with-frb` for UI binding).
 
@@ -100,13 +114,16 @@ Optional later (do not invent until needed): raw format tag, speaker/style
 name, position overrides. Prefer stripping ASS override codes / VTT tags to
 **plain text lines** for reader v1 unless OpenSpec says otherwise.
 
-**Document wrapper:** detected `format` (`srt` \| `vtt` \| `ass`) + ordered
-`Vec<Cue>`. Reader open-flow (`parse/subtitles` PS-06): **zero cues → hard fail
-`Empty`** (not ok-empty). Distinguish **empty** vs **malformed** via
+**Document wrapper (subtitles):** detected `format` (`srt` \| `vtt` \| `ass`) +
+ordered `Vec<Cue>`. Reader open-flow (`parse/subtitles` PS-06): **zero cues →
+hard fail `Empty`** (not ok-empty). Distinguish **empty** vs **malformed** via
 `ParseError` / FFI `ParseErrorKind` (`server-work-with-errors`).
 
-Timestamps: normalize all formats to the same integer ms (or a single shared
-type). Do not expose format-specific timestamp strings on the FFI surface.
+Timestamps: normalize all subtitle formats to the same integer ms (or a single
+shared type). Do not expose format-specific timestamp strings on the FFI surface.
+
+**EPUB document:** ordered chapters with plain paragraphs — see
+[epub.md](epub.md) (`ParsedEpub` / `EpubParseErrorKind`; not cue times).
 
 ## Format Differences (high level)
 
@@ -154,20 +171,21 @@ display of those failures → `client-work-with-errors`.
 ## Pipeline Position
 
 ```text
-file bytes/path
-  → parse (this skill) → ordered cues
+file bytes
+  → parse_subtitles (this skill) → ordered cues
+  → parse_epub (this skill) → ordered chapters / paragraphs   # see epub.md
       → tokenize / lemmatize (work-with-tokenizematize)
-          → reader paint / tap / vocab highlight (Flutter + later APIs)
+          → reader paint / tap / vocab highlight (Flutter)
 ```
 
-Do not tokenize inside the parser. Cues are plain text lines + times; NLP is
-the next step.
+Do not tokenize inside the parser. Subtitle cues are plain text lines + times;
+EPUB paragraphs are plain strings; NLP is the next step.
 
 ## Tests
 
 - Unit-test parsers next to modules: `#[cfg(test)]` under `parse/`.
 - Fixtures: minimal `.srt` / `.vtt` / `.ass` snippets (BOM, CRLF, multi-line,
-  bad timestamp).
+  bad timestamp); EPUB `.epub` fixtures under `parse/epub/fixtures/`.
 - Run from `{app}/rust`: `cargo test`.
 - Patterns, layout, fixtures → **`server-work-with-test`**.
 - Do **not** prove parse correctness only via `flutter test`.
@@ -177,8 +195,9 @@ the next step.
 - `server-work-with-test` — `cargo test`, fixtures, unit placement
 - `server-work-with-errors` — Rust error kinds / FRB mapping
 - `work-with-frb-api` — thin `api/` export + codegen contract
-- `work-with-tokenizematize` — next pipeline step after cues
-- `work-with-reader` — Flutter cue display (not parse)
+- `work-with-tokenizematize` — next pipeline step after cues / paragraphs
+- `work-with-reader` — Flutter cue / book display (not parse)
+- `work-with-drift` — Web base64 EPUB bytes (not grammar)
 - `work-with-frb` / `client-work-with-structure` — Dart binding / upload handoff
 
 Canon product scenarios: `{app}/AGENTS.md`.
@@ -187,11 +206,14 @@ Canon product scenarios: `{app}/AGENTS.md`.
 
 - [ ] Logic under `rust/src/parse/` (or agreed structure map); not Dart /
       `rust_builder/`
-- [ ] Thin `api/` export only; regenerate FRB after surface changes
-- [ ] Cues: index + start/end ms + text lines; FFI-flat
-- [ ] SRT + VTT + ASS/SSA covered or explicitly scoped in the change
-- [ ] Encoding / CRLF / BOM policy tested
+- [ ] Thin `api/` export only (`parse` and/or `epub`); regenerate FRB after
+      surface changes
+- [ ] Subtitles: cues index + start/end ms + text lines; FFI-flat
+- [ ] EPUB: chapters index + title + paragraphs; separate `EpubParseErrorKind`
+      — [epub.md](epub.md)
+- [ ] SRT + VTT + ASS/SSA and/or EPUB covered or explicitly scoped
+- [ ] Encoding / CRLF / BOM policy tested (subtitles); wasm-safe rbook (EPUB)
 - [ ] Typed parse errors → `server-work-with-errors`
 - [ ] `cargo test` coverage → `server-work-with-test`
 - [ ] No tokenize/lemma inside parse; hand off to `work-with-tokenizematize`
-- [ ] Not growing scaffold `process_text` into a subtitle parser
+- [ ] Not growing scaffold `process_text` into a product parser

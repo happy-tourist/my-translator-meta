@@ -1,4 +1,4 @@
-# Upload / subtitle library
+# Upload / library (subtitles + EPUB)
 
 Read with the [core pages skill](SKILL.md) for shell/nav. Folder roles:
 `client-work-with-structure` → `lib/features/upload/`. Persist:
@@ -9,7 +9,7 @@ Read with the [core pages skill](SKILL.md) for shell/nav. Folder roles:
 | Screen | Suggested path | Role |
 |--------|----------------|------|
 | Library / list | `lib/features/upload/library_screen.dart` (name flexible) | Folder tree + documents in selected folder |
-| Import / pick | same feature folder (dialog, sheet, or dedicated screen) | Pick SRT / VTT / ASS(SSA) file into a folder |
+| Import / pick | same feature folder (dialog, sheet, or dedicated screen) | Pick SRT / VTT / ASS(SSA) / EPUB into a folder |
 
 Default post-scaffold **home** destination in [shell.md](shell.md).
 
@@ -18,25 +18,33 @@ Default post-scaffold **home** destination in [shell.md](shell.md).
 - Navigate **folders** (`library/folders`): create root/nested, open folder, cascade delete with confirm.
 - Inside a selected folder: list child folders + **documents** (`library/documents`); import via platform file picker.
 - Import / delete go through **Drift** in Flutter — do **not** wait for a Rust persistence API.
-- Selecting a document row **opens Reader** after `loadBytes` + FRB
-  `parseSubtitles` succeed; on parse/load failure stay in the folder and show a
-  SnackBar (`libraryErrorSnack`) — do **not** push Reader. Injectable
-  `ParseSubtitlesFn` (shared typedef in
-  `lib/data/library/parse_subtitles_fn.dart`) keeps widget tests off the real
-  FFI; parse copy lives in `parse_error_messages.dart`.
-- **Linked translation restore (`reader/split` / LD-16):** if
-  `doc.translationDocumentId != null`, best-effort
-  `loadLinkedTranslation` → `loadBytes` → `parseSubtitles`. Success with cues →
-  pass `translationCues` + id into `ReaderScreen`. Failure / empty cues MUST
-  NOT block original open — still pass `translationDocumentId` when linked so
-  Reader can show stuck-link empty (Delete in bottom-pane chrome → Load).
-  Linked rows stay hidden in the folder list (`DocumentRepository.listInFolder`).
-- **Reading anchor (LD-17 / RS-12):** best-effort `loadReadingAnchor(doc.id)` →
-  pass `initialReadingAnchor` into `ReaderScreen`. Fail must not block open.
+- Supported extensions: `.srt` / `.vtt` / `.ass` / `.ssa` / `.epub`
+  (`unsupportedLibraryFileTypeMessage`).
+- Selecting a document row **opens Reader** after `loadBytes` + FRB parse
+  succeed; on parse/load failure stay in the folder and show a SnackBar —
+  do **not** push Reader.
+  - **Subtitles:** `parseSubtitles` → `originalCues` (+ optional linked
+    subtitle translation).
+  - **EPUB (`documentFormatEpub`):** `parseEpub` → `originalChapters` +
+    `documentFormat: epub` (book-mode; empty `originalCues`). Do **not**
+    restore video attachment for EPUB (LD-19).
+  Injectable `ParseSubtitlesFn` /
+  `ParseEpubFn` (`parse_subtitles_fn.dart` / `parse_epub_fn.dart`) keep
+  widget tests off real FFI; copy in `parse_error_messages.dart`
+  (`messageForParseError` / `messageForEpubParseError`).
+- **Linked translation restore (LD-16):** if `doc.translationDocumentId != null`,
+  best-effort load + parse **same family** (subtitle→`parseSubtitles`,
+  EPUB→`parseEpub`). Success → pass translation cues/chapters + id.
+  Failure / empty MUST NOT block original open — still pass
+  `translationDocumentId` when linked. Linked rows stay hidden
+  (`DocumentRepository.listInFolder`).
+- **Reading anchor (LD-17 / LD-28 / RS-12):** best-effort
+  `loadReadingAnchor(doc.id)` → `initialReadingAnchor`. EPUB: `startMs` =
+  chapter index. Fail must not block open.
 - **Video attachment (`reader/video-frames` / LD-18…):** best-effort
-  `getVideoAttachment(doc.id)` → pass into `ReaderScreen` so paged frames can
-  restore. Fail / dead link MUST NOT block original open (keep JPEG cache;
-  re-pick in Reader). Details: `work-with-reader` /
+  `getVideoAttachment` for **subtitle** originals only → pass into
+  `ReaderScreen`. Fail / dead link MUST NOT block open. Details:
+  `work-with-reader` /
   [video-frames.md](../work-with-reader/video-frames.md).
 - Empty state (root or folder): clear CTA to create a folder (and import when inside a folder) — not the scaffold Rust demo form.
 
@@ -46,21 +54,22 @@ Default post-scaffold **home** destination in [shell.md](shell.md).
 LibraryScreen
   → orchestration (list folders/documents, import bytes/path, delete)
       → Drift repositories / DAOs   # user persist source of truth
-  → on document tap: loadBytes → FRB parseSubtitles → (optional linked translation)
-      → optional getVideoAttachment (best-effort)
-      → Navigator.push(ReaderScreen(
-            originalCues, originalDocumentId, documentRepository,
-            dictionaryRepository,   # pass-through from AppShell (reader/tap)
-            translationCues?, translationDocumentId?,
-            initialReadingAnchor?, video attachment?, parseSubtitles?, tokenizeCues?))
+  → on document tap:
+        if epub: loadBytes → FRB parseEpub → ReaderScreen(
+              documentFormat: epub, originalChapters, …, parseEpub?)
+        else: loadBytes → FRB parseSubtitles → (optional linked translation)
+              → optional getVideoAttachment (best-effort)
+              → ReaderScreen(originalCues, …, parseSubtitles?, tokenizeCues?)
   → original fail: SnackBar; no Reader route
   → translation fail: ignore; still push Reader with original (+ link id if any)
   → reading-anchor / video-meta fail: ignore; still push Reader
 ```
 
-- Flutter: pick file, Drift CRUD for folders/documents, show list, open-flow orchestration, Reader UI; pass `dictionaryRepository` into Reader for add-vocab sheet.
-- Rust: parse SRT/VTT/ASS for Reader cues — compute only; **not** document store.
-- Do **not** parse subtitle formats in Dart.
+- Flutter: pick file, Drift CRUD for folders/documents, show list, open-flow
+  orchestration, Reader UI; pass `dictionaryRepository` into Reader for
+  add-vocab sheet.
+- Rust: `parse_subtitles` / `parse_epub` — compute only; **not** document store.
+- Do **not** parse subtitle/EPUB formats in Dart.
 
 ## Current tree
 
