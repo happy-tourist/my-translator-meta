@@ -17,7 +17,7 @@
 | VF-03 | Empty cue text still shows frame without timestamp | Flutter widget: no ending cue → frame + empty text, no time label |
 | VF-04 | Cue text under frame at rounded end second with file times | unit/widget: end-second attach; under text show start→end from cue |
 | VF-05 | Load jumps to page for current reading time | Flutter widget: page contains floor(T/1000) |
-| VF-06 | Original page change syncs translation when split | Flutter widget: next/prev → bottom near same time |
+| VF-06 | Original page change syncs translation when split | Flutter widget: next/prev page → bottom **unchanged** (no page sync; title kept for MODIFIED identity) |
 | VF-07 | Bottom scroll does not move original when video | Flutter widget: translation scroll → page unchanged |
 | VF-08 | Remove video restores cue list at same time | Flutter widget: remove → cues near T |
 | VF-09 | Frames only in original pane | Flutter widget: no frames in bottom |
@@ -103,12 +103,12 @@
 - **THEN** страница около якоря, не принудительно первая
 
 ### Requirement: Split sync with video pages
-Кадры только в original; bottom без кадров. Смена страницы → sync translation via `nearestCueIndex`; scroll bottom ↛ original page. Show split MUST NOT сбрасывать page.
+Кадры только в original; bottom без кадров. Смена страницы video pages MUST NOT синхронизировать переводную панель. Scroll bottom MUST NOT двигать original page. One-shot выравнивание перевода при Show split / load перевода — только `reader/split` (по текущей секунде/якорю video или cues). Show split MUST NOT сбрасывать page.
 
 #### Scenario [VF-06]: Original page change syncs translation when split
-- **GIVEN** video + split + translation
+- **GIVEN** video + split + translation, перевод прокручен к известной позиции
 - **WHEN** next/prev page
-- **THEN** bottom около того же времени
+- **THEN** позиция нижней панели перевода не меняется из‑за смены страницы (page→translation sync отсутствует)
 
 #### Scenario [VF-07]: Bottom scroll does not move original when video
 - **GIVEN** video на T, split on

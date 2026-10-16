@@ -1,6 +1,6 @@
 ## Context
 
-См. `proposal.md` — Why. В sibling `my_translator_app` уже есть: `LibraryScreen` (import только при `folderId != null`, LD-02 reject), Drift `Documents.folderId` NOT NULL (schema 6), `ReaderScreen` с settle-sync субтитров (RS-06), video page→перевод (VF-06), общий `_chapterIndex` для EPUB split (RS-14). Skills: `work-with-reader` (split-scroll / video-frames / chapters), `work-with-drift`, `work-with-pages`.
+См. `proposal.md` — Why. **Baseline до этого change:** `LibraryScreen` (import только при `folderId != null`, LD-02 reject), Drift `Documents.folderId` NOT NULL (schema 6), `ReaderScreen` с settle-sync субтитров (RS-06), video page→перевод (VF-06), общий `_chapterIndex` для EPUB split (RS-14). **После apply:** schema 7 + nullable `folderId` / root import + mixed list; one-shot sync только Show / load перевода; dual EPUB chapter indices; meta skills (task 5.1) приведены к канону. Skills: `work-with-reader` (split-scroll / video-frames / chapters), `work-with-drift`, `work-with-pages`.
 
 ## Goals / Non-Goals
 

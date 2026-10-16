@@ -2,40 +2,40 @@
 
 ## Purpose
 
-Позволяет импортировать файлы субтитров с устройства в выбранную папку библиотеки, хранить их локально и удалять вместе с метаданными, чтобы позже открывать в Reader. Source of truth документов — Flutter Drift (+ native sandbox FS / Web BLOB) в `lib/`; Rust/FRB storage API не требуется; парсинг cues — отдельная capability.
+Позволяет импортировать файлы субтитров или EPUB с устройства в папку или в корень библиотеки, хранить их локально и удалять вместе с метаданными, чтобы позже открывать в Reader. Source of truth документов — Flutter Drift (+ native sandbox FS / Web BLOB) в `lib/`; Rust/FRB storage API не требуется; парсинг cues — отдельная capability.
 
 ## Requirements
 
-### Requirement: Import subtitle into folder
-Система SHALL позволять импортировать файл субтитров (SRT, VTT или ASS/SSA) **или EPUB** только внутрь существующей папки и сохранять документ в локальном хранилище библиотеки. Поддерживаемые расширения: `.srt`, `.vtt`, `.ass`, `.ssa` (`.ssa` хранится как format `ass`), `.epub` (хранится как format `epub`).
+### Requirement: Import subtitle or EPUB into folder or library root
+Система SHALL позволять импортировать файл субтитров (SRT, VTT или ASS/SSA) **или EPUB** внутрь существующей папки **или в корень** библиотеки (без папки) и сохранять документ в локальном хранилище библиотеки. Поддерживаемые расширения: `.srt`, `.vtt`, `.ass`, `.ssa` (`.ssa` хранится как format `ass`), `.epub` (хранится как format `epub`). Документ в корне MUST NOT требовать предварительного создания папки.
 
 #### Scenario [LD-01]: Import valid subtitle file
 - **GIVEN** существует папка «S01»
 - **WHEN** пользователь выбирает валидный `.srt` файл с устройства и импортирует его в «S01»
 - **THEN** в «S01» появляется документ с узнаваемым названием (из имени файла, если иное не задано)
 
-#### Scenario [LD-07]: Import ASS/SSA file
-- **GIVEN** существует папка «S01»
-- **WHEN** пользователь импортирует файл `.ssa` (или `.ass`)
-- **THEN** документ сохраняется с format `ass` и виден в папке
-
-#### Scenario [LD-24]: Import valid EPUB file
-- **GIVEN** существует папка «S01»
-- **WHEN** пользователь импортирует валидный `.epub` файл
-- **THEN** документ сохраняется с format `epub` и виден в папке
-
-#### Scenario [LD-02]: Reject import without folder
-- **GIVEN** пользователь находится в корне библиотеки (список папок)
-- **WHEN** он пытается импортировать файл без выбора папки
-- **THEN** система не создаёт документ в корне и требует выбрать папку (import CTA отсутствует или явно блокируется в корне)
+#### Scenario [LD-02]: Import at library root succeeds
+- **GIVEN** пользователь находится в корне библиотеки
+- **WHEN** он успешно импортирует валидный поддерживаемый файл без выбора папки
+- **THEN** документ появляется в корневом списке библиотеки (import без папки разрешён; прежнее reject-поведение снято)
 
 #### Scenario [LD-03]: Reject unsupported file type
-- **GIVEN** пользователь выбрал папку
+- **GIVEN** пользователь в корне или в папке
 - **WHEN** он выбирает файл неподдерживаемого типа (не SRT/VTT/ASS/SSA/EPUB)
 - **THEN** система не сохраняет документ и сообщает в UI, что формат не поддерживается
 
+#### Scenario [LD-07]: Import ASS/SSA file
+- **GIVEN** существует папка «S01» или пользователь в корне
+- **WHEN** пользователь импортирует файл `.ssa` (или `.ass`)
+- **THEN** документ сохраняется с format `ass` и виден в выбранном расположении (папка или корень)
+
+#### Scenario [LD-24]: Import valid EPUB file
+- **GIVEN** пользователь в корне или в папке «S01»
+- **WHEN** пользователь импортирует валидный `.epub` файл
+- **THEN** документ сохраняется с format `epub` и виден в этом расположении
+
 ### Requirement: List documents in folder
-Система SHALL показывать документы, принадлежащие выбранной папке, за исключением скрытых переводных документов, созданных через загрузку в нижней панели Reader и привязанных к оригиналу. Обычный import в папку по-прежнему SHALL делать документ видимым в списке.
+Система SHALL показывать документы, принадлежащие выбранной папке **или корню** (документы без папки), за исключением скрытых переводных документов, созданных через загрузку в нижней панели Reader и привязанных к оригиналу. Обычный import по-прежнему SHALL делать документ видимым в списке соответствующего расположения.
 
 #### Scenario [LD-04]: List documents after import
 - **GIVEN** в папке «S01» импортированы два subtitle-документа обычным import
@@ -43,9 +43,14 @@
 - **THEN** оба документа видны в содержимом папки
 
 #### Scenario [LD-12]: Hidden translation not listed
-- **GIVEN** в папке есть видимый оригинал и связанный с ним перевод, загруженный через нижнюю панель Reader
-- **WHEN** пользователь открывает эту папку в Library
+- **GIVEN** в расположении (папка или корень) есть видимый оригинал и связанный с ним перевод, загруженный через нижнюю панель Reader
+- **WHEN** пользователь открывает это расположение в Library
 - **THEN** в списке виден оригинал, а переводный документ не отображается как отдельная строка
+
+#### Scenario [LD-29]: List root documents
+- **GIVEN** в корне импортирован хотя бы один видимый документ и есть ноль или более папок
+- **WHEN** пользователь открывает корень библиотеки
+- **THEN** корневые документы видны в списке вместе с папками верхнего уровня (см. `library/folders`)
 
 ### Requirement: Delete document
 Система SHALL позволять удалить отдельный видимый документ; после удаления он не появляется в библиотеке, а связанные локальные данные документа недоступны. Если у удаляемого оригинала есть связанный скрытый перевод, система MUST удалить и этот перевод (cascade). Если у удаляемого оригинала есть привязка видео (durable link и/или кэш кадров), система MUST удалить и эти данные (cascade).
@@ -88,6 +93,14 @@
 - **WHEN** пользователь открывает этот оригинал из папки
 - **THEN** сессия Reader получает данные привязки (и кэш при наличии), так что paged vertical frames могут быть восстановлены без обязательного повторного выбора файла, если durable link / usable extract path ещё действителен; сбой загрузки video meta MUST NOT блокировать open оригинала (как у перевода / reading anchor)
 
+### Requirement: Open document from root into Reader
+Система SHALL при выборе видимого документа в корне библиотеки открывать Reader так же, как из папки: parse по формату через **существующий** FRB (`parse_subtitles` / `parse_epub`, без новых API), linked translation и reading/video anchors при наличии (`library/documents` open rules). Сбой перевода/видео MUST NOT блокировать open оригинала.
+
+#### Scenario [LD-30]: Open root document opens Reader
+- **GIVEN** в корне есть импортированный документ с валидным содержимым субтитров или EPUB
+- **WHEN** пользователь выбирает этот документ
+- **THEN** открывается Reader с содержимым документа (cues или book-режим)
+
 ### Requirement: Failed open shows error without leaving Library
 При ошибке загрузки содержимого, парсинга (субтитры или EPUB), encoding, нуля реплик или нуля глав/абзацев система SHALL оставаться в Library (в текущей папке), SHALL показать пользователю заметную ошибку (SnackBar / эквивалент) и MUST NOT открывать Reader.
 
@@ -97,12 +110,12 @@
 - **THEN** пользователь остаётся в Library, видит ошибку открытия, и Reader не открывается
 
 ### Requirement: Persist across app restart
-Система SHALL сохранять импортированные документы и их привязку к папкам между перезапусками приложения на поддерживаемых платформах (включая Web / browser storage через Drift).
+Система SHALL сохранять импортированные документы и их расположение (папка или корень без папки) между перезапусками приложения на поддерживаемых платформах (включая Web / browser storage через Drift).
 
 #### Scenario [LD-06]: Documents survive restart
-- **GIVEN** пользователь импортировал документ в папку
-- **WHEN** приложение полностью перезапускается (на Web — тот же origin) и пользователь снова открывает ту же папку
-- **THEN** документ по-прежнему отображается в этой папке
+- **GIVEN** пользователь импортировал документ в папку или в корень
+- **WHEN** приложение полностью перезапускается (на Web — тот же origin) и пользователь снова открывает то же расположение
+- **THEN** документ по-прежнему отображается в этом расположении
 
 ### Requirement: Platform storage split for bytes
 Система SHALL на native сохранять байты документа в app sandbox (path/key в метаданных) и SHALL на Web сохранять содержимое в Drift (BLOB/text), без зависимости от долговечного filesystem path.
@@ -113,12 +126,12 @@
 - **THEN** документ доступен после reopen без опоры на путь исходного файла на диске пользователя
 
 ### Requirement: Persist Reader translation as hidden linked document
-Система SHALL при успешной загрузке перевода из нижней панели Reader сохранять файл перевода в той же папке, что и оригинал, как полноценный документ хранилища (байты/format по тем же правилам platform storage, что и обычный import), и SHALL установить связь original→translation (один слот перевода на оригинал). Такой переводный документ MUST NOT появляться в списке папки (см. List documents). Связь MUST переживать перезапуск приложения на поддерживаемых платформах. Повторная загрузка поверх уже привязанного перевода без предварительного удаления не требуется (см. `reader/split`: delete, затем load).
+Система SHALL при успешной загрузке перевода из нижней панели Reader сохранять файл перевода в **том же расположении**, что и оригинал (та же папка или корень, если оригинал без папки), как полноценный документ хранилища (байты/format по тем же правилам platform storage, что и обычный import), и SHALL установить связь original→translation (один слот перевода на оригинал). Такой переводный документ MUST NOT появляться в списке расположения (см. List documents). Связь MUST переживать перезапуск приложения на поддерживаемых платформах. Повторная загрузка поверх уже привязанного перевода без предварительного удаления не требуется (см. `reader/split`: delete, затем load).
 
 #### Scenario [LD-13]: Persist translation linked to original
-- **GIVEN** Reader открыт для оригинала из папки «S01», split включён
-- **WHEN** пользователь успешно загружает переводный subtitle-файл в нижнюю панель
-- **THEN** перевод сохраняется в хранилище папки «S01», связан с оригиналом, и после перезапуска приложения связь и содержимое доступны при повторном открытии оригинала
+- **GIVEN** Reader открыт для оригинала из папки «S01» или из корня, split включён
+- **WHEN** пользователь успешно загружает переводный файл в нижнюю панель
+- **THEN** перевод сохраняется в том же расположении, что оригинал, связан с ним, и после перезапуска приложения связь и содержимое доступны при повторном открытии оригинала
 
 ### Requirement: Delete translation from Reader unlinks and removes storage
 При удалении перевода из нижней панели Reader система SHALL удалить связанный переводный документ из локального хранилища и MUST снять связь с оригиналом. Оригинал MUST остаться в папке.
@@ -194,17 +207,17 @@
 | SC-ID | Scenario | Test intent |
 |-------|----------|-------------|
 | LD-01 | Import valid subtitle file | unit/integration: import → row in folder |
-| LD-02 | Reject import without folder | unit/widget: import to null/root rejected |
+| LD-02 | Import at library root succeeds | unit/widget: import with null folderId succeeds; document visible at root |
 | LD-03 | Reject unsupported file type | unit: reject non subtitle/epub; accept .epub |
 | LD-04 | List documents after import | unit/widget: two visible imports listed (unchanged intent) |
 | LD-05 | Delete one document | unit: delete visible doc without translation/video still works (unchanged) |
-| LD-06 | Documents survive restart | integration (close/reopen DB) + verify/ops Web same-origin restart |
+| LD-06 | Documents survive restart | unit/integration: root or folder doc survives reopen |
 | LD-07 | Import ASS/SSA file | unit: `.ssa`/`.ass` → format `ass` |
 | LD-09 | Web import stores content | unit (fake platform) or verify/ops Web: content persisted |
 | LD-10 | Open document opens Reader after successful parse | Flutter widget: tap valid doc without translation → Reader |
 | LD-11 | Failed open stays in Library with visible error | also for failed EPUB parse |
-| LD-12 | Hidden translation not listed | unit/widget: reader-attached translation absent from folder list |
-| LD-13 | Persist translation linked to original | unit: attach creates stored doc + link in same folder |
+| LD-12 | Hidden translation not listed | unit/widget: reader-attached translation absent from folder or root list |
+| LD-13 | Persist translation linked to original | unit: attach creates stored doc + link in same location (folder or root) |
 | LD-14 | Delete translation unlinks and removes | unit: delete translation removes bytes/row and clears link |
 | LD-15 | Delete original cascades translation | unit: delete original removes linked translation too |
 | LD-16 | Open original loads linked translation for Reader | subtitle unchanged; epub loads linked epub translation |
@@ -220,3 +233,5 @@
 | LD-26 | Reject non-EPUB translation link for EPUB original | unit: EPUB original MUST NOT keep/open SRT as translation |
 | LD-27 | Web EPUB bytes roundtrip binary-safe | unit: store/load epub bytes on Web path → identical ZIP bytes for parse |
 | LD-28 | EPUB reading anchor is chapter index | unit/widget: save/load lastReadStartMs as chapter index for format epub |
+| LD-29 | List root documents | unit/widget: root shows imported docs without folder |
+| LD-30 | Open root document opens Reader | Flutter widget: tap root doc → Reader |
