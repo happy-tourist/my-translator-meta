@@ -236,8 +236,8 @@ lib/src/rust/frb_generated.dart
 
 ## Real Composition Examples (target)
 
-**Upload / Library** — folders + import via Drift; file picker bytes → Drift
-document store. Reader/parse later via FRB. No SRT grammar in Dart.
+**Upload / Library** — root + folders + import via Drift; file picker bytes →
+Drift document store. Reader/parse later via FRB. No SRT grammar in Dart.
 
 **Reader** — screen shows cue lines; tap/selection → orchestration asks Rust
 for token/lemma → CTA/sheet; Translate via `OfflineTranslateFn` fills
@@ -297,7 +297,7 @@ keeps shared theme. No per-screen duplicate global nav once a shell exists.
 |--------|------------------|-----------|
 | Library folders/documents | `features/upload/` + Drift data | Drift persist; Rust parse later |
 | Reader + tap/select | `features/reader/` | Rust tokens / lemmas / translate |
-| Split view | `features/split/` or `reader/` | Rust line pairing; Flutter sync scroll |
+| Split view | `features/split/` or `reader/` | Flutter one-shot align (Show / load); independent panes after |
 | Vocab | `features/vocab/` | Drift dictionary persist |
 | Settings | `features/settings/` | Drift (target) / local UI until wired |
 | Word/phrase card | reader widgets | Rust gloss + Drift add |

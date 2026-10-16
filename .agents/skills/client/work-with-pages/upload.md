@@ -8,21 +8,27 @@ Read with the [core pages skill](SKILL.md) for shell/nav. Folder roles:
 
 | Screen | Suggested path | Role |
 |--------|----------------|------|
-| Library / list | `lib/features/upload/library_screen.dart` (name flexible) | Folder tree + documents in selected folder |
-| Import / pick | same feature folder (dialog, sheet, or dedicated screen) | Pick SRT / VTT / ASS(SSA) / EPUB into a folder |
+| Library / list | `lib/features/upload/library_screen.dart` (name flexible) | Folder tree + docs at root **or** in selected folder (mixed list) |
+| Import / pick | same feature folder (dialog, sheet, or dedicated screen) | Pick SRT / VTT / ASS(SSA) / EPUB into a folder **or** library root |
 
 Default post-scaffold **home** destination in [shell.md](shell.md).
 
 ## UX canon (target)
 
 - Navigate **folders** (`library/folders`): create root/nested, open folder, cascade delete with confirm.
-- Inside a selected folder: list child folders + **documents** (`library/documents`); import via platform file picker.
+- **Root and folders:** one mixed `ListView` — child folders first, then
+  visible documents (`library/documents`); order SHOULD be folders then docs
+  (LF-09 / LF-10). Root documents have nullable `folderId` (NULL = root).
+- Import via platform file picker from **AppBar in root and in a folder**
+  (LD-02: root import allowed — do **not** reject / early-return when
+  `folderId == null`). Call `importIntoFolder(folderId: current)` where
+  `null` = root.
 - Import / delete go through **Drift** in Flutter — do **not** wait for a Rust persistence API.
 - Supported extensions: `.srt` / `.vtt` / `.ass` / `.ssa` / `.epub`
   (`unsupportedLibraryFileTypeMessage`).
 - Selecting a document row **opens Reader** after `loadBytes` + FRB parse
-  succeed; on parse/load failure stay in the folder and show a SnackBar —
-  do **not** push Reader.
+  succeed (including root docs — LD-30); on parse/load failure stay in the
+  list and show a SnackBar — do **not** push Reader.
   - **Subtitles:** `parseSubtitles` → `originalCues` (+ optional linked
     subtitle translation).
   - **EPUB (`documentFormatEpub`):** `parseEpub` → `originalChapters` +
@@ -37,7 +43,7 @@ Default post-scaffold **home** destination in [shell.md](shell.md).
   EPUB→`parseEpub`). Success → pass translation cues/chapters + id.
   Failure / empty MUST NOT block original open — still pass
   `translationDocumentId` when linked. Linked rows stay hidden
-  (`DocumentRepository.listInFolder`).
+  (`DocumentRepository.listVisible`).
 - **Reading anchor (LD-17 / LD-28 / RS-12):** best-effort
   `loadReadingAnchor(doc.id)` → `initialReadingAnchor`. EPUB: `startMs` =
   chapter index. Fail must not block open.
@@ -46,7 +52,10 @@ Default post-scaffold **home** destination in [shell.md](shell.md).
   `ReaderScreen`. Fail / dead link MUST NOT block open. Details:
   `work-with-reader` /
   [video-frames.md](../work-with-reader/video-frames.md).
-- Empty state (root or folder): clear CTA to create a folder (and import when inside a folder) — not the scaffold Rust demo form.
+- **Empty root (LF-11):** copy **Library is empty** + Create folder **and**
+  Import CTAs (keys `libraryEmptyCreateFolder` / `libraryEmptyImport`). Empty
+  non-root folder: **This folder is empty** + Create folder (+ Import from
+  AppBar).
 
 ## Layering
 
@@ -54,7 +63,9 @@ Default post-scaffold **home** destination in [shell.md](shell.md).
 LibraryScreen
   → orchestration (list folders/documents, import bytes/path, delete)
       → Drift repositories / DAOs   # user persist source of truth
-  → on document tap:
+      → listVisible(folderId: null) at root; listVisible(folderId: id) in folder
+      → importIntoFolder(folderId: current)  # null = root (LD-02)
+  → on document tap (root or folder):
         if epub: loadBytes → FRB parseEpub → ReaderScreen(
               documentFormat: epub, originalChapters, …, parseEpub?)
         else: loadBytes → FRB parseSubtitles → (optional linked translation)

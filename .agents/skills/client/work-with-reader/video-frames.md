@@ -21,7 +21,7 @@ are Flutter-only (native FFmpegKit / web canvas). Persist = Drift via
 | Picker | `lib/data/video/reader_video_picker.dart` | MP4/MKV only (`kReaderVideoExtensions`); cancel → `null` |
 | Typed errors | `lib/data/video/video_frame_errors.dart` | `VideoFrameException` / `VideoFrameErrorKind` + locked EN copy |
 | Reader wiring | `lib/features/reader/reader_screen.dart` | AppBar Load/Remove; original pane = pages **or** cues (not both) |
-| Drift attach | `DocumentRepository` + schema 5 | `attachVideo` / `detachVideo` / frame JPEG BLOB — [repositories.md](../work-with-drift/repositories.md) |
+| Drift attach | `DocumentRepository` + schema 5+ | `attachVideo` / `detachVideo` / frame JPEG BLOB — [repositories.md](../work-with-drift/repositories.md) |
 
 Package imports: `package:my_translator_app/data/video/…`,
 `package:my_translator_app/features/reader/…`.
@@ -41,7 +41,8 @@ do not revive; **paged vertical triple + bottom pager** is the canon
   pane, under the scrollable frame list — not above it (VF-14).
 - On page change (`prev` / `next` / `goToPage`): scroll the frame list to the
   **first** slot (`ScrollController.jumpTo(0)` in a post-frame callback)
-  (VF-15).
+  (VF-15). Update `_videoCurrentSecond` + persist `last_second` — **do not**
+  sync the translation pane (VF-06).
 - Each slot: JPEG (or load/error placeholder) + optional cue text. Lazy extract
   for the current page; cache hit skips re-extract. Tap/highlight: `buildCueText`
   embeds `CueRow` with `showTimestamp: true` (file `startMs → endMs`), zero
@@ -56,16 +57,18 @@ do not revive; **paged vertical triple + bottom pager** is the canon
   via `clampReadingTimeToSecond` → open **page containing T**
   (`videoFramePageForSecond`) (VF-05 / VF-13). Prefer persisted `last_second`
   (column `videoLastFramePage` reused as second index) when restoring; page =
-  `videoFramePageForSecond(second, duration)`.
+  `videoFramePageForSecond(second, duration)`. Load / Remove video MUST NOT
+  sync translation ([split-scroll.md](split-scroll.md)).
 - Remove: capture current page’s first second (`videoFramePageFirstSecond` /
   `VideoFramePagesState.currentSecond`) → detach → restore cue list →
-  `scrollTo` nearest cue at `T*1000` (VF-08).
-- Split: frames **only** in original pane (VF-09). Original **page** change →
-  sync translation via `nearestCueIndex(T*1000)` where T =
-  `videoFramePageFirstSecond(page, duration)` (VF-06). Bottom scroll MUST NOT
-  move pages when video is on (VF-07). Show/Hide split: keep `VideoFramePages` /
-  key outside the dispose branch that remounts cue lists
-  ([split-scroll.md](split-scroll.md)).
+  `scrollTo` nearest cue at `T*1000` (VF-08) — original only; no translation
+  sync.
+- Split: frames **only** in original pane (VF-09). **One-shot** translation
+  align uses the **current** video second (`T*1000` → `nearestCueIndex`) only
+  on Show split or successful load **translation** — not on page change
+  (VF-06). Bottom scroll MUST NOT move pages when video is on (VF-07).
+  Show/Hide split: keep `VideoFramePages` / key outside the dispose branch
+  that remounts cue lists ([split-scroll.md](split-scroll.md)).
 - Slot extract fail → placeholder in that slot; neighbors + text gestures OK
   (VF-10). Tap/highlight on cue text under frames unchanged (VF-12).
 - Dead durable link: keep JPEG cache; re-pick with `clearFrameCache: false`
@@ -114,7 +117,8 @@ call real FFmpegKit in CI. Pure helpers:
 `test/features/reader/video_frame_page_math_test.dart`,
 `video_second_math_test.dart`, `cue_text_at_second_test.dart`,
 `video_frame_pages_test.dart` (VF-01…VF-04, VF-10, VF-14, VF-15); Reader
-VF-01…VF-13 in `reader_screen_test.dart`.
+VF-01…VF-13 in `reader_screen_test.dart` (VF-06 = page change does **not**
+move translation).
 
 ## Anti-patterns
 
@@ -123,12 +127,14 @@ VF-01…VF-13 in `reader_screen_test.dart`.
 | Rust / FRB video API | Dart facade only |
 | Infinite all-seconds list / top pager | Paged column of 3; pager **under** frames |
 | Keeping list scroll after next/prev | `jumpTo(0)` / first slot visible (VF-15) |
+| Sync translation on video page change (VF-06) | Update second + persist only; one-shot on Show / load translation |
+| Sync on Load / Remove video | Restore cues / pages only; no `_syncPanes` |
 | `showTimestamp: false` under frames with text | `CueRow(showTimestamp: true)` file start→end |
 | Invented “frame second” time labels | Subtitle-file `startMs → endMs` only; empty = no label |
 | Horizontal strip of 3 over unchanged cue list | Replace cue list with vertical triple |
 | Cue list + pages stacked together | Pages **or** cues in original pane |
 | Interval-cover `[start,end)` text | `round(endMs/1000)` end-second text |
-| Bottom scroll driving pages when video on | Original→translation one-way only |
+| Bottom scroll driving pages when video on | Pages stay put (VF-07) |
 | Raw FFmpeg / DOM strings in SnackBar | `VideoFrameException.userMessage` |
 | Mixing two native FFmpegKit packages | Single pinned `ffmpeg_kit_flutter_new_video` |
 | Treating picker cancel as error | Silent return |

@@ -6,7 +6,7 @@ Read with [SKILL.md](SKILL.md).
 
 | Piece | Path | Role |
 |-------|------|------|
-| Tables | `lib/data/database/tables.dart` | `Folders`, `Documents` (nullable `translationDocumentId`; `lastReadStartMs` / `lastReadAlignment`; video attach cols), `DocumentVideoFrames` (JPEG BLOB cache), `DictionaryEntries` (`lemma` UNIQUE morph + nullable `surfaceKey`) |
+| Tables | `lib/data/database/tables.dart` | `Folders`, `Documents` (nullable `folderId` = root; nullable `translationDocumentId`; `lastReadStartMs` / `lastReadAlignment`; video attach cols), `DocumentVideoFrames` (JPEG BLOB cache), `DictionaryEntries` (`lemma` UNIQUE morph + nullable `surfaceKey`) |
 | DB class | `lib/data/database/app_database.dart` | `@DriftDatabase`, `schemaVersion`, `driftDatabase(...)` |
 | Generated | `lib/data/database/app_database.g.dart` | **GENERATED** — never hand-edit |
 | Open helper | `lib/data/database/database_provider.dart` | `openAppDatabase()` + readiness `SELECT 1` |
@@ -59,7 +59,7 @@ data wipe — see `work-with-env-deploy` and `{app}/AGENTS.md`.
 Bump `schemaVersion` and add a Drift `MigrationStrategy` when altering tables.
 Do not silently wipe user data in product builds without an OpenSpec decision.
 
-**Present:** `schemaVersion` **6** —
+**Present:** `schemaVersion` **7** —
 
 - from `< 2`: nullable `Documents.translationDocumentId` (self-FK → `Documents.id`)
 - from `< 3`: nullable `lastReadStartMs` + `lastReadAlignment` (reading resume)
@@ -74,5 +74,11 @@ Do not silently wipe user data in product builds without an OpenSpec decision.
   `deleteDocument` / folder delete. No Rust SQLite for video.
 - from `< 6`: `DocumentVideoMedia` — full video bytes + `fileName` for durable
   Web reopen (blob URLs die on reload). Cleared on detach/delete with frames.
+- from `< 7`: `Documents.folderId` **nullable** (NULL = library root; LD-02 /
+  LD-29). SQLite cannot drop NOT NULL via `ALTER` — recreate via Drift
+  `migrator.alterTable(TableMigration(documents))` (or equivalent
+  create→copy→drop→rename / `customStatement`); do **not** `addColumn`
+  (column already exists). Existing rows keep non-null `folderId`. Cover in
+  `test/data/schema_migration_test.dart` (clean DB + 6→7 upgrade).
 
 Regenerate `.g.dart` after table edits.

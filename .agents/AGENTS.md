@@ -72,14 +72,14 @@ OpenSpec: [`openspec/config.yaml`](../openspec/config.yaml); артефакты 
 | [`client-verify-code`](skills/client/client-verify-code/SKILL.md) | Compliance + DRY/KISS; `flutter analyze` / conventions |
 | [`client-work-with-structure`](skills/client/client-work-with-structure/SKILL.md) | Экраны / виджеты / слои / feature folders |
 | [`client-work-with-errors`](skills/client/client-work-with-errors/SKILL.md) | Ошибки UI / вызовы Rust / `RustLib.init` |
-| [`work-with-pages`](skills/client/work-with-pages/SKILL.md) | Reader (cues / EPUB book-mode) / словарь / загрузка / настройки (+ shell) |
-| [`work-with-drift`](skills/client/work-with-drift/SKILL.md) | Drift user persist: schema, repos, content store (Web UTF-8 / EPUB base64), format-gated ReadingAnchor |
+| [`work-with-pages`](skills/client/work-with-pages/SKILL.md) | Reader (cues / EPUB book-mode) / словарь / Library (root + folders) / настройки (+ shell) |
+| [`work-with-drift`](skills/client/work-with-drift/SKILL.md) | Drift user persist: schema 7+ (nullable `folderId` = root), repos (`listVisible`), content store (Web UTF-8 / EPUB base64), format-gated ReadingAnchor |
 | [`work-with-styles`](skills/client/work-with-styles/SKILL.md) | Тема, Material, lemma highlight tokens |
 | [`work-with-localization`](skills/client/work-with-localization/SKILL.md) | Локаль UI (ARB) vs learning language pair |
 | [`work-with-env-deploy`](skills/client/work-with-env-deploy/SKILL.md) | `flutter build` apk/ipa/web; run/devices; Web `--web-port=5555` + COOP/COEP |
 | [`client-work-with-test`](skills/client/client-work-with-test/SKILL.md) | `flutter test` / `integration_test` / Drift tests |
 | [`work-with-frb`](skills/client/work-with-frb/SKILL.md) | Generated API, `RustLib.init`, codegen |
-| [`work-with-reader`](skills/client/work-with-reader/SKILL.md) | Contiguous тап→CTA/sheet, lemma/phrase highlight/edit, split (time / EPUB chapter), book-mode ([chapters.md](skills/client/work-with-reader/chapters.md)), paged video frames ([video-frames.md](skills/client/work-with-reader/video-frames.md)) |
+| [`work-with-reader`](skills/client/work-with-reader/SKILL.md) | Contiguous тап→CTA/sheet, lemma/phrase highlight/edit, split one-shot (time / EPUB chapter; no settle realtime), book-mode ([chapters.md](skills/client/work-with-reader/chapters.md)), paged video frames ([video-frames.md](skills/client/work-with-reader/video-frames.md)) |
 
 #### Server / Rust (`.agents/skills/server/`)
 

@@ -13,14 +13,14 @@ Highlight: `work-with-reader` / `highlight.md`.
 | Cue row | `lib/features/reader/cue_row.dart` | Timestamp + text; original pane token hit-targets + vocab highlight paint; under-frame embed: `showTimestamp: true` (file start→end), `padding: EdgeInsets.zero`, `keySuffix` (VF-04 / VF-12) |
 | Char slice helper | `lib/features/reader/cue_char_slice.dart` | Unicode scalar slice matching Rust char spans |
 | Tokenize / mark seams | `lib/features/reader/tokenize_cues_fn.dart` (+ mark / lemma-keys typedefs) | Injectable FRB seams for tests |
-| Nearest-time helper | `lib/features/reader/nearest_cue_index.dart` | Pure `nearestCueIndex` (`BigInt` `startMs`); reuse for page→translation sync |
+| Nearest-time helper | `lib/features/reader/nearest_cue_index.dart` | Pure `nearestCueIndex` (`BigInt` `startMs`); one-shot Show / load translation (not page→translation) |
 | Time format | `lib/features/reader/cue_time_format.dart` | `HH:MM:SS,mmm` |
 | Video frame pages (`reader/video-frames`) | `lib/features/reader/video_frame_pages.dart` (+ `video_frame_page_math.dart`, `video_second_math.dart`, `cue_text_at_second.dart`, `video_frame_cache.dart`) | Vertical column of ≤3 frames + bottom pager **replacing** original cues; injectable extractor/cache |
 | Video extract facade | `lib/data/video/` (`video_frame_extractor*.dart`, `video_usable_path*.dart`, `reader_video_picker.dart`, `video_frame_errors.dart`) | Native FFmpegKit / web canvas; mirror translate platform split; no Rust video API |
 | Add-vocab sheet | local in `reader_screen.dart` (`_AddVocabSheet`) | Surface (single or phrase join) + translation + context → Drift (morph / phrase key) |
 | Edit-vocab sheet | local in `reader_screen.dart` | In-vocab tap: lemma/surface RO + translation/context + delete |
 | Highlight paint | `cue_row` + `ReaderColors` | `is_in_vocab` → `lemmaHighlight` theme token |
-| Split view (`reader/split` / EPUB chapters) | Reader **mode** (same screen; `scrollable_positioned_list` panes) | Subtitles: time-nearest + alignment settle; EPUB: shared chapter index + pager; RS-10/11 scroll preserve on Show/Hide (subtitles); resume via `initialReadingAnchor` (cue ms or chapter index) |
+| Split view (`reader/split` / EPUB chapters) | Reader **mode** (same screen; `scrollable_positioned_list` panes) | Subtitles: one-shot time-nearest on Show / load translation (no settle sync); EPUB: dual chapter indices + per-pane pager; RS-10/11 scroll preserve on Show/Hide (subtitles); resume via `initialReadingAnchor` (cue ms or original chapter index) |
 
 Reader is usually **pushed** from the library ([upload.md](upload.md)), not a
 shell tab. Ctor requires `dictionaryRepository` (Shell → Library → Reader).
@@ -40,8 +40,9 @@ shell tab. Ctor requires `dictionaryRepository` (Shell → Library → Reader).
   chapter pager**; no cue timestamps; no video chrome.
 - Library passes `originalChapters` (not empty-cue hack). Tokenize current
   chapter paragraphs; invalidate on chapter change.
-- Split: EPUB↔EPUB only; sync by chapter index; mismatch notice when counts
-  differ. Details: `work-with-reader` /
+- Split: EPUB↔EPUB only; one-shot chapter align on Show / load, then
+  **independent** indices per pane; mismatch notice when counts differ.
+  Details: `work-with-reader` /
   [chapters.md](../work-with-reader/chapters.md).
 
 ### Tap → vocabulary (current: `reader/tap`)
@@ -101,11 +102,14 @@ Engine details: meta `work-with-translate`.
 - Two panes: **original** and **translation**, typically stacked (mobile) or
   side-by-side (wide) — prefer stacked first unless a mock says otherwise.
 - **Subtitles (`reader/split`):** translation = second subtitle file →
-  `parseSubtitles`. Sync by nearest `CueDto.startMs` then pixel settle;
-  bottom empty + load until attached. Persist via Drift. Errors:
-  `ParseErrorKind`.
-- **EPUB:** translation = second `.epub` → `parseEpub`. Sync by shared chapter
-  index; reject mixed families; unequal counts → clamp + notice.
+  `parseSubtitles`. **One-shot** align by nearest `CueDto.startMs` (optional
+  pixel settle once) only on Show split or successful load while split on;
+  settle/fling MUST NOT move the other pane. Bottom empty + load until
+  attached. Persist via Drift. Errors: `ParseErrorKind`.
+- **EPUB:** translation = second `.epub` → `parseEpub`. One-shot clamp
+  translation chapter to original on Show / load; then dual indices
+  (`_originalChapterIndex` / `_translationChapterIndex`); reject mixed
+  families; unequal counts → clamp + notice.
 - **Delete** translation: bottom-pane top chrome only (not AppBar). AppBar keeps
   the split toggle (+ video load/remove for **subtitles** when
   `reader/video-frames`). Stuck link: Delete in that chrome, then Load.
@@ -118,10 +122,12 @@ Engine details: meta `work-with-translate`.
   (RS-12 / LD-17).
 - **Video frames (`reader/video-frames`):** attach/detach via Drift; Library open
   best-effort restores attachment; original pane = paged vertical triple
-  (replaces cues); one-way page→translation when split — details
-  `work-with-reader` / [video-frames.md](../work-with-reader/video-frames.md).
-- **Target (later):** sync **by cue index** when Rust supplies paired lists;
-  placeholders keep alignment — see `work-with-reader` / `split-scroll.md`.
+  (replaces cues); page change MUST NOT sync translation (one-shot only via
+  Show / load translation) — details `work-with-reader` /
+  [video-frames.md](../work-with-reader/video-frames.md).
+- **Target (later):** optional cue-index pairing when Rust supplies paired
+  lists — still one-shot unless a future change says otherwise; see
+  `work-with-reader` / `split-scroll.md`.
 - Toggle Reader ↔ Split from Reader chrome (app bar action or mode switch);
   same document session. Inject `DocumentRepository` (+ optional parse fn for
   tests) into Reader like Library — do not parse SRT in widgets.

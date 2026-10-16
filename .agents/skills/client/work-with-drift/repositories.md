@@ -25,18 +25,22 @@ UI maps these to short copy (SnackBar / inline) — see
 - **Folders:** create (root/nested), list children, cascade delete. Before bulk
   document delete in a folder subtree, clear `translationDocumentId` self-FK
   links so SQLite FK checks do not fail.
-- **Documents:** import bytes + metadata into a folder, list, delete; format
-  helpers in `document_format.dart` (`.srt`/`.vtt`/`.ass`/`.ssa`/`.epub` →
-  stored `srt`/`vtt`/`ass`/`epub`); **load bytes for Reader open**
+- **Documents:** import bytes + metadata into a folder **or root**
+  (`importIntoFolder(folderId: null)` allowed — LD-02; do **not** reject null);
+  list via `listVisible({int? folderId})` (`null` → `folderId.isNull()`;
+  non-null → `equals`); `listInFolder(id)` MAY be a thin wrapper; delete;
+  format helpers in `document_format.dart` (`.srt`/`.vtt`/`.ass`/`.ssa`/`.epub`
+  → stored `srt`/`vtt`/`ass`/`epub`); **load bytes for Reader open**
   (`loadBytes(Document)` — native via `storageKey`; Web via Drift `content`
   decoded with `decodeWebDocumentContent` — UTF-8 for subtitles, **base64 for
   EPUB** (LD-27 / D6)).
 - **Reader translation link (MVP `reader/split` / `library/documents`):**
-  nullable `translationDocumentId` on original; `listInFolder` / watch must
-  hide satellite translation rows; `attachTranslation`,
+  nullable `translationDocumentId` on original; `listVisible` / `listInFolder`
+  must hide satellite translation rows (root and folder); `attachTranslation`
+  copies nullable `folderId` (including NULL) onto the satellite;
   `detachAndDeleteTranslation`, cascade on original delete,
-  `loadLinkedTranslation` — see OpenSpec LD-12…LD-16. One translation slot per
-  original (attach while linked → validation error; delete first).
+  `loadLinkedTranslation` — see OpenSpec LD-12…LD-16 / LD-29. One translation
+  slot per original (attach while linked → validation error; delete first).
   **Family match (LD-26):** EPUB↔EPUB or subtitle↔subtitle only — reject mixed
   with `incompatibleTranslationFormatMessage`.
 - **Reading resume (LD-17 / LD-28 / RS-12):** `ReadingAnchor` (`startMs`,
