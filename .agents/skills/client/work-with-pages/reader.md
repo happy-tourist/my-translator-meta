@@ -20,7 +20,7 @@ Highlight: `work-with-reader` / `highlight.md`.
 | Add-vocab sheet | local in `reader_screen.dart` (`_AddVocabSheet`) | Surface (single or phrase join) + translation + context → Drift (morph / phrase key) |
 | Edit-vocab sheet | local in `reader_screen.dart` | In-vocab tap: lemma/surface RO + translation/context + delete |
 | Highlight paint | `cue_row` + `ReaderColors` | `is_in_vocab` → `lemmaHighlight` theme token |
-| Split view (`reader/split` / EPUB chapters) | Reader **mode** (same screen; `scrollable_positioned_list` panes) | Subtitles: one-shot time-nearest on Show / load translation (no settle sync); EPUB: dual chapter indices + per-pane pager; RS-10/11 scroll preserve on Show/Hide (subtitles); resume via `initialReadingAnchor` (cue ms or original chapter index) |
+| Split view (`reader/split` / EPUB chapters) | Reader **mode** (same screen; `scrollable_positioned_list` panes) | Subtitles: one-shot time-nearest on Show / load translation (no settle sync); EPUB: dual chapter indices + paragraph one-shot + per-pane pager; RS-10/11 scroll preserve on Show/Hide (subtitles **and** EPUB mid-chapter); resume via `initialReadingAnchor` (cue ms or original chapter index) |
 
 Reader is usually **pushed** from the library ([upload.md](upload.md)), not a
 shell tab. Ctor requires `dictionaryRepository` (Shell → Library → Reader).
@@ -40,9 +40,10 @@ shell tab. Ctor requires `dictionaryRepository` (Shell → Library → Reader).
   chapter pager**; no cue timestamps; no video chrome.
 - Library passes `originalChapters` (not empty-cue hack). Tokenize current
   chapter paragraphs; invalidate on chapter change.
-- Split: EPUB↔EPUB only; one-shot chapter align on Show / load, then
-  **independent** indices per pane; mismatch notice when counts differ.
-  Details: `work-with-reader` /
+- Split: EPUB↔EPUB only; one-shot **chapter + paragraph** align on Show /
+  load, then **independent** chapter indices and paragraph scrolls per pane;
+  mismatch notice when chapter counts differ; silent clamp when paragraph
+  counts differ. Details: `work-with-reader` /
   [chapters.md](../work-with-reader/chapters.md).
 
 ### Tap → vocabulary (current: `reader/tap`)
@@ -107,16 +108,24 @@ Engine details: meta `work-with-translate`.
   settle/fling MUST NOT move the other pane. Bottom empty + load until
   attached. Persist via Drift. Errors: `ParseErrorKind`.
 - **EPUB:** translation = second `.epub` → `parseEpub`. One-shot clamp
-  translation chapter to original on Show / load; then dual indices
-  (`_originalChapterIndex` / `_translationChapterIndex`); reject mixed
-  families; unequal counts → clamp + notice.
+  translation chapter **and** jump paragraph list to clamped source index
+  on Show / load; then dual chapter indices
+  (`_originalChapterIndex` / `_translationChapterIndex`) + independent
+  paragraph scrolls; reject mixed families; unequal chapter counts → clamp +
+  notice; unequal paragraph counts → silent clamp.
 - **Delete** translation: bottom-pane top chrome only (not AppBar). AppBar keeps
   the split toggle (+ video load/remove for **subtitles** when
   `reader/video-frames`). Stuck link: Delete in that chrome, then Load.
 - **Show / Hide split:** preserve original scroll (capture top-visible →
-  post-frame `jumpTo`); do not reset the original list to cue 0 (RS-10, RS-11).
-  With video pages, keep `VideoFramePages` / key outside the remount branch so
-  page state survives Show/Hide.
+  post-frame `jumpTo`) for subtitle cues **and** EPUB mid-chapter paragraphs;
+  do not reset to cue/para 0 (RS-10, RS-11). Book panes use
+  `ScrollablePositionedList` (same package as cues), not bare `ListView`.
+  Distinct single vs split list Keys + `PageStorageKey` (cues:
+  `readerCueList` / `readerOriginalCueList`; book:
+  `readerBookParagraphList` / `readerOriginalBookParagraphList`) so PageStorage
+  does not clobber `initialScrollIndex`. One-shot jumps from the **captured**
+  anchor. With video pages, keep `VideoFramePages` / key outside the remount
+  branch so page state survives Show/Hide.
 - **Reading resume:** optional `initialReadingAnchor` from Library; restore
   after layout; save on settle/dispose via `DocumentRepository.saveReadingAnchor`
   (RS-12 / LD-17).

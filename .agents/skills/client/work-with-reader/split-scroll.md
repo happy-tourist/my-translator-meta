@@ -9,9 +9,11 @@
   `parseSubtitles` calls; one-shot by nearest Dart `CueDto.startMs` (`BigInt`)
   — **no** Rust pairing / align API.
 - **EPUB (capability `reader/chapters` + split):** EPUB↔EPUB chapter lists from
-  `parse_epub`; one-shot by clamping translation chapter to original; after
-  that each pane has an **independent** chapter index. Details:
-  [chapters.md](chapters.md).
+  `parse_epub`; one-shot by clamping translation **chapter** to original **and**
+  jumping the translation paragraph list to the clamped source paragraph index
+  (+ optional alignment); after that each pane has an **independent** chapter
+  index and **independent** paragraph scroll. No Rust pairing API — indices
+  only. Details: [chapters.md](chapters.md).
 
 ## Implementation anchors (present)
 
@@ -19,7 +21,8 @@
 |-------|------------|
 | Sync helper (subtitles) | `lib/features/reader/nearest_cue_index.dart` (`nearestCueIndex`) |
 | Shared cue / paragraph row | `lib/features/reader/cue_row.dart` (`CueRow`, key prefixes) |
-| Pane lists | `scrollable_positioned_list` → `ItemScrollController` + `ItemPositionsListener` |
+| Pane lists (subtitles) | `scrollable_positioned_list` → `ItemScrollController` + `ItemPositionsListener` |
+| Pane lists (EPUB book) | Same package: **book-specific** `ItemScrollController` + `ItemPositionsListener` per pane (not bare `ListView`) — required for RS-10/11 preserve + paragraph one-shot |
 | Orchestration | `ReaderScreen` (`lib/features/reader/reader_screen.dart`) StatefulWidget |
 | EPUB chapter session | `_originalChapterIndex` + `_translationChapterIndex` + per-pane pager (`_goToChapter(pane, …)`) |
 
@@ -27,13 +30,14 @@
 
 ### One-shot call sites only
 
-Run time-nearest (subtitles) or chapter align (EPUB) **only** when:
+Run time-nearest (subtitles) or chapter+paragraph align (EPUB) **only** when:
 
 1. User **enables** (Show) split and translation content is already in session; or
 2. User **successfully loads** translation while split is already on.
 
 Do **not** sync on: scroll settle / fling, `_restoreInitialReadingAnchor`,
-video page change, Load video, Remove video, or EPUB pager prev/next.
+video page change, Load video, Remove video, or EPUB pager prev/next /
+paragraph scroll after one-shot.
 
 ### Subtitles — time-first (`reader/split`)
 
@@ -47,18 +51,27 @@ video page change, Load video, Remove video, or EPUB pager prev/next.
 5. After one-shot, panes scroll independently (RS-06: settle MUST NOT move the
    other pane).
 
-### EPUB — independent chapter indices (`reader/chapters`)
+### EPUB — independent chapter + paragraph indices (`reader/chapters`)
 
-1. **Session state = two indices:** `_originalChapterIndex` and
+1. **Session state = two chapter indices:** `_originalChapterIndex` and
    `_translationChapterIndex` (0-based). Pager on a pane calls
    `_goToChapter(fromOriginal:, next:)` for **that pane only** (RS-14).
-2. One-shot: `_translationChapterIndex = clamp(_originalChapterIndex, 0,
-   translationN-1)` on Show / load translation (RS-19 / RS-20).
+2. One-shot on Show / load translation (RS-19 / RS-20 / RS-22):
+   - `_translationChapterIndex = clamp(_originalChapterIndex, 0, translationN-1)`;
+   - then `jumpTo` translation paragraph list to
+     `clamp(sourceParagraphIndex, 0, translationChapterLen-1)` with source
+     alignment (seed `initialScrollIndex` + post-frame retry like cues).
+   - **Anchor source:** the index/alignment **captured before remount** (Show /
+     load). Pass them into the book sync helper — do **not** re-read
+     `ItemPositionsListener` right after remount (it may still report 0).
 3. Each pane shows paragraphs of `chapters[min(index, len-1)]` for **its**
-   index.
-4. Do **not** use `nearestCueIndex` / cue `startMs` for EPUB align.
+   index; after one-shot, paragraph scroll on one pane MUST NOT move the other
+   (RS-21).
+4. Do **not** use `nearestCueIndex` / cue `startMs` for EPUB align; do **not**
+   add a Rust pairing / paragraph-align FRB — index clamp in UI only.
 5. On load with unequal chapter counts: attach anyway, clamp, show
    `mismatchedEpubChapterCountMessage` (RS-16); one-shot still runs.
+   Unequal **paragraph** counts: silent clamp (RS-22), no error chrome.
 6. Reject subtitle translation against EPUB original (and vice versa) —
    `incompatibleTranslationFormatMessage` (LD-26 / RS-08).
 
@@ -78,14 +91,27 @@ video page change, Load video, Remove video, or EPUB pager prev/next.
 `ScrollablePositionedList.initialScrollIndex` / `initialAlignment` on the
 remounted original list so the first frame is not cue 0; after the first frame
 (when `ItemScrollController.isAttached`), `jumpTo` that anchor as backup. On
-Show with translation cues, run **one-shot** sync from original (RS-18).
-Do **not** treat Hide as a no-op for scroll — the single-pane list is a new
-widget tree and will land at cue 0 without capture+restore.
+Show with translation cues, run **one-shot** sync from the **captured**
+anchor (RS-18). Do **not** treat Hide as a no-op for scroll — the single-pane
+list is a new widget tree and will land at cue 0 without capture+restore.
+Use **distinct list Keys** for single vs split original
+(`readerCueList` vs `readerOriginalCueList`) plus matching `PageStorageKey`
+slots so PageStorage from one mode does not override the other’s
+`initialScrollIndex`.
 
-**EPUB book-mode:** on Show with translation chapters, one-shot-align
-translation chapter (RS-19). Show/Hide does **not** need cue-list remount
-capture for chapter; paragraph list remounts when the chapter changes
-(scroll to start is expected — RC-02).
+**EPUB book-mode:** Show/Hide remounts `_buildBookPane` ↔ `_buildBookSplitBody`
+and disposes the original paragraph list — capture top-visible **paragraph**
+index + leading edge before `setState`, seed
+`initialScrollIndex`/`initialAlignment`, post-frame `jumpTo` on remount
+(RS-10 / RS-11), same pattern as subtitle cues. Distinct Keys:
+`readerBookParagraphList` (single) vs `readerOriginalBookParagraphList`
+(split top) vs `readerTranslationBookParagraphList` (split bottom), with
+`PageStorageKey('${listKeyPrefix}_$chapterIndex')`. On Show with translation
+chapters, one-shot-align translation **chapter + paragraph** from the
+**captured** anchor (RS-19). Changing chapter via pager remounts that pane’s
+list → start of chapter (RC-02) and MUST clear the Show/Hide preserve seed
+so the new chapter does not reopen mid-list; one-shot Show MUST NOT change
+the original chapter.
 
 When implementing `reader/video-frames` (**subtitle docs only**), original pane
 is either the cue list **or** `VideoFramePages` (not both). Keep the pages
@@ -146,6 +172,9 @@ Subtitle split MAY keep the older setState divider path.
 | Empty translation pane (MVP) | Show empty + load CTA; top pane scrolls alone |
 | Show split after scroll (subtitles) | Restore original top-visible cue (RS-10); one-shot bottom if translation present (RS-18) |
 | Hide split after scroll (subtitles) | Same capture+`jumpTo` (RS-11); do not reset to 0 |
+| Show split after scroll (EPUB mid-chapter) | Restore original paragraph index (RS-10); one-shot bottom chapter+paragraph if translation present (RS-19) |
+| Hide split after scroll (EPUB mid-chapter) | Same capture+`jumpTo` (RS-11); do not reset to para 0 |
+| Unequal EPUB paragraph counts on one-shot | Silent clamp to last available (RS-22); no error chrome |
 | Reopen from Library | Subtitles: cue `startMs`; EPUB: original chapter index; fail → open at top; no translation sync until Show |
 | Delete translation | Bottom-pane top chrome only; AppBar stays split (+ video for subtitles) — never Delete |
 | Video pages present | Pages key outside remount; page change does **not** sync translation — **not** for EPUB |
@@ -164,7 +193,10 @@ Subtitle split MAY keep the older setState divider path.
 | Shared `_chapterIndex` moving both EPUB panes | Dual indices + per-pane `_goToChapter` |
 | Sync on video page / Load / Remove video | One-shot on Show / load **translation** only |
 | Sync translation on open resume | Restore original only; align on next Show / load |
-| `translationController.jumpTo(original.offset)` | Jump by nearest time (subtitles) or chapter index (EPUB) once |
+| `translationController.jumpTo(original.offset)` | Jump by nearest time (subtitles) or chapter+paragraph index (EPUB) once |
+| Bare `ListView` for EPUB paragraphs under split | Book `ScrollablePositionedList` + capture/restore (RS-10/11) |
+| Same Key / PageStorage slot for single↔split lists | Distinct Keys (`readerCueList`/`readerOriginalCueList`; book `readerBookParagraphList`/`readerOriginalBookParagraphList`) |
+| Re-reading positions listener for one-shot right after remount | Jump from **captured** index/alignment (listener may still be 0) |
 | Inventing a Rust pairing API for MVP split | Two `parseSubtitles` + Flutter `nearestCueIndex` |
 | Time-sync for EPUB chapters | Dual chapter indices + one-shot clamp |
 | Continuous pixel-mirror during fling | Independent panes after one-shot |

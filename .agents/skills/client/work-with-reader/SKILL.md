@@ -5,8 +5,9 @@ description: >-
   EPUB book-mode (chapter pager + paragraph list; OpenSpec `reader/chapters`),
   word tap / contiguous token selection (phrase Add), bottom CTA + add-vocab
   sheet, vocab lemma/phrase highlight paint, edit sheet on in-vocab tap, split
-  view original↔translation (one-shot time or EPUB chapter align; independent
-  panes after), or optional paged video frames (OpenSpec `reader/video-frames`).
+  view original↔translation (one-shot time or EPUB chapter+paragraph align;
+  independent panes after), or optional paged video frames (OpenSpec
+  `reader/video-frames`).
   Not for
   scaffold demo TextField / processText. Cross-cut: work-with-pages (placement),
   work-with-frb (API/codegen), work-with-styles (tokens/theme), work-with-drift
@@ -56,8 +57,9 @@ Path package: `package:my_translator_app/...`.
   in_vocab → edit sheet
 - Vocab highlight by morph lemma **and** phrase windows (see highlight.md;
   OpenSpec `add-reader-lemma-highlight`)
-- Split view + one-shot align (subtitle time-nearest **or** EPUB chapter
-  index on Show / load translation only) — [split-scroll.md](split-scroll.md)
+- Split view + one-shot align (subtitle time-nearest **or** EPUB
+  chapter+paragraph on Show / load translation only) —
+  [split-scroll.md](split-scroll.md)
 - Optional paged video frames (`reader/video-frames`) — [video-frames.md](video-frames.md)
   — not for EPUB documents
 - Empty / loading / no-translation / tokenize-degrade reader states
@@ -80,7 +82,7 @@ skills by name.
 | Token spans for hit-test | Rust prepares; Flutter paints |
 | Line list, gestures, selection chrome, CTA/Add/edit sheets | Flutter |
 | Scroll controllers + one-shot align (Show / load translation; no settle / video-page realtime) | Flutter |
-| Line pairing original↔translation | Target: Rust (paired data); MVP (`reader/split`): Flutter time-nearest one-shot (subtitles) or dual EPUB chapter indices — no Rust pairing API |
+| Line pairing original↔translation | Target: Rust (paired data); MVP (`reader/split`): Flutter time-nearest one-shot (subtitles) or dual EPUB chapter indices + paragraph index clamp — no Rust pairing API |
 
 Do **not** re-tokenize or invent morph rules in Dart. Char-index slicing for
 paint uses `cueCharSlice` (runes), matching Rust Unicode scalar spans.
@@ -132,18 +134,21 @@ Details: [tap.md](tap.md).
   + load CTA until attached; **no** settle/fling realtime sync; **no** Rust
   pairing API.
 - **EPUB (`reader/chapters` + split):** EPUB↔EPUB only; **one-shot** clamp
-  translation chapter to original on Show / load; after that **independent**
-  `_originalChapterIndex` / `_translationChapterIndex` (pager is per-pane);
-  unequal chapter counts → clamp + notice —
+  translation **chapter** then jump translation **paragraph** list to
+  clamped source index (+ alignment) on Show / load; after that
+  **independent** chapter indices **and** paragraph scrolls (pager is
+  per-pane); unequal chapter counts → clamp + notice; unequal paragraph
+  counts → silent clamp (RS-22) —
   [chapters.md](chapters.md), [split-scroll.md](split-scroll.md).
 - **AppBar:** split toggle; when `reader/video-frames` is in scope also
   Load/Remove video **next to** split (**hidden for EPUB**). **Delete
   translation** stays in bottom-pane top chrome (not AppBar).
-- **Show / Hide split (subtitles):** remounting the original list resets
-  scroll — capture top-visible anchor and `jumpTo` (RS-10, RS-11); on Show
-  with translation, one-shot bottom (RS-18). Book-mode: dual chapter indices
-  in session state; Show one-shot-aligns translation (RS-19). With video,
-  keep `VideoFramePages` / key outside remount ([video-frames.md](video-frames.md)).
+- **Show / Hide split:** remounting the original list resets scroll —
+  capture top-visible anchor and `jumpTo` (RS-10, RS-11) for **subtitles
+  and EPUB book** (paragraph index in book); on Show with translation,
+  one-shot bottom (subtitles RS-18; EPUB chapter+paragraph RS-19). With
+  video, keep `VideoFramePages` / key outside remount
+  ([video-frames.md](video-frames.md)).
 - **Reading resume:** Library loads `ReadingAnchor` → `initialReadingAnchor`;
   subtitles = cue `startMs`; EPUB = **original** chapter index (same Drift
   column); do **not** sync translation on open alone (RS-12).
@@ -161,10 +166,13 @@ Details: [split-scroll.md](split-scroll.md).
 | Long lines | Wrap; token hit-test still correct |
 | No translation yet (MVP) | Single-pane OK; split shows empty + load CTA; top scrolls alone |
 | Toggle split Show/Hide (subtitles) | Preserve original top-visible cue across remount; on Show with translation, one-shot bottom (RS-18) |
+| Toggle split Show/Hide (EPUB book) | Preserve mid-chapter paragraph scroll (RS-10/11); on Show with translation, chapter+paragraph one-shot (RS-19) |
 | Reopen document | Subtitles: cue `startMs` + alignment; EPUB: original chapter index; fail must not block open; no translation sync until Show |
 | EPUB unequal chapter counts | Clamp; show `mismatchedEpubChapterCountMessage`; one-shot still runs |
+| EPUB unequal paragraph counts | Silent clamp on one-shot (RS-22); no error chrome |
 | Delete translation (MVP) | Bottom-pane top chrome → empty + load; never AppBar Delete |
 | Scroll after one-shot (subtitles) | Panes stay independent (RS-06); avoid raw `offset` copy |
+| Scroll after one-shot (EPUB paragraphs) | Panes stay independent (RS-21) |
 | Chapter pager (EPUB) | Independent indices after one-shot (RS-14); pager is per-pane |
 | Video pages / dead link / extract / bad pick | See [video-frames.md](video-frames.md) — N/A for EPUB |
 | Tokenize pending | Plain text; taps/selection off until cache ready |
@@ -193,9 +201,10 @@ Canon product scenarios: `{app}/AGENTS.md`.
 - [ ] Translation pane without token selection / vocab highlight
 - [ ] Highlight (morph + phrase) + edit sheet (D8) from Rust `is_in_vocab`;
       refresh marks after dict mutation
-- [ ] Split one-shot: subtitles time-nearest (`startMs`); EPUB dual chapter indices
-- [ ] Show **and** Hide split preserve original scroll (subtitles); Delete in
-      bottom-pane chrome (not AppBar)
+- [ ] Split one-shot: subtitles time-nearest (`startMs`); EPUB dual chapter
+      indices + paragraph jump (RS-19/20/22)
+- [ ] Show **and** Hide split preserve original scroll (subtitles **and** EPUB
+      mid-chapter); Delete in bottom-pane chrome (not AppBar)
 - [ ] Reading anchor: restore on open; save on settle/dispose (format-gated)
 - [ ] If video frames in scope (subtitles only): follow
       [video-frames.md](video-frames.md) checklist
