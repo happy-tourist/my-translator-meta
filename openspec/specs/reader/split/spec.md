@@ -2,7 +2,7 @@
 
 ## Purpose
 
-Позволяет на экране Reader включить горизонтальное разделение: сверху оригинал, снизу догруженный перевод с **одноразовым** выравниванием при Show split и при успешной загрузке перевода (субтитры — nearest `startMs`; EPUB — chapter index). После one-shot панели независимы. Позиция оригинала не сбрасывается при переключении split и восстанавливается при повторном открытии документа (persist — `library/documents`).
+Позволяет на экране Reader включить горизонтальное разделение: сверху оригинал, снизу догруженный перевод с **одноразовым** выравниванием при Show split и при успешной загрузке перевода (субтитры — nearest `startMs`; EPUB — индекс главы **и** абзаца). После one-shot панели независимы. Позиция оригинала не сбрасывается при переключении split (субтитры — cue/якорь; EPUB — mid-chapter scroll абзацев) и восстанавливается при повторном открытии документа (persist — `library/documents`).
 
 ## Traceability
 
@@ -17,8 +17,8 @@
 | RS-07 | Delete translation returns to empty | unchanged intent (both kinds) |
 | RS-08 | Failed load shows error in bottom flow | also incompatible format for epub |
 | RS-09 | Reopen restores translation in split | epub translation restores in book mode |
-| RS-10 | Show split preserves original scroll | Flutter widget: scroll original, enable split → top pane keeps same cue / position (not jump to start) |
-| RS-11 | Hide split preserves original scroll | Flutter widget: scroll in split top, disable split → single pane keeps same cue / position |
+| RS-10 | Show split preserves original scroll | Flutter widget: EPUB mid-chapter → Show → top still mid (not para 0); subtitle cue path regression |
+| RS-11 | Hide split preserves original scroll | Flutter widget: EPUB split top mid → Hide → single pane still mid; subtitle cue path regression |
 | RS-12 | Reopen resumes at saved original anchor | resume unchanged; no auto sync until Show |
 | RS-13 | Load EPUB translation shows chapters in bottom | Flutter: epub original + epub translation → book panes |
 | RS-14 | Chapter pager syncs both panes | Flutter widget: top next → bottom **stays** (independent; title kept for MODIFIED identity) |
@@ -26,33 +26,35 @@
 | RS-16 | Mismatched chapter counts on translation load | Flutter: unequal N → clamp + visible error; one-shot still runs |
 | RS-17 | Split divider drag does not rebuild paragraph lists | Flutter: drag divider → pane heights change; paragraph ListViews not fully rebuilt each pointer move |
 | RS-18 | Show split one-shot syncs translation | Flutter widget: Show with cues → bottom aligns once |
-| RS-19 | Show split one-shot aligns EPUB chapters | Flutter widget: Show → bottom chapter = top once |
-| RS-20 | Load EPUB translation one-shot aligns chapters | Flutter widget: load epub → bottom chapter matches top once |
+| RS-19 | Show split one-shot aligns EPUB chapters | Flutter widget: Show → bottom chapter **and** paragraph align to top once |
+| RS-20 | Load EPUB translation one-shot aligns chapters | Flutter widget: load epub → bottom chapter **and** paragraph match top once |
+| RS-21 | After EPUB one-shot paragraph scroll independent | Flutter widget: scroll one pane paragraphs → other unchanged |
+| RS-22 | Unequal paragraph counts clamp on one-shot | Flutter widget: fewer translation paras → clamp index; no crash |
 
 ## Requirements
 
 ### Requirement: Toggle horizontal split on Reader
-Система SHALL позволять на экране Reader включать и выключать горизонтальное разделение экрана: верхняя область — cues оригинального документа; нижняя — область перевода. По умолчанию Reader MUST открываться в режиме одной панели (без split). При выключении split система MUST сохранять загруженный перевод в рамках текущей сессии Reader (не сбрасывать cues до явного удаления или выхода из Reader). При **включении и выключении** split система MUST сохранять позицию прокрутки верхней панели оригинала в рамках текущей сессии Reader (не сбрасывать список оригинала в начало из‑за перестройки layout). Persist режима split on/off между сессиями приложения не требуется.
+Система SHALL позволять на экране Reader включать и выключать горизонтальное разделение экрана: верхняя область — cues оригинального документа **или** book-список абзацев текущей главы; нижняя — область перевода. По умолчанию Reader MUST открываться в режиме одной панели (без split). При выключении split система MUST сохранять загруженный перевод в рамках текущей сессии Reader (не сбрасывать cues/главы до явного удаления или выхода из Reader). При **включении и выключении** split система MUST сохранять позицию прокрутки верхней панели оригинала в рамках текущей сессии Reader: для субтитров — cue/якорь списка; для EPUB book-режима — **позицию внутри текущей главы** (не сбрасывать список абзацев к началу главы из‑за перестройки layout). Persist режима split on/off между сессиями приложения не требуется.
 
 #### Scenario [RS-01]: Toggle split shows empty bottom pane
 - **GIVEN** Reader открыт для оригинального документа без привязанного перевода
 - **WHEN** пользователь включает режим split
-- **THEN** экран делится горизонтально: сверху видны cues оригинала, снизу — пустое состояние с действием загрузки файла
+- **THEN** экран делится горизонтально: сверху видны cues оригинала **или** book-список абзацев текущей главы, снизу — пустое состояние с действием загрузки файла
 
 #### Scenario [RS-02]: Hide split returns to single pane
-- **GIVEN** split включён и в нижней панели уже загружены cues перевода
+- **GIVEN** split включён и в нижней панели уже загружен перевод (subtitle cues **или** EPUB главы/абзацы)
 - **WHEN** пользователь выключает split
-- **THEN** показывается только одна панель с оригиналом, приложение не падает, и при повторном включении split переводные cues снова доступны без повторной загрузки в той же сессии
+- **THEN** показывается только одна панель с оригиналом, приложение не падает, и при повторном включении split перевод снова доступен без повторной загрузки в той же сессии
 
 #### Scenario [RS-10]: Show split preserves original scroll
-- **GIVEN** Reader в режиме одной панели, список оригинала прокручен так, что видна не первая реплика
+- **GIVEN** Reader в режиме одной панели: для субтитров список оригинала прокручен так, что видна не первая реплика; **или** для EPUB — текущая глава прокручена так, что виден не первый абзац
 - **WHEN** пользователь включает режим split
-- **THEN** верхняя панель продолжает показывать ту же (или эквивалентную по индексу/якорю) область оригинала, а не сбрасывается к началу списка
+- **THEN** верхняя панель продолжает показывать ту же (или эквивалентную по индексу/якорю) область оригинала, а не сбрасывается к началу списка / началу главы
 
 #### Scenario [RS-11]: Hide split preserves original scroll
-- **GIVEN** Reader в режиме split, верхняя панель прокручена так, что видна не первая реплика оригинала
+- **GIVEN** Reader в режиме split, верхняя панель прокручена так, что видна не первая реплика оригинала (субтитры) **или** не первый абзац текущей главы (EPUB)
 - **WHEN** пользователь выключает режим split
-- **THEN** единственная панель оригинала продолжает показывать ту же (или эквивалентную по индексу/якорю) область, а не сбрасывается к началу списка
+- **THEN** единственная панель оригинала продолжает показывать ту же (или эквивалентную по индексу/якорю) область, а не сбрасывается к началу списка / началу главы
 
 ### Requirement: Resizable split divider
 Система SHALL позволять пользователю изменять относительную высоту верхней и нижней панелей перетаскиванием разделителя в режиме split. Сохранение ratio между перезапусками приложения не требуется.
@@ -123,7 +125,7 @@
 - **THEN** для subtitle список cues показывает область сохранённого якоря; для EPUB — главу с сохранённым chapter index (не обязательно первую), без интерпретации якоря как cue `startMs`; нижняя панель не выравнивается, пока пользователь не включит split
 
 ### Requirement: Synchronize EPUB panes by chapter index
-В book-режиме split при наличии EPUB-содержимого в обеих панелях система SHALL выполнять **одноразовое** выравнивание индекса главы нижней панели к верхней **только** при Show split (если перевод уже в сессии) или при успешной загрузке EPUB-перевода при включённом split. После one-shot каждая панель MUST иметь **независимый** индекс главы: pager prev/next на одной панели MUST NOT менять главу другой. При **неравном** N на load перевода система MUST показать заметную ошибку и MAY clamp индекс в допустимый диапазон каждой панели. Скролл списка абзацев внутри главы не обязан зеркалироваться.
+В book-режиме split при наличии EPUB-содержимого в обеих панелях система SHALL выполнять **одноразовое** выравнивание нижней панели к верхней **только** при Show split (если перевод уже в сессии) или при успешной загрузке EPUB-перевода при включённом split. One-shot MUST выставить: (1) индекс главы низа = clamp(индекс главы верха); (2) позицию списка абзацев низа к якорю верха — по **индексу абзаца** (и MAY пиксельному alignment) с clamp, если в главе перевода меньше абзацев. После one-shot каждая панель MUST иметь **независимый** индекс главы и **независимый** скролл абзацев: pager prev/next и прокрутка абзацев на одной панели MUST NOT менять другую. При **неравном** N глав на load перевода система MUST показать заметную ошибку и MAY clamp индекс главы (как ранее). Realtime зеркалирование абзацев MUST NOT выполняться.
 
 #### Scenario [RS-14]: Chapter pager syncs both panes
 - **GIVEN** split включён, обе панели показывают EPUB с одинаковым числом глав N ≥ 2, после one-shot обе на главе 1
@@ -141,14 +143,24 @@
 - **THEN** пользователь видит заметную ошибку о несовпадении структуры; перевод MAY остаться доступным с clamp индекса one-shot, но MUST NOT молча притворяться, что N = M
 
 #### Scenario [RS-19]: Show split one-shot aligns EPUB chapters
-- **GIVEN** EPUB оригинал на главе k, в сессии есть EPUB перевод, split выключен
+- **GIVEN** EPUB оригинал на главе k, список абзацев прокручен к непервому абзацу p, в сессии есть EPUB перевод, split выключен
 - **WHEN** пользователь включает split
-- **THEN** нижняя панель один раз показывает главу k (или clamp, если у перевода меньше глав); дальнейшее переключение pager наверху не меняет низ
+- **THEN** нижняя панель один раз показывает главу k (или clamp) **и** область абзаца, эквивалентную якорю p (или clamp, если у перевода в главе меньше абзацев); дальнейшее переключение pager или скролл абзацев наверху не двигает низ
 
 #### Scenario [RS-20]: Load EPUB translation one-shot aligns chapters
-- **GIVEN** split включён, EPUB оригинал на главе k, нижняя панель пуста
+- **GIVEN** split включён, EPUB оригинал на главе k с видимым непервым абзацем p, нижняя панель пуста
 - **WHEN** пользователь успешно загружает валидный EPUB-перевод
-- **THEN** нижняя панель один раз открывается на главе k (или clamp); последующий pager одной панели не двигает другую
+- **THEN** нижняя панель один раз открывается на главе k (или clamp) **и** выравнивается к абзацу, эквивалентному p (или clamp); последующий pager или скролл абзацев одной панели не двигает другую
+
+#### Scenario [RS-21]: After EPUB one-shot paragraph scroll independent
+- **GIVEN** EPUB split с переводом, one-shot уже выполнен, обе панели на одной главе
+- **WHEN** пользователь прокручивает список абзацев только верхней панели
+- **THEN** позиция списка абзацев нижней панели не меняется из‑за этого жеста
+
+#### Scenario [RS-22]: Unequal paragraph counts clamp on one-shot
+- **GIVEN** EPUB оригинал на главе k прокручен к абзацу с индексом p, перевод в сессии на главе k имеет M абзацев, M ≤ p, split выключен
+- **WHEN** пользователь включает split
+- **THEN** нижняя панель показывает главу k (или clamp по главам) и видимую область около последнего доступного абзаца (clamp), приложение не падает
 
 ### Requirement: Book split chrome without per-drag paragraph rebuild
 В book-режиме split перетаскивание divider MUST изменять высоты панелей без полного пересоздания списков абзацев на каждый pointer-move. Независимые индексы глав и независимый scroll абзацев сохраняются. Subtitle split divider MAY сохранить прежнее поведение, если book path изолирован.
