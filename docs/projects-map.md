@@ -74,7 +74,7 @@ app: ../my_translator_app
 | `app.agents` | `../my_translator_app/AGENTS.md` | продукт / стек / домены |
 | `app.lib` | `../my_translator_app/lib/` | Flutter UI |
 | `app.data` | `../my_translator_app/lib/data/` | Drift user persist + offline translate facade (`data/translate/`) + video extract (`data/video/`) |
-| `app.data.translate` | `../my_translator_app/lib/data/translate/` | Dart facade: native FRB ORT \| Web Transformers.js |
+| `app.data.translate` | `../my_translator_app/lib/data/translate/` | Dart facade: native FRB ORT \| Web Transformers.js; `ensure`/`warmUpOfflineTranslate` (+ `offline_translate_web_ensure.dart`) |
 | `app.data.video` | `../my_translator_app/lib/data/video/` | Reader video pick/path/extract facade (FFmpegKit native \| web canvas; no Rust video API) |
 | `app.assets.opus` | `../my_translator_app/assets/models/opus-mt-en-ru/` | OPUS-MT EN→RU ONNX + tokenizer |
 | `app.rust` | `../my_translator_app/rust/` | Rust crate (`rust_lib_my_translator_app`) |

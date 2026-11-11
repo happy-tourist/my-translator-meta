@@ -17,13 +17,14 @@ lib/app/app.dart
 lib/app/shell.dart
   → NavigationBar: Library | Vocabulary
   → inject Folder/Document/Dictionary repos + LemmaKeysForSurfacesFn
+  → (optional) quiet offline-translate warm-up after first post-frame
 ```
 
 | File | Role |
 |------|------|
 | `lib/app/app.dart` | `MaterialApp` + Drift open + post-open migrate + theme host |
 | `lib/app/theme.dart` | `AppTheme` + `ReaderColors` (`lemmaHighlight` light/dark) |
-| `lib/app/shell.dart` | Primary destinations + body outlet |
+| `lib/app/shell.dart` | Primary destinations + body outlet; offline-translate warm-up hook |
 | `lib/main.dart` | Init + `runApp` only — no feature markup |
 
 ## Primary destinations
@@ -49,6 +50,24 @@ Library folder.
 - Theme: define once in `lib/app/`; screens consume `Theme.of(context)`.
 - No account/auth gates, staff roles, or leave-mode chrome (out of scope).
 - No backend session; offline-first. Shell does not call remote APIs.
+
+## Offline translate warm-up
+
+Quiet background warm-up of the offline gloss engine belongs on **product
+shell**, not on the Drift-open spinner in `TranslationReaderApp` and not inside
+`RustLib.init` / `init_app`:
+
+- Start once after the **first post-frame** of `AppShell` (Library/Vocab
+  visible): `unawaited(warmUpOfflineTranslate())`.
+- Facade seam: `warmUpOfflineTranslate` / `ensureOfflineTranslateReady` (via
+  `offline_translate_platform.dart`); share **one process-wide in-flight Future**
+  with Translate (native + Web). Full rules:
+  [work-with-translate/warmup.md](../../server/work-with-translate/warmup.md).
+- No splash / shell progress chrome for warm-up; warm-up errors stay quiet (no
+  SnackBar); button loading on Translate covers wait if the user taps early.
+- **Tests:** `AppShell` MUST expose an escape hatch (`enableOfflineTranslateWarmUp:
+  false` and/or skip auto warm-up when an injectable `offlineTranslate` is
+  passed) so `shell_test` and other mounts do not load model assets / FRB.
 
 ## Navigation wiring
 

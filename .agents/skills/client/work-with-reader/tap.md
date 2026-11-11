@@ -72,7 +72,12 @@ long-press). Selection never spans cues.
 ## DI / test seams
 
 - `AppShell` → one shared `OfflineTranslateFn` → Library/Reader + Vocab
-  (design D4.1); override in widget tests.
+  (archive add-offline-opus-translate design D4.1); override in widget tests.
+- Quiet offline-translate **warm-up** after first `AppShell` post-frame is a
+  shell concern (escape hatch for tests) — see
+  [shell.md](../work-with-pages/shell.md) and
+  [work-with-translate](../../server/work-with-translate/SKILL.md); sheets only
+  await the shared ensure via Translate.
 - `AppShell` → `LibraryScreen(dictionaryRepository:)` →
   `ReaderScreen(dictionaryRepository:)` (required).
 - Optional `ReaderScreen.tokenizeCues` / `TokenizeCuesFn`,

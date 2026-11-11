@@ -98,7 +98,7 @@ OpenSpec: [`openspec/config.yaml`](../openspec/config.yaml); артефакты 
 | [`work-with-parse`](skills/server/work-with-parse/SKILL.md) | SRT / VTT / ASS(SSA); EPUB ([epub.md](skills/server/work-with-parse/epub.md)) |
 | [`work-with-tokenizematize`](skills/server/work-with-tokenizematize/SKILL.md) | Tokenize (`panko`) / WordNet lemmatize / morph+phrase mark / spans |
 | [`work-with-dictionary`](skills/server/work-with-dictionary/SKILL.md) | Lemma keys / NLP handoff; persist CRUD = Drift (Flutter) |
-| [`work-with-translate`](skills/server/work-with-translate/SKILL.md) | Офлайн-перевод: native ORT + Web Transformers.js facade |
+| [`work-with-translate`](skills/server/work-with-translate/SKILL.md) | Офлайн-перевод: native ORT + Web Transformers.js facade; warm-up/ensure ([warmup.md](skills/server/work-with-translate/warmup.md)) |
 
 Runtime-пути в client/server skills (`lib/…`, `rust/…`, `test/…`) — относительно корня `my_translator_app`.
 

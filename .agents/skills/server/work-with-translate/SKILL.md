@@ -3,11 +3,12 @@ name: work-with-translate
 description: >-
   Offline word/phrase translation in Translation Reader: native Rust ORT
   (OPUS-MT EN→RU ONNX) behind thin FRB, Web Transformers.js exception behind
-  the same Dart facade. Use when implementing or changing offline translate
-  modules, translate FRB API, language-pair args, or distinguishing local
-  offline engines from optional future AI providers. Not for Flutter card
-  chrome alone (work-with-reader), not for ARB UI locale
-  (work-with-localization), not for AI/cloud translate implementation.
+  the same Dart facade; session warm-up / shared ensure (see warmup.md). Use
+  when implementing or changing offline translate modules, translate FRB API,
+  language-pair args, AppShell warm-up hook, or distinguishing local offline
+  engines from optional future AI providers. Not for Flutter card chrome alone
+  (work-with-reader), not for ARB UI locale (work-with-localization), not for
+  AI/cloud translate implementation.
 ---
 
 # Work With Translate (offline)
@@ -32,6 +33,8 @@ Demo `process_text` / `add_numbers` are unrelated — do not grow them into MT.
 - Language-pair args for translate direction (learning content source → target)
 - Designing / changing thin `rust/src/api/translate` exports
 - Wiring gloss into Vocab / Reader Add-Edit (save still Drift, not translate)
+- Session warm-up / shared `ensureOfflineTranslateReady` / responsive cold path
+  ([warmup.md](warmup.md))
 
 **Not this skill:**
 
@@ -136,11 +139,26 @@ my_translator_app/rust/src/
 ```text
 api (FRB) → translate → (ORT session; no dict writes)
 Flutter facade (lib/data/translate/):
-  offline_translate_platform → native | web
-  native: AssetBundle bytes → init_offline_translate → translate_text
-  web: JS worker (no FRB translate calls)
-UI: Vocab + Reader sheets inject OfflineTranslateFn (design D4)
+  offline_translate_platform → createPlatform + ensure/warmUpOfflineTranslate
+  offline_translate_native.dart       # process-wide ensure + chunked AssetBundle
+  offline_translate_web.dart          # js_interop; awaits ensure before translate
+  offline_translate_web_ensure.dart   # VM-testable shared Future (no js_interop)
+  warm-up: AppShell post-frame → warmUpOfflineTranslate (see warmup.md)
+UI: Vocab + Reader sheets inject OfflineTranslateFn
+    (archive add-offline-opus-translate design D4; not warm-up D4)
 ```
+
+## Session warm-up (product path)
+
+**Details:** [warmup.md](warmup.md) (+ shell start hook in
+[work-with-pages/shell.md](../../client/work-with-pages/shell.md)).
+
+Summary: quiet `warmUpOfflineTranslate` after first **AppShell** post-frame;
+`ensureOfflineTranslateReady` is process-wide and shared with Translate; native
+cold path uses chunked AssetBundle own-copy + yields (no `Isolate.run` on
+bundle views); Web uses bridge `warmup` + one worker `translatorPromise`.
+Widget-test escape hatch required. Public FRB stays bytes→`init_offline_translate`.
+Canon: OpenSpec `translate/offline` (TO-09…TO-12).
 
 ## Thin FRB API (native — locked shapes)
 
@@ -188,7 +206,7 @@ not `cargo check` alone. Web UX covered by Flutter injectable facade tests.
 ## Flutter UX Expectations (do not implement UI here)
 
 1. Translate button on Vocab add + Reader Add/Edit sheets → fill Translation.
-2. Loading on button covers lazy init + inference.
+2. Loading on button covers warm-up / lazy init + inference.
 3. No Dart-invented glosses on native; Web uses JS engine only via facade.
 4. Attribution OPUS-MT + accuracy disclaimer — UI copy, not Rust.
 5. Placement, Keys, injectable `OfflineTranslateFn`, SnackBar errors, disable
@@ -202,7 +220,8 @@ not `cargo check` alone. Web UX covered by Flutter injectable facade tests.
 | Cloud/AI as default gloss | Offline OPUS path; AI later, separate |
 | ORT linked into wasm32 FRB | target-conditional deps + stubs |
 | Model OS paths on FRB | Flutter bytes → `init_offline_translate` |
-| Heavy load in `init_app` | Explicit init on first Translate |
+| Heavy load in `init_app` | Session warm-up after first UI frame + shared ensure ([warmup.md](warmup.md)); lazy init on Translate as fallback (still not in `init_app`) |
+| `Isolate.run` on AssetBundle model bytes | Chunked own-copy + yields on UI isolate ([warmup.md](warmup.md)) |
 | Gloss logic in `api/` or Dart (native) | `translate/` + thin export |
 | Auto-save every lookup | Explicit dict Add/Save |
 | Phrase = join of word glosses | One `translate_text` |
@@ -217,4 +236,5 @@ not `cargo check` alone. Web UX covered by Flutter injectable facade tests.
 - [ ] Pair args explicit; en→ru only in v1
 - [ ] Surface query; dict save separate
 - [ ] Typed errors including `InferenceFailed`
+- [ ] Quiet shell warm-up + process-wide `ensure`/`warmUp`; test escape hatch ([warmup.md](warmup.md))
 - [ ] `cargo test` for TO-*; scaffold demo not abused
