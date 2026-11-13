@@ -90,6 +90,8 @@ Implement-Change Progress:
 
 **Web mid-apply:** если блок/design требует проверки Web (Drift Web, FRB WASM, task вроде «flutter run -d chrome») — субагент **сам** запускает Chrome с `--web-port=5555` + COOP/COEP из `work-with-env-deploy` (не голый `flutter run -d chrome`).
 
+**FRB API / codegen → Web:** после любого изменения `rust/src/api/` + `flutter_rust_bridge_codegen generate` субагент **MUST** ещё `flutter_rust_bridge_codegen build-web` (обновляет gitignored `web/pkg`), **до** web-smoke / `flutter run -d chrome`. Иначе `RustLib.init` → content hash mismatch → пустой/белый экран. Канон: `work-with-frb`.
+
 ### Align (фаза 4)
 
 Отдельный субагент:
@@ -160,3 +162,4 @@ flutter run -d chrome --web-port=5555 \
 - Не archive/PR в этом скилле.
 - Не ослаблять safety commit.
 - Не `flutter run -d chrome` без `--web-port=5555` и без COOP/COEP headers.
+- Не web-smoke после FRB `generate` без `build-web` (content hash → белый экран).

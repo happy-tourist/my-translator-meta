@@ -1,6 +1,6 @@
 # Delta: reader/split
 
-Базовый контракт: `openspec/specs/reader/split/spec.md`. Убрать one-shot sync; preserve/persist низ; text-only bottom; Delete у split в AppBar.
+Базовый контракт: `openspec/specs/reader/split/spec.md`. Убрать one-shot sync; preserve/persist низ **и** mid-chapter верх (EPUB); text-only bottom; Delete у split в AppBar.
 
 ## Traceability
 
@@ -75,12 +75,12 @@
 - **THEN** нижняя панель **не** выравнивается к якорю верха; при наличии сохранённой позиции низа она восстанавливается; последующий скролл любой панели не двигает другую
 
 ### Requirement: Resume reading position when reopening original
-Если у оригинального документа сохранён якорь чтения (persist — `library/documents`), система SHALL восстановить позицию **оригинала** по формату (subtitle time+alignment; EPUB chapter index LD-28). При наличии linked translation система SHALL также восстановить якорь **нижней** панели из persist перевода **без** one-shot sync низа к верху. Show/Hide split MUST сохранять позиции оригинала и низа независимо. Persist режима split и divider не требуется. Сбой якоря MUST NOT блокировать open.
+Если у оригинального документа сохранён якорь чтения (persist — `library/documents`), система SHALL восстановить позицию **оригинала** по формату (subtitle time+alignment; EPUB **chapter + mid-chapter paragraph (+ alignment)** — LD-28 / LD-33). Open MUST показать сохранённую область сразу (seed / initial position), MUST NOT «подскролливать» к началу главы и MUST NOT sync к другой панели. При наличии linked translation система SHALL также восстановить якорь **нижней** панели из persist перевода **без** one-shot sync низа к верху. Show/Hide split MUST сохранять позиции оригинала и низа независимо. Persist режима split и divider не требуется. Сбой якоря MUST NOT блокировать open.
 
 #### Scenario [RS-12]: Reopen resumes at saved original anchor
 - **GIVEN** пользователь ранее читал оригинал не с начала, якорь сохранён, приложение снова открывает этот оригинал в Reader
 - **WHEN** Reader показывает оригинал
-- **THEN** для subtitle список cues показывает область сохранённого якоря; для EPUB — главу с сохранённым chapter index; нижняя панель при наличии перевода восстанавливается из **своего** якоря, без sync к верху
+- **THEN** для subtitle список cues показывает область сохранённого якоря; для EPUB — главу k и область абзаца p (+ alignment) при наличии mid-chapter якоря (не rewind к началу главы); нижняя панель при наличии перевода восстанавливается из **своего** якоря, без sync к верху
 
 ### Requirement: Synchronize EPUB panes by chapter index
 В book-режиме split система MUST NOT выполнять one-shot выравнивание низа к верху по главе/абзацу при Show split или Load EPUB translation. Индекс главы низа меняется только когда пользователь нажимает prev/next на **верхнем** pager (`reader/chapters`): тогда низ = clamp(глава верха), оба списка абзацев — с начала главы. Прокрутка абзацев одной панели MUST NOT менять другую. При **неравном** N глав на load система MUST показать заметную ошибку и MAY clamp; MUST NOT one-shot paragraph align к верху. Realtime зеркалирование абзацев MUST NOT выполняться.

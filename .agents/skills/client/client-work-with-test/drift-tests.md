@@ -26,7 +26,9 @@ final folders = FolderRepository(db);
 
 Existing anchors: `test/data/*_repository_test.dart`,
 `test/data/persistence_reopen_test.dart`,
-`test/data/schema_migration_test.dart` (schemaVersion + upgrade paths),
+`test/data/schema_migration_test.dart` (schemaVersion **8** + upgrade paths,
+including `7→8` `lastReadParagraphIndex` / LD-33),
+`document_repository_test` ReadingAnchor `paragraphIndex` round-trip,
 `test/features/library_screen_test.dart`,
 `test/features/vocabulary_screen_test.dart`,
 `test/features/shell_test.dart`.

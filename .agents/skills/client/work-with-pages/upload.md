@@ -45,8 +45,9 @@ Default post-scaffold **home** destination in [shell.md](shell.md).
   `translationDocumentId` when linked. Linked rows stay hidden
   (`DocumentRepository.listVisible`).
 - **Reading anchor (LD-17 / LD-28 / RS-12):** best-effort
-  `loadReadingAnchor(doc.id)` → `initialReadingAnchor`. EPUB: `startMs` =
-  chapter index. Fail must not block open.
+  `loadReadingAnchor(doc.id)` → `initialReadingAnchor` (and linked translation
+  → `initialTranslationReadingAnchor`). EPUB original: `startMs` = chapter
+  index + optional `paragraphIndex` (LD-33). Fail must not block open.
 - **Video attachment (`reader/video-frames` / LD-18…):** best-effort
   `getVideoAttachment` for **subtitle** originals only → pass into
   `ReaderScreen`. Fail / dead link MUST NOT block open. Details:

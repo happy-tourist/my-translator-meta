@@ -43,12 +43,17 @@ UI maps these to short copy (SnackBar / inline) — see
   slot per original (attach while linked → validation error; delete first).
   **Family match (LD-26):** EPUB↔EPUB or subtitle↔subtitle only — reject mixed
   with `incompatibleTranslationFormatMessage`.
-- **Reading resume (LD-17 / LD-28 / RS-12):** `ReadingAnchor` (`startMs`,
-  optional `alignment`); `saveReadingAnchor` / `loadReadingAnchor` on the
-  **original** document only. Clamp alignment to `0.0…1.0`. **Format-gated
-  `startMs`:** subtitles = cue start ms; EPUB (`documentFormatEpub`) =
-  **0-based chapter index** (same Drift column). Library open loads
-  best-effort and passes `initialReadingAnchor` into `ReaderScreen`; persist
+- **Reading resume (LD-17 / LD-28 / LD-31…33 / RS-12):** `ReadingAnchor`
+  (`startMs`, optional `alignment`, optional `paragraphIndex`);
+  `saveReadingAnchor` / `loadReadingAnchor` on **any** document id (original
+  **or** hidden translation row). Clamp alignment to `0.0…1.0`.
+  **Format-gated `startMs`:** subtitles = cue start ms; EPUB **original** =
+  **0-based chapter index** (LD-28); EPUB **translation** = **0-based
+  paragraph index** within the linked chapter (LD-32). **EPUB original
+  mid-chapter:** `paragraphIndex` → Drift `lastReadParagraphIndex` (schema 8 /
+  LD-33); omit/`null` clears it (subtitle / pre-schema-8 rows open at para 0).
+  Library open loads best-effort for original **and** linked translation →
+  `initialReadingAnchor` + `initialTranslationReadingAnchor`; persist
   failures must not block UI.
 - **Video attachment (`add-reader-video-frames` / LD-18…LD-23):**
   `attachVideo` (`clearFrameCache` default true) / `detachVideo` /

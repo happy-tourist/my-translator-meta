@@ -27,7 +27,8 @@ in Rust via FRB. Web offline translate uses the JS exception behind
 - Document bytes store (`DocumentContentStore` + platform split; Web UTF-8
   subtitles vs base64 EPUB)
 - Format helpers (`document_format.dart`: `srt`/`vtt`/`ass`/`epub`) and
-  format-gated `ReadingAnchor` (cue ms vs chapter index)
+  format-gated `ReadingAnchor` (cue ms vs EPUB chapter + optional
+  mid-chapter `paragraphIndex`)
 - Open DB after `RustLib.init`, inject into shell / screens
 - `build_runner` / `drift_dev` codegen (`.g.dart`)
 - Web Drift assets and readiness
@@ -49,7 +50,7 @@ handoff → `server/work-with-dictionary`.
 lib/main.dart                 # RustLib.init → runApp(TranslationReaderApp)
 lib/app/app.dart              # openAppDatabase → soft-fail stub→morph migrate → shell
 lib/app/shell.dart            # repos + LemmaKeysForSurfacesFn into screens
-lib/data/database/            # AppDatabase schema 7, tables (nullable folderId = root), database_provider, *.g.dart
+lib/data/database/            # AppDatabase schema 8, tables (nullable folderId = root; lastReadParagraphIndex LD-33), database_provider, *.g.dart
 lib/data/library/             # FolderRepository, DocumentRepository (+ root listVisible / video), content store
 lib/data/dictionary/          # DictionaryRepository + lemma_keys_for_surfaces_fn + exceptions
 lib/data/video/               # FE extract facade (not Drift); Reader uses repos for JPEG cache

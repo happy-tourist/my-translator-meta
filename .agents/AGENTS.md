@@ -77,7 +77,7 @@ OpenSpec: [`openspec/config.yaml`](../openspec/config.yaml); артефакты 
 | [`client-work-with-structure`](skills/client/client-work-with-structure/SKILL.md) | Экраны / виджеты / слои / feature folders |
 | [`client-work-with-errors`](skills/client/client-work-with-errors/SKILL.md) | Ошибки UI / вызовы Rust / `RustLib.init` |
 | [`work-with-pages`](skills/client/work-with-pages/SKILL.md) | Reader (cues / EPUB book-mode) / словарь / Library (root + folders) / настройки (+ shell) |
-| [`work-with-drift`](skills/client/work-with-drift/SKILL.md) | Drift user persist: schema 7+ (nullable `folderId` = root), repos (`listVisible`), content store (Web UTF-8 / EPUB base64), format-gated ReadingAnchor |
+| [`work-with-drift`](skills/client/work-with-drift/SKILL.md) | Drift user persist: schema 8+ (nullable `folderId` = root; `lastReadParagraphIndex` EPUB original mid-chapter), repos (`listVisible`), content store (Web UTF-8 / EPUB base64), format-gated ReadingAnchor |
 | [`work-with-styles`](skills/client/work-with-styles/SKILL.md) | Тема, Material, lemma highlight tokens |
 | [`work-with-localization`](skills/client/work-with-localization/SKILL.md) | Локаль UI (ARB) vs learning language pair |
 | [`work-with-env-deploy`](skills/client/work-with-env-deploy/SKILL.md) | `flutter build` apk/ipa/web; run/devices; Web `--web-port=5555` + COOP/COEP |

@@ -157,14 +157,15 @@ Details: [tap.md](tap.md).
   **both top and bottom**, subtitles and EPUB book alike; Hide also persists
   the bottom's own anchor immediately. With video, keep `VideoFramePages` /
   key outside remount ([video-frames.md](video-frames.md)).
-- **Reading resume (RS-24 / LD-31/32):** Library loads `ReadingAnchor` for
+- **Reading resume (RS-24 / LD-31…33):** Library loads `ReadingAnchor` for
   **both** original and (if linked) translation document ids →
   `initialReadingAnchor` **and** `initialTranslationReadingAnchor`; subtitles
-  = each pane's own cue `startMs`; EPUB = original chapter index (unchanged,
-  LD-28) + bottom's own paragraph index within the chapter resolved by
-  clamp(original) (design D11 — reused `lastReadStartMs`/`lastReadAlignment`
-  columns on the translation's own hidden Documents row; **no schema
-  change**). Settle/Hide/dispose persist each pane's own anchor independently.
+  = each pane's own cue `startMs`; EPUB = original **chapter + mid-chapter
+  paragraph** (`lastReadParagraphIndex`, schema 8 / LD-33 / D14) + bottom's
+  own paragraph within clamp(original) (D11 columns on the translation row).
+  Settle/Hide/dispose persist each pane independently; Hide/dispose
+  `force: true` falls back to each pane's session seed when its list is
+  already unmounted (original + translation, subtitles and EPUB).
 - **Video frames:** subtitle documents only; page change does **not** sync
   translation — [video-frames.md](video-frames.md).
 - Token selection applies to the **original** pane only (RT-08).
@@ -180,7 +181,7 @@ Details: [split-scroll.md](split-scroll.md).
 | No translation yet (MVP) | Single-pane OK; split shows empty + load CTA; top scrolls alone |
 | Toggle split Show/Hide (subtitles) | Each pane preserves/restores its own top-visible cue across remount; no sync (RS-10/11/18/24) |
 | Toggle split Show/Hide (EPUB book) | Each pane preserves/restores its own mid-chapter paragraph scroll; no align to the other (RS-10/11/19/24) |
-| Reopen document | Subtitles: each pane's own cue `startMs` + alignment; EPUB: original chapter index + bottom paragraph index at clamp(original); fail on either must not block open (RS-24 / LD-31/32) |
+| Reopen document | Subtitles: each pane's own cue `startMs` + alignment; EPUB: original chapter + mid-chapter paragraph + bottom paragraph at clamp(original); fail on either must not block open (RS-12/24 / LD-31…33) |
 | EPUB unequal chapter counts | Clamp; show `mismatchedEpubChapterCountMessage` |
 | EPUB unequal paragraph counts | Silent clamp on restore (RS-22); no error chrome |
 | Delete translation | AppBar, next to split toggle (D12) — never bottom-pane chrome |
@@ -222,7 +223,9 @@ Canon product scenarios: `{app}/AGENTS.md`.
       pane text-only flush to divider (RS-23)
 - [ ] Reading anchor: restore both panes on open from their own persist;
       save each pane's own anchor on settle/Hide/dispose (format-gated,
-      RS-24 / LD-31/32 — same generic columns, no schema change)
+      RS-24 / LD-31…33; EPUB original mid-chapter → schema 8
+      `lastReadParagraphIndex`; force fallback to session seed if list
+      unmounted)
 - [ ] If video frames in scope (subtitles only): follow
       [video-frames.md](video-frames.md) checklist
 - [ ] Empty / long / no-translation / tokenize degrade / desync / EPUB mismatch

@@ -56,3 +56,12 @@
 - [x] 11.3 Сохранить fullscreen gate (D1); не возвращать тихий-only default — verify: shell_test TO-09/13 по-прежнему green
 - [x] 11.4 TO-11: живой loader на native cold path (не fake-only) — verify: тест/набл. что UI isolate не блокируется полным ONNX bytes encode; анимация/кадры во время extract+path init
 - [x] 11.5 Регрессия: `flutter test` (shell + translate + reader), `flutter analyze`, `cargo test` translate; Web smoke не обязателен для path-only, но ensure web warmup не сломан — verify: green / analyze clean
+
+> **Note (Web after FRB API):** после `generate` для §11 обязателен `flutter_rust_bridge_codegen build-web` до Chrome smoke — иначе content hash mismatch / белый экран (`work-with-frb`).
+
+## 12. Original EPUB mid-chapter + no title chrome (delta explore)
+
+- [x] 12.1 Drift + `ReadingAnchor` / `DocumentRepository`: nullable paragraph index для EPUB-оригинала; save/load chapter (`lastReadStartMs`) + paragraph + alignment (design D14; LD-28/33) — verify: unit/repo round-trip; старый якорь без paragraph → null/0
+- [x] 12.2 Reader book original: capture mid-chapter на settle/pop; seed `_bookOriginalInitialScrollIndex` / alignment на open; **не** rewind к началу главы на reopen (RS-12 / LD-33); pager `_goToChapter` по-прежнему к 0 (RC-12) — verify: widget reopen mid-chapter; Hide→Show без регрессии
+- [x] 12.3 Убрать fixed `chapter.title` chrome у панели оригинала; оставить текст + pager стрелки/`n / N` (D15; RC-01/13) — verify: widget — нет title chrome key; pager keys на месте
+- [x] 12.4 Тесты + `flutter analyze` по затронутым путям (LD-33, RS-12, RC-13; регрессия bottom LD-31/32) — verify: green / analyze clean

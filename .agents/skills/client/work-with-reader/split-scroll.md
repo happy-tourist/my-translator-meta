@@ -28,7 +28,7 @@
 | Orchestration | `ReaderScreen` (`lib/features/reader/reader_screen.dart`) StatefulWidget |
 | EPUB chapter session | `_originalChapterIndex` + `_translationChapterIndex`; only `_goToChapter(fromOriginal: true, …)` exists — top pager is the **only** driver (RC-10/11) |
 | Bottom own-anchor seed | `_translationInitialScrollIndex`/`_translationInitialAlignment` (cues); `_bookTranslationInitialScrollIndex`/`_bookTranslationInitialAlignment` (EPUB paragraphs) |
-| Bottom own-anchor persist | `_persistTranslationReadingAnchor` → `DocumentRepository.saveReadingAnchor(documentId: translationDocumentId, …)` — same generic method as the original, called on the **translation's own** (hidden) Documents row; **no schema change** (design D11) |
+| Bottom own-anchor persist | `_persistTranslationReadingAnchor` → `saveReadingAnchor` on the translation Documents row (D11 columns); Hide/dispose `force` falls back to session seed if list unmounted (same harden on original `_persistReadingAnchor`) |
 
 ## Zero cross-pane sync (D9)
 
@@ -131,26 +131,27 @@ pages `GlobalKey` / state outside the Show/Hide remount branch. Full
 contracts: [video-frames.md](video-frames.md). EPUB hides video chrome
 entirely ([chapters.md](chapters.md)).
 
-## Reading resume — original AND translation, each from its own anchor (RS-12/24, LD-17/28/31/32)
+## Reading resume — original AND translation, each from its own anchor (RS-12/24, LD-17/28/31…33)
 
 Persist **both** panes' positions, independently, on the **same generic**
-`ReadingAnchor` mechanism (no schema change, design D11) — the translation is
-itself a (hidden) Documents row, so `saveReadingAnchor` / `loadReadingAnchor`
-called with `documentId: translationDocumentId` just works:
+`ReadingAnchor` / `saveReadingAnchor` API. Translation still reuses the
+translation document row's `lastReadStartMs`/`lastReadAlignment` (D11 — no
+*extra* translation-only table). EPUB **original** mid-chapter needs schema 8
+`lastReadParagraphIndex` (D14 / LD-33) beside chapter-in-`lastReadStartMs`:
 
 | Piece | Contract |
 |-------|----------|
-| Columns | `Documents.lastReadStartMs` (nullable int), `lastReadAlignment` (nullable real, clamp `0.0…1.0`) — same columns, read/written per `documentId` (original **or** translation row) |
-| Repo | `ReadingAnchor` + `DocumentRepository.saveReadingAnchor` / `loadReadingAnchor` — called once per document id, no new API |
-| Semantics (original) | **Subtitles:** cue `startMs` (ms). **EPUB:** 0-based **chapter index** |
-| Semantics (translation) | **Subtitles:** translation cue `startMs` (ms). **EPUB:** 0-based **paragraph index within the translation's current chapter** (LD-32) — not a chapter index |
-| Open | Library best-effort `loadReadingAnchor` for **both** original and (if linked) translation id → pass `initialReadingAnchor` **and** `initialTranslationReadingAnchor` into `ReaderScreen` (fail on either must not block open) |
-| Restore (original, subtitles) | After layout: `nearestCueIndex` by `startMs` → `jumpTo` **original only** |
-| Restore (original, EPUB) | Clamp `startMs` as chapter index → `_originalChapterIndex` |
-| Restore (translation, subtitles) | `_seedTranslationAnchor()`: `nearestCueIndex` on the **translation** cue list by the saved translation anchor's `startMs` — independent lookup, not derived from the original's restore |
-| Restore (translation, EPUB) | `_seedTranslationAnchor()`: clamp the saved paragraph index into the chapter resolved by `_translationChapterIndex = clamp(_originalChapterIndex, …)` (D10's one allowed link at reopen) — paragraph position itself is still the translation's own value |
-| Save (subtitles) | Each pane on its **own** scroll settle, and on Hide/dispose/pop (`force: true`) — `_persistReadingAnchor` (original) / `_persistTranslationReadingAnchor` (translation), independently |
-| Save (EPUB) | Original: chapter pager settle / dispose, writes `_originalChapterIndex` only (LD-28, unchanged). Translation: paragraph settle / Hide / dispose, writes the translation's own paragraph index + alignment (LD-31/32) |
+| Columns | `lastReadStartMs`, `lastReadAlignment`, and (original EPUB) `lastReadParagraphIndex` — read/written per `documentId` |
+| Repo | `ReadingAnchor` (`startMs`, `alignment?`, `paragraphIndex?`) + `saveReadingAnchor` / `loadReadingAnchor` |
+| Semantics (original) | **Subtitles:** cue `startMs` (ms). **EPUB:** chapter in `startMs` + mid-chapter `paragraphIndex` + alignment (LD-28/33) |
+| Semantics (translation) | **Subtitles:** cue `startMs`. **EPUB:** paragraph index in `startMs` within the linked chapter (LD-32) — not a chapter index; `paragraphIndex` column unused / cleared |
+| Open | Library best-effort load for **both** ids → `initialReadingAnchor` + `initialTranslationReadingAnchor` |
+| Restore (original, subtitles) | After layout: `nearestCueIndex` → `jumpTo` **original only** |
+| Restore (original, EPUB) | Clamp chapter; seed `_bookOriginalInitialScrollIndex` / alignment from `paragraphIndex` (null → 0) via list `initialScrollIndex` (RS-12 / LD-33) |
+| Restore (translation, subtitles) | `_seedTranslationAnchor()` from translation cue `startMs` — not derived from original |
+| Restore (translation, EPUB) | Clamp paragraph into `clamp(_originalChapterIndex)` chapter (D10 link at reopen only) |
+| Save (subtitles) | Each pane on settle + Hide/dispose (`force: true`); if list already unmounted, fall back to that pane's session seed (RS-24) |
+| Save (EPUB) | Original: settle/dispose capture paragraph+alignment with chapter (**force** → session seed if unmounted); pager → `_persistBookChapterAnchor(…, paragraph: 0)` (RC-12). Translation: settle / Hide / dispose with the same **force fallback** (LD-32) |
 
 Do **not** derive one pane's save/restore value from the other's.
 
@@ -178,9 +179,9 @@ Subtitle split MAY keep the older setState divider path.
 
 - No `Column` wrapping a delete-chrome `Material` bar + `Expanded(content)` —
   the bottom pane **is** the list/empty-state widget directly.
-- No chapter title, no prev/next pager on the bottom EPUB pane (RC-11) — only
-  the original (top) pane renders `_buildBookPaneContent`'s title + pager
-  chrome; `fromOriginal: false` returns the bare paragraph list.
+- No chapter title, no prev/next pager on the bottom EPUB pane (RC-11) — the
+  original (top) pane renders pager only (no fixed `chapter.title`, D15 /
+  RC-13); `fromOriginal: false` returns the bare paragraph list.
 - Padding: top pane keeps `EdgeInsets.symmetric(vertical: 8)`; bottom pane
   uses `EdgeInsets.only(bottom: 8)` (no top padding) so content sits right
   under the divider.
@@ -208,7 +209,7 @@ Subtitle split MAY keep the older setState divider path.
 | Show split after scroll (EPUB mid-chapter) | Restore original paragraph index (RS-10); restore bottom's **own** anchor at its (linked-on-reopen) chapter (RS-19/24) — no chapter/paragraph align to top |
 | Hide split after scroll (EPUB mid-chapter) | Same capture+`jumpTo` per pane (RS-11); persist bottom's own anchor; do not reset either to para 0 |
 | Unequal EPUB paragraph counts on restore | Silent clamp to last available (RS-22); no error chrome |
-| Reopen from Library | Subtitles: each pane's own cue `startMs`; EPUB: original chapter index + bottom paragraph index at clamp(original chapter); fail on either → open at top / empty bottom; no sync |
+| Reopen from Library | Subtitles: each pane's own cue `startMs`; EPUB: original chapter **+ mid-chapter paragraph** + bottom paragraph at clamp(original chapter); fail on either → open at top / empty bottom; no sync |
 | Delete translation | AppBar, next to split toggle (D12) — never bottom-pane chrome |
 | Top EPUB pager, translation loaded | Bottom chapter = clamp(top); **both** paragraph lists rewind to 0 (RC-10/12) |
 | Video pages present | Pages key outside remount; page change does **not** sync translation — **not** for EPUB |
@@ -231,9 +232,9 @@ Subtitle split MAY keep the older setState divider path.
 | Same Key / PageStorage slot for single↔split lists | Distinct Keys (`readerCueList`/`readerOriginalCueList`; book `readerBookParagraphList`/`readerOriginalBookParagraphList`/`readerTranslationBookParagraphList`) |
 | Inventing a Rust pairing API for split | Two `parseSubtitles` / `parse_epub` + Flutter-only index/time clamp |
 | Delete translation in bottom-pane chrome | AppBar, next to split toggle (D12) |
-| Chapter title / prev/next on the bottom EPUB pane | Title + pager on the top pane only (RC-11) |
+| Fixed `chapter.title` chrome on original, or title/pager on bottom | Original: pager only (D15 / RC-13); bottom: text-only (RC-11) |
 | `kMinInteractiveDimension` floor reserved for bottom delete chrome | No chrome floor — bottom is text-only (D12) |
-| Persisting only the original's anchor | Persist **and restore** both panes' own anchors (RS-24 / LD-31/32) via the same generic `saveReadingAnchor`/`loadReadingAnchor` on each document id |
-| New Drift columns/tables for the translation anchor | Reuse `lastReadStartMs`/`lastReadAlignment` on the translation's own (hidden) Documents row — no schema change (D11) |
+| Persisting only the original's chapter (no mid-chapter) / only original pane | Persist original chapter+paragraph (LD-33) **and** bottom own anchor (LD-31/32) |
+| New Drift table solely for the translation anchor | Reuse reading-anchor columns on the translation Documents row (D11); original mid-chapter uses `lastReadParagraphIndex` (schema 8 / D14) |
 | Disposing video pages key with remounted cue lists | Keep `VideoFramePages` / key outside remount |
 | Blocking open / settle on save/load fail | Best-effort; assert-log; continue |

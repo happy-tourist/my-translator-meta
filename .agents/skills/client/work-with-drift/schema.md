@@ -6,7 +6,7 @@ Read with [SKILL.md](SKILL.md).
 
 | Piece | Path | Role |
 |-------|------|------|
-| Tables | `lib/data/database/tables.dart` | `Folders`, `Documents` (nullable `folderId` = root; nullable `translationDocumentId`; `lastReadStartMs` / `lastReadAlignment`; video attach cols), `DocumentVideoFrames` (JPEG BLOB cache), `DictionaryEntries` (`lemma` UNIQUE morph + nullable `surfaceKey`) |
+| Tables | `lib/data/database/tables.dart` | `Folders`, `Documents` (nullable `folderId` = root; nullable `translationDocumentId`; `lastReadStartMs` / `lastReadAlignment` / nullable `lastReadParagraphIndex` for EPUB original mid-chapter LD-33; video attach cols), `DocumentVideoFrames` (JPEG BLOB cache), `DictionaryEntries` (`lemma` UNIQUE morph + nullable `surfaceKey`) |
 | DB class | `lib/data/database/app_database.dart` | `@DriftDatabase`, `schemaVersion`, `driftDatabase(...)` |
 | Generated | `lib/data/database/app_database.g.dart` | **GENERATED** — never hand-edit |
 | Open helper | `lib/data/database/database_provider.dart` | `openAppDatabase()` + readiness `SELECT 1` |
@@ -59,7 +59,7 @@ data wipe — see `work-with-env-deploy` and `{app}/AGENTS.md`.
 Bump `schemaVersion` and add a Drift `MigrationStrategy` when altering tables.
 Do not silently wipe user data in product builds without an OpenSpec decision.
 
-**Present:** `schemaVersion` **7** —
+**Present:** `schemaVersion` **8** —
 
 - from `< 2`: nullable `Documents.translationDocumentId` (self-FK → `Documents.id`)
 - from `< 3`: nullable `lastReadStartMs` + `lastReadAlignment` (reading resume)
@@ -79,6 +79,13 @@ Do not silently wipe user data in product builds without an OpenSpec decision.
   `migrator.alterTable(TableMigration(documents))` (or equivalent
   create→copy→drop→rename / `customStatement`); do **not** `addColumn`
   (column already exists). Existing rows keep non-null `folderId`. Cover in
-  `test/data/schema_migration_test.dart` (clean DB + 6→7 upgrade).
+  `test/data/schema_migration_test.dart` (clean DB + 6→8 upgrade path).
+- from `< 8`: nullable `Documents.lastReadParagraphIndex` (EPUB **original**
+  mid-chapter paragraph, LD-33 / D14). `7→8` uses `migrator.addColumn`.
+  Upgrades from `< 7` fold the column into the schema-7 `TableMigration`
+  (`newColumns: [documents.lastReadParagraphIndex]`) so recreate does not
+  `SELECT` a missing column. Pre-schema-8 EPUB anchors → `null` paragraph
+  (open chapter at paragraph 0). Cover in `schema_migration_test` (7→8) +
+  `document_repository_test` LD-33 round-trip.
 
 Regenerate `.g.dart` after table edits.

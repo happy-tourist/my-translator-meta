@@ -115,10 +115,12 @@ Engine details: meta `work-with-translate`.
 - **EPUB:** translation = second `.epub` → `parseEpub`. Chapter **index** is
   linked top→bottom **only** by the **top** pager (prev/next) or at reopen
   (clamp to the restored original chapter) — design D10; the bottom pane has
-  **no pager / chapter title of its own** (RC-11). A top-pager chapter
-  change rewinds **both** paragraph lists to index 0 (RC-12) — it is not a
-  captured-anchor jump. Reject mixed families; unequal chapter counts →
-  clamp + notice; unequal paragraph counts on restore → silent clamp.
+  **no pager / chapter title of its own** (RC-11). Original also has **no**
+  fixed `chapter.title` chrome — pager arrows/`n / N` only (D15 / RC-13).
+  A top-pager chapter change rewinds **both** paragraph lists to index 0
+  (RC-12) — it is not a captured-anchor jump. Reject mixed families; unequal
+  chapter counts → clamp + notice; unequal paragraph counts on restore →
+  silent clamp.
 - **Delete** translation: **AppBar**, next to the split toggle (design D12) —
   never bottom-pane chrome; visible whenever a translation is shown **or** a
   stuck link exists. Bottom pane is text-only flush to the divider — no
@@ -137,9 +139,11 @@ Engine details: meta `work-with-translate`.
 - **Reading resume:** `initialReadingAnchor` (original) **and**
   `initialTranslationReadingAnchor` (translation, if linked) from Library;
   each restores its own pane after layout; each pane saves its own anchor on
-  settle/Hide/dispose via `DocumentRepository.saveReadingAnchor` — same
-  generic method/columns for both document ids, no schema change (RS-12 /
-  RS-24 / LD-17 / LD-31/32 / design D11).
+  settle/Hide/dispose via `DocumentRepository.saveReadingAnchor`. EPUB
+  original: chapter + mid-chapter `paragraphIndex` (`lastReadParagraphIndex`,
+  schema 8 / LD-33 / D14); translation reuses the same API on its row (D11 /
+  LD-31/32). Hide/dispose `force` falls back to session seed if a list is
+  already unmounted. RS-12 / RS-24 / LD-17.
 - **Video frames (`reader/video-frames`):** attach/detach via Drift; Library open
   best-effort restores attachment; original pane = paged vertical triple
   (replaces cues); page change MUST NOT sync translation — details

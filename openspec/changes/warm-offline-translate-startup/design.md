@@ -4,7 +4,9 @@
 
 Explore (до path-fix): на **native** gate-spinner был «мёртвый» — UI isolate занят ~228MB load/copy + Dart→Rust encode. Пользователь: **оставить лоадер**; вариант B — доработать cold path. Path/file init сильнее, чем ещё меньше chunk yields при полном FRB bytes.
 
-Платформы: Web (Chrome), Windows, Android. Фокус freeze-fix: **native**.
+Explore (Reader, 2026-11-13): при reopen низ EPUB помнит mid-chapter, верх — глава с абзаца 0 (LD-28 only). Решение: persist верха **как низа** (абзац + alignment); убрать fixed `chapter.title` chrome; pager оставить. Не sync и не «подскролл» на open — только запомнить и открыть на месте.
+
+Платформы: Web (Chrome), Windows, Android. Фокус freeze-fix: **native**. Reader delta: Flutter/Drift.
 
 ## Goals / Non-Goals
 
@@ -13,13 +15,14 @@ Explore (до path-fix): на **native** gate-spinner был «мёртвый» 
 - Fullscreen loading после Drift open до ready/fail; затем shell (**gate остаётся**).
 - Shared process-wide ensure; Translate wait + spinner.
 - **Native:** во время gate `CircularProgressIndicator` остаётся живым (кадры) — не блокировать UI isolate полным bytes transfer модели.
-- Reader: zero sync; bottom persist; top-only linked pager; text-only bottom; Delete у split (уже).
+- Reader: zero sync; bottom persist; **original EPUB mid-chapter persist/restore**; top-only linked pager; text-only bottom; **original без fixed title chrome**; Delete у split.
 
 **Non-Goals:**
 
 - Убрать gate / тихий-only product default.
 - ORT внутри `init_app` / `RustLib.init`.
-- Persist split/divider; mid-chapter persist оригинала EPUB сверх LD-28.
+- Persist split/divider.
+- Убирать pager / стрелки у оригинала.
 - Realtime scroll mirror; video sync.
 - Менять Web pipeline (Transformers.js worker) кроме регрессии.
 
@@ -51,8 +54,8 @@ Explore (до path-fix): на **native** gate-spinner был «мёртвый» 
 | Native facade | `lib/data/translate/offline_translate_native.dart` (+ helpers): extract assets → app support/cache dir с yield; вызвать path/dir FRB init |
 | FRB / Rust | `rust/src/api/translate.rs` + `translate/`: init from OS paths / model dir; ORT `Session` from files; codegen |
 | Web | без обязательных правок worker |
-| Reader / Drift | уже по D9–D12 |
-| Tests | TO-11: живой loader при реальном/приближённом heavy init; Rust path-init tests; shell gate регрессия |
+| Reader / Drift | D9–D12 (уже) + **D14 mid-chapter original** + **D15 title chrome** |
+| Tests | TO-11; Rust path-init; shell gate; LD-33 / RS-12 / RC-13 |
 
 ### D6 — Warm-up / gate errors
 
@@ -60,7 +63,7 @@ Explore (до path-fix): на **native** gate-spinner был «мёртвый» 
 
 ### D7 — Тесты
 
-- TO-09/13 gate; TO-10; **TO-11 живой индикатор на native cold path**; TO-14 path init; RS/RC/LD как раньше.
+- TO-09/13 gate; TO-10; **TO-11 живой индикатор на native cold path**; TO-14 path init; RS/RC/LD + **LD-33 / RS-12 mid-chapter original / RC-13**.
 
 ### D8 — Rust / FRB (**REVISED**)
 
@@ -70,11 +73,11 @@ Explore (до path-fix): на **native** gate-spinner был «мёртвый» 
 
 Не класть ORT в `init_app`. Web по-прежнему не вызывает FRB translate.
 
-### D9–D12 — Reader (без изменений intent)
+### D9–D12 — Reader (zero-sync / bottom / pager / delete)
 
-Zero one-shot sync; top-linked chapter; translation reading anchor; bottom text-only + Delete у split — уже в коде.
+Zero one-shot sync; top-linked chapter; translation reading anchor; bottom text-only + Delete у split — уже в коде. Intent без изменений; mid-chapter **оригинала** и title chrome — D14/D15.
 
-### D13 — Native extract then path init (NEW)
+### D13 — Native extract then path init
 
 **Выбор:**
 
@@ -87,6 +90,28 @@ Zero one-shot sync; top-linked chapter; translation reading anchor; bottom text-
 
 **Альтернатива (отклонена сейчас):** убрать gate и пустить shell под jank — пользователь оставил лоадер.
 
+### D14 — Original EPUB mid-chapter persist (NEW)
+
+**Проблема:** низ уже пишет paragraph + alignment в якорь translation-документа; оригинал EPUB пишет только chapter в `lastReadStartMs` (`alignment: null`) → reopen = глава k, абзац 0.
+
+**Выбор (как низ по данным скролла):**
+
+1. На settle / pop оригинала book-pane: capture top-visible paragraph index + `itemLeadingEdge` (зеркало `_captureBookTranslationAnchor`).
+2. Persist на **оригинальном** документе: **chapter** остаётся в `lastReadStartMs` (LD-28); **paragraph index** — в новой nullable Drift-колонке (например `lastReadParagraphIndex`); **alignment** — в существующем `lastReadAlignment` (0…1), как у низа.
+3. `ReadingAnchor` / `DocumentRepository` save/load расширить optional paragraph index; Library open передаёт полный якорь в `ReaderScreen.initialReadingAnchor`.
+4. `initState` book-mode: besides chapter restore, seed `_bookOriginalInitialScrollIndex` / `_bookOriginalInitialAlignment` из якоря (clamp); список открывается на месте через `initialScrollIndex` / `initialAlignment` (и jump-retry только если уже есть паттерн для remount — **не** отдельный «scroll to start» на open).
+5. Смена главы через pager (`_goToChapter`) по-прежнему rewind к 0 (RC-12) и пишет новый chapter (+ paragraph 0).
+
+**Отклонено:** pack chapter+paragraph в один `lastReadStartMs` (хрупко); класть paragraph в `lastReadAlignment` (ломает 0…1 leading edge).
+
+**Миграция:** schema bump + nullable column; старые ряды без paragraph → open глава с начала списка (как сейчас).
+
+### D15 — Убрать fixed chapter title на оригинале (NEW)
+
+В `_buildBookPaneContent` для `fromOriginal: true` убрать `Padding` + `Text(chapter.title)` над списком. Оставить `Expanded(list)` + SafeArea pager (prev / `n / N` / next). Низ уже text-only. Title в контенте абзацев EPUB не трогать.
+
+Точки: `lib/features/reader/reader_screen.dart`; виджет-тесты RC-01/RC-13 (нет key `readerBookChapterTitle_*` / аналог).
+
 ## Risks / Trade-offs
 
 | Risk | Mitigation |
@@ -96,14 +121,18 @@ Zero one-shot sync; top-linked chapter; translation reading anchor; bottom text-
 | Copy всё ещё jankит | Chunked write + yields; измерять vs bytes+FRB encode |
 | Gate всё ещё долгий | Честный loader; живая анимация важнее короткого dead screen |
 | Web регрессия | Не трогать worker без нужды; smoke `:5555`+COOP/COEP |
+| Drift migration | Nullable column; old anchors degrade gracefully |
+| Title was only chapter cue | Pager `n / N` остаётся; content may include heading paragraphs |
 
 ## Migration Plan
 
 - Существующий gate/ensure оставить; заменить native `_loadAndInit` bytes-path на extract→path.
 - Старые installs: первая сессия после обновления — extract; далее reuse.
 - Rollback: временно вернуть bytes init (хуже UI).
-- Reader delta уже в коде — без миграции UX.
+- Reader zero-sync / bottom — уже в коде.
+- **D14:** Drift migrate + Reader seed; старые EPUB якоря без paragraph → paragraph 0.
+- **D15:** UI-only; без data migration.
 
 ## Open Questions
 
-Нет — gate оставлен; path init выбран для native B.
+Нет — gate оставлен; path init выбран; mid-chapter original = как низ (D14); title chrome снят, pager оставлен (D15).

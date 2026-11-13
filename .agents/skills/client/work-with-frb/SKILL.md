@@ -74,11 +74,14 @@ Future<void> main() async {
 3. From app root: flutter_rust_bridge_codegen generate
 4. Update Dart call sites / tests to new generated names
 5. flutter analyze / flutter test; cargo check|test in rust/
-6. Web: flutter_rust_bridge_codegen build-web (refreshes gitignored web/pkg WASM)
+6. Web: flutter_rust_bridge_codegen build-web (refreshes gitignored web/pkg WASM) — **required**, not optional, before any `flutter run -d chrome` / web-smoke after API change
 ```
 
 After an API/codegen change, **do not** rely on a stale `web/pkg/` from a previous day —
-`RustLib.init` fails with **content hash** mismatch (Dart vs Rust) until `build-web` runs.
+`RustLib.init` fails with **content hash** mismatch (Dart vs Rust) until `build-web` runs
+(symptom: blank/white browser page; often `_InitFailureApp` or early exit).
+Orchestrators (`implement-change` apply / web-smoke): **generate alone is not enough** —
+run `build-web` before Chrome.
 Keep domain type names distinct from FRB DTOs (e.g. internal `ParsedDocument` vs
 `api::ParsedSubtitles`) so codegen does not merge duplicate keys.
 
@@ -138,6 +141,7 @@ translate) land the same way — not by editing generated files.
 | Business logic in `rust_builder/` | Move to `rust/`; rebuild |
 | Dart reimplements parse/lemma/dict | Rust + thin FRB export |
 | Skip codegen after `api/` change | Regenerate; then fix call sites |
+| Skip `build-web` after codegen (Web) | `build-web` before Chrome; else content hash / white screen |
 | CLI / crate version drift from 2.13.0 | Align pubspec, Cargo.toml, and codegen CLI |
 | Ignore first stream event / no loading | Bind subscription + UI state before/with start |
 | Grow demo `MyHomePage` instead of feature call sites | New screens + orchestration; replace scaffold |

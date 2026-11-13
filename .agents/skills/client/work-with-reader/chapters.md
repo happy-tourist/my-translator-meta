@@ -2,9 +2,9 @@
 
 Read with [SKILL.md](SKILL.md). Capability: OpenSpec `reader/chapters`
 (change `add-epub-reader`). Parse grammar → `work-with-parse` /
-[epub.md](../../server/work-with-parse/epub.md). Split chapter+paragraph
-one-shot → [split-scroll.md](split-scroll.md). Persist / open-flow →
-`work-with-drift`, `work-with-pages` (`upload.md`).
+[epub.md](../../server/work-with-parse/epub.md). Split / zero cross-pane
+sync + dual anchors → [split-scroll.md](split-scroll.md). Persist /
+open-flow → `work-with-drift`, `work-with-pages` (`upload.md`).
 
 ## When book-mode applies
 
@@ -19,7 +19,7 @@ and passes chapter payloads — do **not** push EPUB as empty `originalCues`.
 | `translationChapters?` | Linked EPUB translation (best-effort) |
 | `originalCues` | **Empty** in book-mode (D4) |
 | `parseEpub` | Injectable `ParseEpubFn` (`lib/data/library/parse_epub_fn.dart`) |
-| `initialReadingAnchor` | `startMs` = **0-based chapter index** (LD-28 / D6) |
+| `initialReadingAnchor` | `startMs` = **0-based chapter index** (LD-28); optional `paragraphIndex` + `alignment` = mid-chapter (LD-33 / D14) |
 
 ## UI contract
 
@@ -29,8 +29,9 @@ and passes chapter payloads — do **not** push EPUB as empty `originalCues`.
    `ScrollablePositionedList` + book-specific controllers (not bare
    `ListView`) so Show/Hide split can preserve each pane's own mid-chapter
    scroll — [split-scroll.md](split-scroll.md).
-2. **Top-pane-only chapter pager** (prev / next / title) in split (design
-   D10 / RC-10/11) — session state is still **dual indices:**
+2. **Top-pane-only chapter pager** (prev / next / `n / N`) in split (design
+   D10 / D15 / RC-10/11/13) — **no** fixed `chapter.title` chrome above the
+   original list either. Session state is still **dual indices:**
    `_originalChapterIndex` and `_translationChapterIndex`, but only the
    **top** pager drives `_goToChapter(fromOriginal: true, …)`. The bottom
    (translation) pane renders **no** pager and **no** chapter title — plain
@@ -77,14 +78,14 @@ Book paragraph rows use **lightweight hit-test** (`CueRow.lightweightHitTest`:
 stays accurate under text scale / RTL (D11). Do **not** use WidgetSpan-per-word
 in book mode; subtitle CueRow path stays WidgetSpan.
 
-## Reading resume (LD-28 / RC-06)
+## Reading resume (LD-28 / LD-33 / RC-06 / RS-12)
 
 | Piece | EPUB semantics |
 |-------|----------------|
-| Drift column | Same `Documents.lastReadStartMs` |
-| Meaning | 0-based **chapter index** (not milliseconds) |
-| Save | On pager settle / dispose — write `_originalChapterIndex` only |
-| Restore | Clamp index to `0…chapters.length-1`; open that **original** chapter; translation chapter clamps to it (D10) but paragraph position restores from the translation's **own** anchor — no scroll sync (RS-12 / LD-32) |
+| Drift columns | `lastReadStartMs` = chapter; `lastReadParagraphIndex` = mid-chapter paragraph (schema 8 / LD-33); `lastReadAlignment` = list leading edge |
+| Meaning | 0-based **chapter index** in `startMs` (not milliseconds) + optional paragraph |
+| Save | Settle / dispose: capture top-visible original paragraph + alignment with chapter (`_persistReadingAnchor`; `force: true` → session seed if list unmounted). Pager change: `_persistBookChapterAnchor(chapter, paragraph: 0)` — do **not** re-capture the old list mid-chapter (RC-12) |
+| Restore | Clamp chapter; seed `_bookOriginalInitialScrollIndex` / alignment from `paragraphIndex` (null → 0); open via `initialScrollIndex` (no jumpTo race). Translation chapter clamps to original (D10); bottom paragraph restores from the translation's **own** anchor — no scroll sync (RS-12 / LD-32) |
 
 Subtitle documents keep cue `startMs` semantics. Call sites must be
 format-gated.
@@ -105,28 +106,28 @@ format-gated.
 | Avoid | Prefer |
 |-------|--------|
 | Opening EPUB with empty cues + subtitle UI | Pass `originalChapters` + `documentFormat: epub` |
-| Pager / chapter title on the bottom (translation) pane | Top pane only; bottom is plain paragraphs (D10 / RC-11) |
+| Pager / fixed chapter title on either pane's list chrome | Top pane: pager only (no fixed `chapter.title`, D15 / RC-13); bottom: plain paragraphs (D10 / RC-11) |
 | Aligning translation chapter/paragraph to original on Show / Load | No align ever on those triggers (D9); only the top pager links the chapter, and only reopen clamps it |
 | Captured-anchor jump on chapter change | Hard rewind: both lists → paragraph 0 (RC-12) |
 | New FRB pairing for paragraph align | UI index clamp on `EpubChapterDto.paragraphs` |
 | Video frames on EPUB | Hide video; skip attachment restore |
-| Persisting cue `startMs` for EPUB resume | Persist **original** chapter index in `lastReadStartMs`; translation paragraph index on its own (hidden) Documents row (LD-32) |
+| Persisting cue `startMs` for EPUB resume | Persist **original** chapter + mid-chapter paragraph (LD-28/33); translation paragraph index on its own (hidden) Documents row (LD-32) |
 | Tokenizing all chapters on open | Tokenize **current** chapter paragraphs only |
 | Mixing EPUB↔SRT in split | EPUB↔EPUB only (`attachTranslation` + Reader load) |
 
 ## Checklist
 
 - [ ] Book-mode gated by `documentFormat == epub`
-- [ ] Paragraph list; top-pane-only chapter pager in split (no pager/title on
-      bottom, RC-11); chapter change remounts + rewinds **both** lists to
-      para 0 (RC-10/12); Show/Hide (no chapter change) preserves **each
-      pane's own** mid-chapter scroll
+- [ ] Paragraph list; top-pane-only chapter pager in split (no fixed title on
+      original, RC-13; no pager/title on bottom, RC-11); chapter change
+      remounts + rewinds **both** lists to para 0 (RC-10/12); Show/Hide
+      preserves **each pane's own** mid-chapter scroll
 - [ ] Dual chapter indices; **no** align to original on Show / Load (D9);
       bottom chapter clamps to original only at reopen (D10)
 - [ ] Tokenize/mark current chapter; invalidate on chapter switch
 - [ ] No video chrome / no video restore for EPUB
-- [ ] Resume: `lastReadStartMs` = **original** chapter index; translation's
-      own paragraph+alignment anchor restores independently (LD-32)
+- [ ] Resume: original chapter + mid-chapter paragraph (LD-28/33); translation's
+      own paragraph+alignment restores independently (LD-32)
 - [ ] Translation: EPUB-only, zero sync, own-anchor persist ([split-scroll.md](split-scroll.md))
 - [ ] Widget tests: book-mode + EPUB split (e.g. `reader_book_mode_test`,
       `reader_epub_split_test`)
