@@ -77,7 +77,7 @@ If the route name or screen placement is unclear, ask the user before editing.
 |------|------|-------|
 | Shell | `lib/app/` | Drift open + Library \| Vocab — [shell.md](shell.md) |
 | Library / upload | `lib/features/upload/` | Root + folders + import; open → parse → Reader — [upload.md](upload.md) |
-| Reader (cues / EPUB book-mode + tap + highlight + split + video) | `lib/features/reader/` | Cues or chapter paragraphs + pager, contiguous tap→sheet, lemma/phrase highlight/edit (`reader/tap`, `reader/highlight`, `reader/chapters`), split one-shot (time / EPUB chapter+paragraph on Show + load; no settle / page realtime), optional paged video frames for subtitles (`reader/video-frames`) — [reader.md](reader.md) |
+| Reader (cues / EPUB book-mode + tap + highlight + split + video) | `lib/features/reader/` | Cues or chapter paragraphs + pager, contiguous tap→sheet, lemma/phrase highlight/edit (`reader/tap`, `reader/highlight`, `reader/chapters`), split with zero cross-pane sync (each pane restores only its own anchor; EPUB chapter linked top→bottom only via the top pager), optional paged video frames for subtitles (`reader/video-frames`) — [reader.md](reader.md) |
 | Vocabulary | `lib/features/vocab/` | Dict CRUD via Drift (morph + phrase keys) — [vocab.md](vocab.md) |
 | Data | `lib/data/` | Repositories / schema — `work-with-drift` |
 
@@ -118,8 +118,8 @@ Examples:
   Reader ([upload.md](upload.md)).
 - Reader — cues + tokenize + mark + contiguous Add / in-vocab edit + highlight
   ([reader.md](reader.md)).
-- Split — two panes, **one-shot** align on Show / load translation (no settle /
-  page realtime); translation from second parse, not Dart string hacks
+- Split — two independent panes; **zero** cross-pane sync (no align on Show /
+  load / reopen); translation from second parse, not Dart string hacks
   ([reader.md](reader.md)).
 - Vocab — list/add/remove via Drift; morph key via FRB helper; same store as
   Reader ([vocab.md](vocab.md)).

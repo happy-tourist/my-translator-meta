@@ -51,8 +51,9 @@ do not revive; **paged vertical triple + bottom pager** is the canon
 - Cue text under second `t`: all cues with `round(endMs/1000) == t`, in list order;
   join `textLines` / multi-cue with `\n`. Empty on start/middle seconds of the same
   cue (VF-04). Empty text → frame remains without timestamp (VF-03).
-- AppBar: Load / Remove video **next to** split toggle; Delete translation stays
-  in bottom-pane chrome only.
+- AppBar: Load / Remove video **next to** split toggle; Delete translation
+  also lives in the AppBar, next to the split toggle (design D12) — never in
+  bottom-pane chrome.
 - Jump on Load / restore: `T = clamp(floor(readingTimeMs/1000), 0, duration-1)`
   via `clampReadingTimeToSecond` → open **page containing T**
   (`videoFramePageForSecond`) (VF-05 / VF-13). Prefer persisted `last_second`
@@ -63,12 +64,13 @@ do not revive; **paged vertical triple + bottom pager** is the canon
   `VideoFramePagesState.currentSecond`) → detach → restore cue list →
   `scrollTo` nearest cue at `T*1000` (VF-08) — original only; no translation
   sync.
-- Split: frames **only** in original pane (VF-09). **One-shot** translation
-  align uses the **current** video second (`T*1000` → `nearestCueIndex`) only
-  on Show split or successful load **translation** — not on page change
-  (VF-06). Bottom scroll MUST NOT move pages when video is on (VF-07).
-  Show/Hide split: keep `VideoFramePages` / key outside the dispose branch
-  that remounts cue lists ([split-scroll.md](split-scroll.md)).
+- Split: frames **only** in original pane (VF-09). **Zero sync, always**
+  (design D9): with video attached, Show split / successful load translation
+  / page change MUST NOT align the bottom pane to the current video second —
+  the bottom pane restores only **its own** persisted/seeded anchor, exactly
+  like the non-video case ([split-scroll.md](split-scroll.md)). Bottom scroll
+  MUST NOT move pages when video is on (VF-07). Show/Hide split: keep
+  `VideoFramePages` / key outside the dispose branch that remounts cue lists.
 - Slot extract fail → placeholder in that slot; neighbors + text gestures OK
   (VF-10). Tap/highlight on cue text under frames unchanged (VF-12).
 - Dead durable link: keep JPEG cache; re-pick with `clearFrameCache: false`
@@ -127,8 +129,8 @@ move translation).
 | Rust / FRB video API | Dart facade only |
 | Infinite all-seconds list / top pager | Paged column of 3; pager **under** frames |
 | Keeping list scroll after next/prev | `jumpTo(0)` / first slot visible (VF-15) |
-| Sync translation on video page change (VF-06) | Update second + persist only; one-shot on Show / load translation |
-| Sync on Load / Remove video | Restore cues / pages only; no `_syncPanes` |
+| Sync translation on video page change (VF-06) | Update second + persist only; never sync translation (D9) |
+| Sync on Load / Remove video, or on Show/Hide split with video | Restore cues / pages only; bottom restores its own anchor; no `_syncTranslationToTimeMs` (removed, D9) |
 | `showTimestamp: false` under frames with text | `CueRow(showTimestamp: true)` file start→end |
 | Invented “frame second” time labels | Subtitle-file `startMs → endMs` only; empty = no label |
 | Horizontal strip of 3 over unchanged cue list | Replace cue list with vertical triple |

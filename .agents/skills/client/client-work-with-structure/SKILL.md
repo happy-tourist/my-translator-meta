@@ -297,7 +297,7 @@ keeps shared theme. No per-screen duplicate global nav once a shell exists.
 |--------|------------------|-----------|
 | Library folders/documents | `features/upload/` + Drift data | Drift persist; Rust parse later |
 | Reader + tap/select | `features/reader/` | Rust tokens / lemmas / translate |
-| Split view | `features/split/` or `reader/` | Flutter one-shot align (Show / load); independent panes after |
+| Split view | `features/split/` or `reader/` | Flutter, zero cross-pane sync — each pane restores only its own anchor |
 | Vocab | `features/vocab/` | Drift dictionary persist |
 | Settings | `features/settings/` | Drift (target) / local UI until wired |
 | Word/phrase card | reader widgets | Rust gloss + Drift add |

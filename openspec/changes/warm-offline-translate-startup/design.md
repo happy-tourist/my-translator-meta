@@ -1,6 +1,6 @@
 ## Context
 
-См. `proposal.md` — Why / Scope. Сейчас offline translate: native = AssetBundle bytes → lazy `init_offline_translate` → `translate_text` (`lib/data/translate/offline_translate_native.dart`); Web = Transformers.js worker, pipeline создаётся на первом `translate` (`web/translate_worker.js`). Тяжёлый init намеренно не в `#[frb(init)] init_app`. Модель уже в assets (~encoder 50MB + decoder 178MB native); «замирание» — cold load/copy/init на UI-критичном пути при первом Translate.
+См. `proposal.md` — Why / Scope. Уже в коде (apply v1): process-wide `warmUpOfflineTranslate` / `ensureOfflineTranslateReady`, quiet post-frame hook в `AppShell`, native chunked asset copy, Web `warmup`, Translate spinner. Пользователь уточнил: UI при init всё равно мёртв → нужен **fullscreen gate**; плюс Reader: убрать one-shot sync, persist низа, linked top chapter arrows, text-only bottom, Delete у split.
 
 Платформы: Web (Chrome), Windows, Android.
 
@@ -8,112 +8,96 @@
 
 **Goals:**
 
-- Тихий warm-up после первого кадра UI; lazy на Translate как shared init/fallback.
-- Живой loading на кнопке при ожидании; UI не freeze на cold path.
-- Один facade API для warm-up + translate (native/web).
+- Fullscreen loading после Drift open до ready/fail ensure; затем shell.
+- Shared process-wide ensure (native+Web); Translate wait + spinner.
+- Reader: zero scroll/time/paragraph sync; restore bottom from own anchor; top-only chapter pager drives bottom chapter; chapter change → both lists at top; bottom = text only; Delete next to split.
 
 **Non-Goals:**
 
-- Смена FRB на OS-path к модели; disk-cache оптимизация следующего запуска.
-- Splash / shell progress chrome; смена модели или языковой пары.
-- Класть ORT load в `init_app` / блокировать `RustLib.init`.
+- OS-path / disk-cache модели; ORT в `init_app`.
+- Persist split/divider; mid-chapter persist для **оригинала** EPUB сверх LD-28.
+- Realtime scroll mirror; video sync.
 
 ## Decisions
 
-### D1 — Когда стартует warm-up
+### D1 — Fullscreen loading gate (revises quiet warm-up)
 
-**Выбор:** **первый post-frame callback `AppShell`** (когда уже открыт Drift и виден product shell Library/Vocab), не во время bootstrap-спиннера `TranslationReaderApp` (открытие БД), не до первого кадра shell, не из `RustLib.init` / `main` до `runApp`.
+**Выбор:** после успешного открытия Drift (конец bootstrap `TranslationReaderApp`) показать **полноэкранный** loading и ждать `ensureOfflineTranslateReady` / `warmUpOfflineTranslate`. Product shell (Library/Vocab) не интерактивен, пока gate не снят. Успех → shell. Fail → снять gate, показать shell; без обязательного SnackBar от warm-up (ошибка на Translate).
 
-**Почему:** design archive запрещает тяжёлый load в `init_app`; «основной UI» в TO-09 = product shell, не экран «открываем storage»; пользователь видит Library сразу; прогрев идёт в фоне.
+**Почему:** cold init всё равно блокирует UI; честный fullscreen лучше тихого «мёртвого» shell.
 
-**Тестовый escape hatch (обязателен):** `AppShell` MUST иметь явный способ не стартовать production warm-up в widget-тестах (например `enableOfflineTranslateWarmUp: false` и/или skip auto-warm-up, когда в тест передан injectable `offlineTranslate`). Иначе `shell_test` и аналоги сдетонируют на AssetBundle/FRB. Production `TranslationReaderApp` → `AppShell` оставляет warm-up включённым по умолчанию.
+**Escape hatch:** тесты — `enableOfflineTranslateWarmUp: false` / skip gate (как сейчас для quiet hook).
 
-**Альтернативы:** блокирующий splash (отклонено); warm-up только при входе в Reader (отклонено — дольше «холодная» кнопка на Vocab); хук из `main`/`TranslationReaderApp` до shell (отклонено — прогрев во время DB spinner / до product UI).
+**Было отклонено ранее, теперь принято:** блокирующий splash на старте сессии (после storage).
 
-### D2 — Shared init future (native + web)
+### D2 — Shared init future (без изменений контракта)
 
-**Выбор:** публичный seam на facade, например `warmUpOfflineTranslate()` / `ensureOfflineTranslateReady()`, который:
-- native: тот же `_ensureInit` / `_loadAndInit` + `isOfflineTranslateReady`;
-- web: явный worker op `warmup` (или эквивалент), поднимающий `pipeline` до первого translate;
-- Translate и warm-up **делят один in-flight Future**, чтобы двойной init не гонялся.
+Process-wide module-level Future native+Web; Translate и warm-up/gate делят один ensure. Уже реализовано.
 
-**Контракт shared Future (критично):** ensure/warm-up state MUST быть **process-wide / module-level** (static или один модульный слот) в native и web impl, а **не** только на экземпляре `_NativeOfflineTranslate` из одного вызова `createOfflineTranslate()`. Сейчас каждый `createOfflineTranslate()` держит свой `_initFuture`; Reader/Vocab/tests иногда создают второй facade — при in-flight init это даёт **двойной** load ~230MB / двойной pipeline. Warm-up из shell и Translate из sheets MUST сходиться в один ensure, даже если `OfflineTranslateFn` создали дважды. После успешного ready повторный warm-up — no-op (`isOfflineTranslateReady` / cached pipeline).
+### D3 — Cold path yields (без изменений цели)
 
-**Почему:** TO-09/TO-10; текущий native почти так, но per-instance `_initFuture` недостаточен для start-hook + multi-create.
+Native: yield → sequential asset load → chunked own-copy + yields → FRB init async. Нужен и под gate (живой spinner), и если Translate после fail-dismiss.
 
-**Альтернативы:** отдельный «prefetch» без общего future (риск двойного ORT/JS load); один объект-клиент вместо typedef (допустимо, но shared module slot проще сохранить совместимость `OfflineTranslateFn`).
+### D4 — Translate button UX
 
-### D3 — Отзывчивость UI на cold path (критично для TO-11)
+Без изменений: spinner на кнопке при wait после shell.
 
-**Выбор:** не выполнять синхронно на UI isolate всю цепочку «load ~230MB + `Uint8List.fromList` + FRB encode» без yield кадров.
-
-Практический минимум (native) — зафиксированный порядок:
-
-1. После `setState(translating)` / старта warm-up — **явный yield кадра** (`await Future<void>.delayed(Duration.zero)` или post-frame), чтобы spinner успел отрисоваться.
-2. `AssetBundle.load` по файлам — последовательные `await` (уже async); **крупный `Uint8List.fromList` / копии** — через `Isolate.run` / `compute`, не на UI isolate.
-3. Передача в FRB `init_offline_translate` остаётся `Normal` async (worker pool) для ORT session build; не добавлять синхронный pre-encode на UI без yield. Полный zero-jank на encode гигантского `Vec<u8>` не обещаем новым Rust API (D8); цель TO-11 — **не полный freeze** (кадры/жесты принимаются), loading на кнопке наблюдаем.
-4. Warm-up после первого кадра shell снижает частоту cold tap; оставшийся cold path всё равно проходит шаги 1–3.
-
-Web: warm-up в worker уже вне UI thread; bridge MUST уметь стартовать `warmup` без translate; UI isolate только `postMessage` / await Promise.
-
-**Альтернативы:** только warm-up без правки cold path (недостаточно, если tap раньше ready — снова freeze).
-
-### D4 — UX на кнопке
-
-**Выбор:** сохранить текущий паттерн: `CircularProgressIndicator` child на Translate, `onPressed: null` на время запроса; ждать shared init; без текста/баннера вне кнопки.
-
-### D5 — Точки врезки (файлы)
+### D5 — Точки врезки (обновлено)
 
 | Зона | Файлы / роль |
 |------|----------------|
-| Start hook | `lib/app/shell.dart` — первый post-frame → platform `warmUp…` (один раз); escape hatch для tests (D1) |
-| Facade | `lib/data/translate/offline_translate.dart` (+ native/web/platform) — export warm-up + **process-wide** shared ensure |
-| Native | `offline_translate_native.dart` — не менять bytes→FRB контракт; module-level ensure для warm-up+translate; D3 yield/isolate на load/copy |
-| Web | `offline_translate_web.dart`, `web/translate_bridge.js`, `web/translate_worker.js` — op `warmup` + общий `translatorPromise` |
-| UI sheets | Reader/Vocab Translate — уже spinner; ждут shared ensure через тот же translate path; без нового chrome |
-| Tests | `test/features/shell_test.dart` (+ другие mounts `AppShell`) — отключить auto warm-up / no-op, чтобы не грузить модель |
-| Rust | **D8:** без API change; `init_offline_translate` / ready / translate as-is; **не** в `init_app`; verify-only `cargo test` |
+| Gate | `lib/app/app.dart` / `shell.dart` — fullscreen overlay until ensure; escape hatch |
+| Facade | `lib/data/translate/*` — уже ensure/warmUp |
+| Reader sync removal | `reader_screen.dart` — убрать `_syncTranslationToTimeMs` / `_syncBookPanes` / `_alignTranslationChapterToOriginal` с Show/Load/open |
+| Chapter link | `_goToChapter(fromOriginal: true)` — также clamp translation chapter; rewind both lists to 0; убрать pager/title с translation pane |
+| Bottom chrome | убрать `_buildBottomDeleteChrome` из bottom; Delete IconButton рядом со split в AppBar |
+| Persist | `DocumentRepository` + Drift schema — translation reading anchor; Reader save on bottom settle / pop / Hide |
+| Tests | shell gate; split no-sync; bottom restore; chapter link; AppBar delete; repo anchor |
+| Rust | D8 без API change |
 
-### D6 — Ошибки warm-up
+### D6 — Warm-up / gate errors
 
-Тихий warm-up fail → не показывать SnackBar сам по себе. Последующий Translate либо повторит init, либо покажет kind (`engineUnavailable` / `internal`) как сейчас.
+Fail ensure → dismiss fullscreen; no SnackBar from gate. Translate показывает kind.
 
 ### D7 — Тесты
 
-- Widget/facade: warm-up вызывается; Translate mid-init → loading затем ok/err (TO-09, TO-10).
-- TO-11: по возможности fake slow init + pump frames / interaction; плюс ручная приёмка Web/Windows/Android.
-- TO-12: ops note / короткий manual; автоматом — ready persists in-process после warm-up.
+- TO-09/13 gate; TO-10/11; RS-05/18/19/20/23/24; RC-10/11/12; LD-31/32.
 
-### D8 — Rust / FRB scope (без смены публичного API)
+### D8 — Rust / FRB (без изменений)
 
-**Выбор:** в этом change **нет** обязательных правок `rust/src/api/translate.rs` и domain `rust/src/translate/`. Публичный контракт остаётся:
+Verify-only; no new FRB.
 
-- `init_offline_translate(Vec<OfflineModelAsset>) -> Result<(), TranslateErrorKind>`
-- `translate_text(...) -> Result<TranslationResult, TranslateErrorKind>`
-- `is_offline_translate_ready() -> bool`
-- wasm32 stubs → `EngineUnavailable`; тяжёлый ORT **не** в `#[frb(init)] init_app`
-- FRB call mode `Normal` (worker pool) для init — ок; TO-11 закрывается на Dart (AssetBundle / copy / encode), не новым Rust API
+### D9 — Zero one-shot sync (NEW)
 
-Двойной native init предотвращает **Dart shared Future** (D2). Domain уже собирает ORT вне mutex слота, затем ставит engine; гонка двух параллельных `init_offline_translate` без shared future — last-wins / лишняя работа, не новый контракт. Не вводить OS-path / disk-cache FRB в этом change.
+Удалить/не вызывать one-shot на Show, Load translation, open. Не подменять restore низа sync с верха. Top preserve (RS-10) и bottom preserve (RS-11/24) — независимо.
 
-Регрессия: при apply достаточно убедиться, что `cargo test` в `{app}/rust` по translate не сломан (verify-only), без codegen ради этого change.
+### D10 — Linked chapter from top arrows only (NEW)
 
-Чеклист реализации — `tasks.md`.
+В split EPUB: pager только на original pane. Top prev/next → `_translationChapterIndex = clamp(original)`; оба paragraph list → index 0. Нет независимого pager на низу (RC-11). Scroll абзацев не зеркалится.
+
+### D11 — Translation reading anchor persist (NEW)
+
+Расширить Drift/repo: якорь низа (subtitle: startMs+alignment; EPUB translation: paragraph index+alignment; chapter согласуется с original при reopen через D10). Хранить на original companion fields **или** на hidden translation row — выбрать минимальный schema path в apply (`work-with-drift`). Main LD-17 original не ломать. EPUB original mid-chapter persist не расширяем (LD-28).
+
+### D12 — Bottom text-only + Delete by split (NEW)
+
+Bottom: `Stack`/list без Column delete bar; list padding top ≈ 0 к divider; без chapter title/pager на translation pane. AppBar: split + delete (visible when translation present/linked).
 
 ## Risks / Trade-offs
 
 | Risk | Mitigation |
 |------|------------|
-| Warm-up жрёт CPU/RAM сразу после старта | После первого кадра; тихий fail; модель и так нужна для Translate |
-| Tap до конца warm-up → снова тяжёлый path | Shared future + D3 (не блокировать UI) |
-| Web: двойной pipeline при гонке | Один `translatorPromise` + warmup op |
-| Пик памяти native (Dart copy + ORT) | Принять в v1; disk-path out of scope |
-| Android low-end OOM на warm-up | Fail → EngineUnavailable на Translate; не crash UI |
+| Fullscreen gate удлиняет time-to-Library | Честнее мёртвого UI; fail быстро dismiss |
+| Schema migration для translation anchor | Minimal columns; tests; fail-open on missing |
+| Users relied on one-shot align | Product decision — explicit remove |
+| Unequal EPUB chapter counts | Clamp + existing mismatch message |
 
 ## Migration Plan
 
-Нет миграции данных. Выкат: обычный app update; поведение улучшается in-process. Rollback: убрать start hook / warmup op — снова только lazy (хуже UX, без schema break).
+- Warm-up code уже в app: сменить quiet hook → gate overlay.
+- Drift migration для translation anchor; старые installs без якоря низа → низ с начала.
+- Rollback sync: вернуть one-shot helpers (хуже UX по новому решению).
 
 ## Open Questions
 
-Нет. Хук warm-up зафиксирован на **первом post-frame `AppShell`** (D1); shared ensure — **process-wide** (D2); test escape hatch обязателен.
+Нет — зафиксировано explore (D5–D7 пользователя: persist низа; rewind on chapter; Delete у split).

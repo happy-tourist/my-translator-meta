@@ -91,7 +91,7 @@ widgets.
 | Subtitle library | folders + file-pick UX; Drift persist | parse SRT/VTT/ASS → cues (later) |
 | Reader (lines, tap, highlight) | gestures, layout, paint tokens | tokenize / lemmatize / match |
 | Vocab / Reader Translate → Translation field | sheet UI + `OfflineTranslateFn` | native FRB / Web JS behind `lib/data/translate/`; add → Drift |
-| Split view + one-shot align | two panes; Show / load align only | translation cues / chapters from parse |
+| Split view, zero cross-pane sync | two independent panes; each restores only its own anchor | translation cues / chapters from parse |
 | Dictionary screen | list/add/delete UI + Drift | — (persist not in Rust) |
 | Settings | languages UI | persist settings (Drift later) |
 

@@ -73,8 +73,9 @@ long-press). Selection never spans cues.
 
 - `AppShell` → one shared `OfflineTranslateFn` → Library/Reader + Vocab
   (archive add-offline-opus-translate design D4.1); override in widget tests.
-- Quiet offline-translate **warm-up** after first `AppShell` post-frame is a
-  shell concern (escape hatch for tests) — see
+- Offline-translate **fullscreen loading gate** in `AppShell` (blocks shell
+  until warm-up ready/fail, design D1) is a shell concern (escape hatch for
+  tests skips the gate entirely) — see
   [shell.md](../work-with-pages/shell.md) and
   [work-with-translate](../../server/work-with-translate/SKILL.md); sheets only
   await the shared ensure via Translate.

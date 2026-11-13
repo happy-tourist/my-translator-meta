@@ -3,21 +3,24 @@
 Read with the [core translate skill](SKILL.md). Shell start hook lives in
 [work-with-pages/shell.md](../../client/work-with-pages/shell.md).
 
-Canon: OpenSpec `translate/offline` (TO-09…TO-12). Planning detail while open:
+Canon: OpenSpec `translate/offline` (TO-09…TO-13). Planning detail while open:
 `openspec/changes/warm-offline-translate-startup/` (design D1–D3, D6, D8).
 
-## Start hook (product shell)
+## Start hook (product shell, fullscreen gate)
 
-Quiet background warm-up runs after the **first post-frame** of `AppShell`
-(Library/Vocab visible after Drift open) — **not** the DB bootstrap spinner in
-`TranslationReaderApp`, not before first paint, not inside `RustLib.init` /
-`init_app`.
+`AppShell` blocks the product shell (Library/Vocab, bottom nav) behind a
+**fullscreen loading gate** until `warmUpOfflineTranslate()` resolves —
+**not** the DB bootstrap spinner in `TranslationReaderApp`, not before first
+paint, not inside `RustLib.init` / `init_app` (design D1, revises the earlier
+quiet post-frame-only hook: cold init already freezes interaction, so a
+visible gate is more honest than a silently dead shell).
 
 | Rule | Detail |
 |------|--------|
-| Call once | `unawaited(warmUpOfflineTranslate())` from post-frame callback |
-| Quiet fail | Warm-up swallows errors — **no** SnackBar; later Translate shows kinds |
-| Escape hatch | `enableOfflineTranslateWarmUp: false` **and/or** injectable `offlineTranslate` skips production warm-up (required for widget tests) |
+| Call once | `await _runWarmUpGate()` (awaits `warmUpOfflineTranslate()`, then flips gate state) started from `initState` |
+| Gate UI | Fullscreen `Scaffold` + `CircularProgressIndicator`; Library/Vocab/`NavigationBar` not built while shown (TO-09) |
+| Quiet dismiss on fail | Warm-up swallows errors — gate still dismisses, **no** SnackBar from the gate; later Translate shows kinds (TO-13) |
+| Escape hatch | `enableOfflineTranslateWarmUp: false` **and/or** injectable `offlineTranslate` skips the gate **entirely** — shell is interactive immediately (required for widget tests) |
 
 ## Shared ensure (process-wide)
 
@@ -67,15 +70,17 @@ flight; button loading covers the wait (TO-10).
 - Facade unit: shared Future race / ready no-op —
   `test/data/offline_translate_native_ensure_test.dart`,
   `test/data/offline_translate_web_ensure_test.dart`.
-- Shell: `enableOfflineTranslateWarmUp: false` or inject translate —
-  `test/features/shell_test.dart`.
+- Shell gate: `enableOfflineTranslateWarmUp: false` or inject translate skips
+  the gate entirely; production gate blocks shell until ready (TO-09) and
+  dismisses quietly on failure (TO-13) — `test/features/shell_test.dart`.
 - Mid-init Translate loading → gloss/err — Vocab / Reader widget tests (TO-10).
 
 ## Anti-patterns
 
 | Avoid | Prefer |
 |-------|--------|
-| Warm-up from `main` / DB spinner | First `AppShell` post-frame |
+| Warm-up from `main` / DB spinner | `AppShell` fullscreen gate after Drift open |
+| Quiet-only background warm-up (no gate) | Fullscreen gate blocks shell until ready/fail (D1 / TO-09) |
 | Per-instance `_initFuture` only | Process-wide shared ensure |
 | SnackBar on warm-up fail | Quiet; SnackBar on Translate |
 | `Isolate.run` on AssetBundle views | Chunked own-copy + yields on UI isolate |

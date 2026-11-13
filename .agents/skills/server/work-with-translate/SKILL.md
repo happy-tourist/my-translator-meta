@@ -153,12 +153,14 @@ UI: Vocab + Reader sheets inject OfflineTranslateFn
 **Details:** [warmup.md](warmup.md) (+ shell start hook in
 [work-with-pages/shell.md](../../client/work-with-pages/shell.md)).
 
-Summary: quiet `warmUpOfflineTranslate` after first **AppShell** post-frame;
-`ensureOfflineTranslateReady` is process-wide and shared with Translate; native
-cold path uses chunked AssetBundle own-copy + yields (no `Isolate.run` on
-bundle views); Web uses bridge `warmup` + one worker `translatorPromise`.
-Widget-test escape hatch required. Public FRB stays bytes→`init_offline_translate`.
-Canon: OpenSpec `translate/offline` (TO-09…TO-12).
+Summary: **fullscreen loading gate** in `AppShell` blocks Library/Vocab until
+`warmUpOfflineTranslate` resolves (success or fail — no SnackBar from the gate
+either way; design D1); `ensureOfflineTranslateReady` is process-wide and
+shared with Translate; native cold path uses chunked AssetBundle own-copy +
+yields (no `Isolate.run` on bundle views); Web uses bridge `warmup` + one
+worker `translatorPromise`. Widget-test escape hatch skips the gate entirely.
+Public FRB stays bytes→`init_offline_translate`.
+Canon: OpenSpec `translate/offline` (TO-09…TO-13).
 
 ## Thin FRB API (native — locked shapes)
 
@@ -236,5 +238,5 @@ not `cargo check` alone. Web UX covered by Flutter injectable facade tests.
 - [ ] Pair args explicit; en→ru only in v1
 - [ ] Surface query; dict save separate
 - [ ] Typed errors including `InferenceFailed`
-- [ ] Quiet shell warm-up + process-wide `ensure`/`warmUp`; test escape hatch ([warmup.md](warmup.md))
+- [ ] Fullscreen shell gate (success/fail both dismiss, no SnackBar) + process-wide `ensure`/`warmUp`; test escape hatch skips gate ([warmup.md](warmup.md))
 - [ ] `cargo test` for TO-*; scaffold demo not abused

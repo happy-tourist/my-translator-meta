@@ -1,28 +1,29 @@
 ## Why
 
-При первом нажатии Translate в сессии приложения UI «замирает»: офлайн-модель OPUS-MT поднимается лениво только в этот момент (сотни MB assets + init движка). Повторные переводы быстрые, но после полного выхода и нового запуска зависание повторяется. Нужно прогревать движок тихо при старте и сохранить отзывчивый loading на кнопке, если tap случился раньше готовности — на Web, Windows и Android.
+При старте сессии cold init офлайн-модели OPUS-MT всё ещё делает UI недоступным, а тихий warm-up без splash не даёт честного сигнала. Параллельно в Reader split one-shot sync (время / глава+абзац) и chrome нижней панели мешают: пользователь хочет независимый скролл низа с памятью позиции, связанные только стрелки глав сверху, и нижнюю панель из одного текста.
 
 ## What Changes
 
-- Тихий фоновый warm-up offline translate после первого кадра **product shell** (Library/Vocab после открытия storage; native + Web).
-- Lazy init на Translate остаётся fallback: пока движок не ready — ждём на кнопке со spinner.
-- Cold path MUST NOT «замораживать» UI (кадры / жесты) на время загрузки и init.
-- Без splash и без отдельного статуса прогрева вне кнопки Translate.
+- **BREAKING (vs тихий warm-up в этом же change):** после открытия storage — **полноэкранный loading**, пока offline translate ensure/warm-up не завершится (успех или fail); Library/Vocab недоступны до снятия loader. Fail → снять loader и пустить в shell (ошибка потом на Translate).
+- Process-wide shared ensure / warm-up + lazy Translate со spinner на кнопке (уже заложено) остаются; cold-path yields на native сохраняются.
+- **BREAKING (`reader/split`):** убрать **весь** one-shot sync скролла/абзаца/времени при Show split, Load translation и open (субтитры и EPUB одинаково). Никогда не подгонять низ к верху.
+- Сохранять позицию **нижней** панели при скролле / Hide / pop; **persist** якоря перевода (Drift); при Show / reopen — восстановить низ из сохранённого, не из верха.
+- EPUB: стрелки глав **только на верхней** панели; переключают главу и внизу; при смене главы обе панели с **начала главы**. Нижний pager/title убрать.
+- Нижняя панель: **только текст** вплотную к divider (без delete-bar, title, pager). Delete translation — рядом с кнопкой split в AppBar.
 
 ## Scope
 
-- **Capability ID:** `translate/offline`
-- Продуктовое поведение прогрева и отзывчивости Translate (Add/Edit Vocab sheets и эквивалентные точки вызова через тот же facade).
-- Слои: Flutter facade / shell orchestration; Web Transformers.js worker bridge; native путь через существующий FRB init (без обязательной смены публичного bytes-контракта).
-- Платформы приёмки: **Web (Chrome), Windows, Android**.
+- **Capabilities:** `translate/offline`, `reader/split`, `reader/chapters`, `library/documents`
+- Warm-up UX: fullscreen gate после Drift open; platforms Web (Chrome), Windows, Android.
+- Reader split/book: desync scroll, linked top chapter pager, bottom text-only chrome, translation reading anchor persist.
+- Слои: Flutter shell / Reader / Drift repos; native+Web translate facade (без смены публичного FRB bytes-контракта).
 
 ## Out of scope
 
-- Смена модели / пары языков / облачный или AI translate.
-- Блокирующий splash «Готовим модель…» или постоянный индикатор в shell/settings.
-- Persist «уже прогретого» движка между процессами; OS-path к модели в публичном FRB API.
-- Предзагрузка при входе только в Reader (warm-up при старте app, не отложенный до Reader).
-- Изменения dictionary persist, reader gestures, parse/tokenize.
+- Смена модели / пары языков / облачный AI translate; OS-path к модели в FRB.
+- Persist split/divider; disk-cache модели между процессами.
+- Resume mid-chapter для **оригинала** EPUB сверх текущего LD-28 (chapter index) — не расширяем в этом change, кроме якоря **перевода**.
+- Realtime scroll mirroring; video-frame sync; dictionary/parse changes.
 
 ## Capabilities
 
@@ -32,18 +33,19 @@
 
 ### Modified Capabilities
 
-- `translate/offline`: фоновый warm-up при старте сессии; Translate при незавершённом init ждёт с живым loading; UI остаётся отзывчивым на cold path (Web + native).
+- `translate/offline`: fullscreen loading gate на старте сессии вместо тихого warm-up; shared ensure; Translate wait + spinner.
+- `reader/split`: без one-shot sync; preserve/restore нижней позиции; bottom pane text-only; delete у split в AppBar.
+- `reader/chapters`: chapter pager только сверху в split; top arrows двигают низ; смена главы → scroll к началу главы.
+- `library/documents`: persist якоря чтения **перевода** (скрытый translation document / эквивалент на original).
 
 ## Impact
 
-- Flutter: тихий warm-up после первого кадра **product shell** (не bootstrap открытия storage); общий process-wide ensure facade (native + Web); loading на Translate в Vocab/Reader; escape hatch warm-up для widget-тестов.
-- Web: явный warmup до первого translate с общим in-flight pipeline.
-- Native: без смены публичного FRB bytes→init; тяжёлый init не в app bootstrap; verify-only регрессия translate-тестов (без обязательного codegen).
-- Платформы приёмки и автопокрытие: Web (Chrome), Windows, Android; widget/facade на warm-up / wait / responsive cold path.
+- Flutter: `AppShell` / app bootstrap loading overlay; Reader `_toggleSplit` / sync helpers удалить или no-op; AppBar delete; Drift schema/repo для translation anchor; тесты TO/RS/RC/LD.
+- Web/native translate facade: без смены FRB API; warm-up уже есть — меняется UX gate.
+- Skills: `work-with-translate` / `warmup.md`, `work-with-reader` split-scroll / chapters, `work-with-drift`.
 
 ## References
 
-- Main spec: `openspec/specs/translate/offline/spec.md`
-- Archive: `openspec/changes/archive/2026-10-13-add-offline-opus-translate/`
-- Skills: `work-with-translate`, `work-with-pages` (shell), `work-with-env-deploy`; sibling app `AGENTS.md` (offline translate dual runtime)
-- Карта путей: `docs/projects-map.md`
+- Explore decisions (fullscreen loader; no sync; top-linked chapters; bottom persist; delete by split; text-only bottom).
+- Main specs: `translate/offline`, `reader/split`, `reader/chapters`, `library/documents`.
+- Карта путей: `docs/projects-map.md`.

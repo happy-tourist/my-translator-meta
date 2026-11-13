@@ -15,16 +15,16 @@ lib/app/app.dart
   → MaterialApp(theme: AppTheme.light, darkTheme: AppTheme.dark, themeMode: system)
 
 lib/app/shell.dart
-  → NavigationBar: Library | Vocabulary
+  → fullscreen loading gate until offline-translate ensure/warm-up settles
+  → NavigationBar: Library | Vocabulary (not built/interactive until gate dismissed)
   → inject Folder/Document/Dictionary repos + LemmaKeysForSurfacesFn
-  → (optional) quiet offline-translate warm-up after first post-frame
 ```
 
 | File | Role |
 |------|------|
 | `lib/app/app.dart` | `MaterialApp` + Drift open + post-open migrate + theme host |
 | `lib/app/theme.dart` | `AppTheme` + `ReaderColors` (`lemmaHighlight` light/dark) |
-| `lib/app/shell.dart` | Primary destinations + body outlet; offline-translate warm-up hook |
+| `lib/app/shell.dart` | Primary destinations + body outlet; offline-translate fullscreen loading gate |
 | `lib/main.dart` | Init + `runApp` only — no feature markup |
 
 ## Primary destinations
@@ -51,23 +51,30 @@ Library folder.
 - No account/auth gates, staff roles, or leave-mode chrome (out of scope).
 - No backend session; offline-first. Shell does not call remote APIs.
 
-## Offline translate warm-up
+## Offline translate fullscreen loading gate
 
-Quiet background warm-up of the offline gloss engine belongs on **product
-shell**, not on the Drift-open spinner in `TranslationReaderApp` and not inside
-`RustLib.init` / `init_app`:
+Engine warm-up gates the **product shell** behind a fullscreen loader —
+not the Drift-open spinner in `TranslationReaderApp`, not inside
+`RustLib.init` / `init_app` (design D1, revises the earlier quiet-only hook):
 
-- Start once after the **first post-frame** of `AppShell` (Library/Vocab
-  visible): `unawaited(warmUpOfflineTranslate())`.
+- After `AppShell` builds (Drift already open), run
+  `await warmUpOfflineTranslate()` and keep a fullscreen `Scaffold` +
+  `CircularProgressIndicator` on screen until it resolves. **Library/Vocab and
+  the bottom `NavigationBar` are not built** while the gate is up (TO-09) —
+  this is stronger than "quiet background": the shell is genuinely blocked,
+  because cold init already freezes interaction either way.
+- Success **or** failure both dismiss the gate (`setState` flips a `_gateDone`
+  flag) and show the product shell; failure MUST NOT show a SnackBar from the
+  gate itself (TO-13) — Translate reports the kind later.
 - Facade seam: `warmUpOfflineTranslate` / `ensureOfflineTranslateReady` (via
   `offline_translate_platform.dart`); share **one process-wide in-flight Future**
   with Translate (native + Web). Full rules:
   [work-with-translate/warmup.md](../../server/work-with-translate/warmup.md).
-- No splash / shell progress chrome for warm-up; warm-up errors stay quiet (no
-  SnackBar); button loading on Translate covers wait if the user taps early.
 - **Tests:** `AppShell` MUST expose an escape hatch (`enableOfflineTranslateWarmUp:
-  false` and/or skip auto warm-up when an injectable `offlineTranslate` is
-  passed) so `shell_test` and other mounts do not load model assets / FRB.
+  false` and/or skip the gate entirely when an injectable `offlineTranslate` is
+  passed) so `shell_test` and other mounts are interactive immediately, with no
+  gate and no model asset / FRB load (`test/features/shell_test.dart` TO-09 /
+  TO-13 escape-hatch cases).
 
 ## Navigation wiring
 

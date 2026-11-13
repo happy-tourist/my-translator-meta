@@ -9,18 +9,18 @@ Highlight: `work-with-reader` / `highlight.md`.
 
 | Surface | Path | Role |
 |---------|------|------|
-| Reader (cues / EPUB book-mode + split + tap + highlight) | `lib/features/reader/reader_screen.dart` | Stateful; cues **or** chapter paragraphs + bottom chapter pager; batch tokenize + mark; contiguous Add (phrase); in-vocab edit; AppBar split toggle (+ load/remove video for **subtitles** only); delete translation in bottom-pane top chrome |
+| Reader (cues / EPUB book-mode + split + tap + highlight) | `lib/features/reader/reader_screen.dart` | Stateful; cues **or** chapter paragraphs + chapter pager (top pane only in split); batch tokenize + mark; contiguous Add (phrase); in-vocab edit; AppBar split toggle **+ Delete translation** (+ load/remove video for **subtitles** only) |
 | Cue row | `lib/features/reader/cue_row.dart` | Timestamp + text; original pane token hit-targets + vocab highlight paint; under-frame embed: `showTimestamp: true` (file start→end), `padding: EdgeInsets.zero`, `keySuffix` (VF-04 / VF-12) |
 | Char slice helper | `lib/features/reader/cue_char_slice.dart` | Unicode scalar slice matching Rust char spans |
 | Tokenize / mark seams | `lib/features/reader/tokenize_cues_fn.dart` (+ mark / lemma-keys typedefs) | Injectable FRB seams for tests |
-| Nearest-time helper | `lib/features/reader/nearest_cue_index.dart` | Pure `nearestCueIndex` (`BigInt` `startMs`); one-shot Show / load translation (not page→translation) |
+| Nearest-time helper | `lib/features/reader/nearest_cue_index.dart` | Pure `nearestCueIndex` (`BigInt` `startMs`); used only to map a **persisted** translation anchor onto the current translation cue list — never to sync one pane from the other |
 | Time format | `lib/features/reader/cue_time_format.dart` | `HH:MM:SS,mmm` |
 | Video frame pages (`reader/video-frames`) | `lib/features/reader/video_frame_pages.dart` (+ `video_frame_page_math.dart`, `video_second_math.dart`, `cue_text_at_second.dart`, `video_frame_cache.dart`) | Vertical column of ≤3 frames + bottom pager **replacing** original cues; injectable extractor/cache |
 | Video extract facade | `lib/data/video/` (`video_frame_extractor*.dart`, `video_usable_path*.dart`, `reader_video_picker.dart`, `video_frame_errors.dart`) | Native FFmpegKit / web canvas; mirror translate platform split; no Rust video API |
 | Add-vocab sheet | local in `reader_screen.dart` (`_AddVocabSheet`) | Surface (single or phrase join) + translation + context → Drift (morph / phrase key) |
 | Edit-vocab sheet | local in `reader_screen.dart` | In-vocab tap: lemma/surface RO + translation/context + delete |
 | Highlight paint | `cue_row` + `ReaderColors` | `is_in_vocab` → `lemmaHighlight` theme token |
-| Split view (`reader/split` / EPUB chapters) | Reader **mode** (same screen; `scrollable_positioned_list` panes) | Subtitles: one-shot time-nearest on Show / load translation (no settle sync); EPUB: dual chapter indices + paragraph one-shot + per-pane pager; RS-10/11 scroll preserve on Show/Hide (subtitles **and** EPUB mid-chapter); resume via `initialReadingAnchor` (cue ms or original chapter index) |
+| Split view (`reader/split` / EPUB chapters) | Reader **mode** (same screen; `scrollable_positioned_list` panes) | Zero cross-pane sync (D9): each pane restores only its own anchor; EPUB chapter linked top→bottom only via the top pager (D10); RS-10/11/24 scroll preserve+persist on Show/Hide (subtitles **and** EPUB mid-chapter, both panes); resume via `initialReadingAnchor` **and** `initialTranslationReadingAnchor` |
 
 Reader is usually **pushed** from the library ([upload.md](upload.md)), not a
 shell tab. Ctor requires `dictionaryRepository` (Shell → Library → Reader).
@@ -36,14 +36,16 @@ shell tab. Ctor requires `dictionaryRepository` (Shell → Library → Reader).
 
 ### EPUB book-mode (current: `reader/chapters`)
 
-- `documentFormat == epub`: paragraph list of current chapter + **bottom
-  chapter pager**; no cue timestamps; no video chrome.
+- `documentFormat == epub`: paragraph list of current chapter + **chapter
+  pager** (bottom pane in single-pane mode; **top pane only** in split, D10);
+  no cue timestamps; no video chrome.
 - Library passes `originalChapters` (not empty-cue hack). Tokenize current
   chapter paragraphs; invalidate on chapter change.
-- Split: EPUB↔EPUB only; one-shot **chapter + paragraph** align on Show /
-  load, then **independent** chapter indices and paragraph scrolls per pane;
-  mismatch notice when chapter counts differ; silent clamp when paragraph
-  counts differ. Details: `work-with-reader` /
+- Split: EPUB↔EPUB only; **no** align on Show / Load (D9) — only the top
+  pager links the bottom's chapter (clamp) and rewinds **both** paragraph
+  lists to start (RC-10/12); bottom has no pager/title of its own (RC-11);
+  mismatch notice when chapter counts differ; silent clamp on restore when
+  paragraph counts differ. Details: `work-with-reader` /
   [chapters.md](../work-with-reader/chapters.md).
 
 ### Tap → vocabulary (current: `reader/tap`)
@@ -102,41 +104,48 @@ Engine details: meta `work-with-translate`.
 
 - Two panes: **original** and **translation**, typically stacked (mobile) or
   side-by-side (wide) — prefer stacked first unless a mock says otherwise.
+- **Zero cross-pane sync, always (design D9):** no align on Show split, Hide
+  split, successful load translation, or reopen. Each pane shows/restores
+  only **its own** position — never a jump derived from the other pane.
 - **Subtitles (`reader/split`):** translation = second subtitle file →
-  `parseSubtitles`. **One-shot** align by nearest `CueDto.startMs` (optional
-  pixel settle once) only on Show split or successful load while split on;
-  settle/fling MUST NOT move the other pane. Bottom empty + load until
-  attached. Persist via Drift. Errors: `ParseErrorKind`.
-- **EPUB:** translation = second `.epub` → `parseEpub`. One-shot clamp
-  translation chapter **and** jump paragraph list to clamped source index
-  on Show / load; then dual chapter indices
-  (`_originalChapterIndex` / `_translationChapterIndex`) + independent
-  paragraph scrolls; reject mixed families; unequal chapter counts → clamp +
-  notice; unequal paragraph counts → silent clamp.
-- **Delete** translation: bottom-pane top chrome only (not AppBar). AppBar keeps
-  the split toggle (+ video load/remove for **subtitles** when
-  `reader/video-frames`). Stuck link: Delete in that chrome, then Load.
-- **Show / Hide split:** preserve original scroll (capture top-visible →
-  post-frame `jumpTo`) for subtitle cues **and** EPUB mid-chapter paragraphs;
-  do not reset to cue/para 0 (RS-10, RS-11). Book panes use
-  `ScrollablePositionedList` (same package as cues), not bare `ListView`.
-  Distinct single vs split list Keys + `PageStorageKey` (cues:
-  `readerCueList` / `readerOriginalCueList`; book:
-  `readerBookParagraphList` / `readerOriginalBookParagraphList`) so PageStorage
-  does not clobber `initialScrollIndex`. One-shot jumps from the **captured**
-  anchor. With video pages, keep `VideoFramePages` / key outside the remount
-  branch so page state survives Show/Hide.
-- **Reading resume:** optional `initialReadingAnchor` from Library; restore
-  after layout; save on settle/dispose via `DocumentRepository.saveReadingAnchor`
-  (RS-12 / LD-17).
+  `parseSubtitles`. Bottom empty + load until attached; once attached it
+  starts at its own index 0 (fresh load) or its persisted anchor (reopen).
+  Persist via Drift (`saveReadingAnchor` on the translation's own document
+  id). Errors: `ParseErrorKind`.
+- **EPUB:** translation = second `.epub` → `parseEpub`. Chapter **index** is
+  linked top→bottom **only** by the **top** pager (prev/next) or at reopen
+  (clamp to the restored original chapter) — design D10; the bottom pane has
+  **no pager / chapter title of its own** (RC-11). A top-pager chapter
+  change rewinds **both** paragraph lists to index 0 (RC-12) — it is not a
+  captured-anchor jump. Reject mixed families; unequal chapter counts →
+  clamp + notice; unequal paragraph counts on restore → silent clamp.
+- **Delete** translation: **AppBar**, next to the split toggle (design D12) —
+  never bottom-pane chrome; visible whenever a translation is shown **or** a
+  stuck link exists. Bottom pane is text-only flush to the divider — no
+  delete bar, no title, no pager (RS-23).
+- **Show / Hide split:** each pane preserves/restores **its own** scroll
+  (capture top-visible → post-frame `jumpTo`) for subtitle cues **and** EPUB
+  mid-chapter paragraphs — top **and** bottom, independently; do not reset
+  either to cue/para 0 (RS-10, RS-11); Hide also persists the bottom's own
+  anchor immediately (RS-24). Book panes use `ScrollablePositionedList`
+  (same package as cues), not bare `ListView`. Distinct single vs split list
+  Keys + `PageStorageKey` (cues: `readerCueList` / `readerOriginalCueList`;
+  book: `readerBookParagraphList` / `readerOriginalBookParagraphList` /
+  `readerTranslationBookParagraphList`) so PageStorage does not clobber
+  `initialScrollIndex`. With video pages, keep `VideoFramePages` / key
+  outside the remount branch so page state survives Show/Hide.
+- **Reading resume:** `initialReadingAnchor` (original) **and**
+  `initialTranslationReadingAnchor` (translation, if linked) from Library;
+  each restores its own pane after layout; each pane saves its own anchor on
+  settle/Hide/dispose via `DocumentRepository.saveReadingAnchor` — same
+  generic method/columns for both document ids, no schema change (RS-12 /
+  RS-24 / LD-17 / LD-31/32 / design D11).
 - **Video frames (`reader/video-frames`):** attach/detach via Drift; Library open
   best-effort restores attachment; original pane = paged vertical triple
-  (replaces cues); page change MUST NOT sync translation (one-shot only via
-  Show / load translation) — details `work-with-reader` /
-  [video-frames.md](../work-with-reader/video-frames.md).
+  (replaces cues); page change MUST NOT sync translation — details
+  `work-with-reader` / [video-frames.md](../work-with-reader/video-frames.md).
 - **Target (later):** optional cue-index pairing when Rust supplies paired
-  lists — still one-shot unless a future change says otherwise; see
-  `work-with-reader` / `split-scroll.md`.
+  lists — see `work-with-reader` / `split-scroll.md`.
 - Toggle Reader ↔ Split from Reader chrome (app bar action or mode switch);
   same document session. Inject `DocumentRepository` (+ optional parse fn for
   tests) into Reader like Library — do not parse SRT in widgets.
