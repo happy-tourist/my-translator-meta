@@ -96,8 +96,13 @@ End-Implement-Change Progress:
 **Stopped:** нет | <blocker>
 ```
 
+## Субагенты / Task
+
+Если фаза делегируется через Task: **omit `model` always** (наследовать родителя). Канон: [`../../SUBAGENT-MODEL.md`](../../SUBAGENT-MODEL.md).
+
 ## Не делать
 
+- Не передавать `model` при Task.
 - Не спрашивать подтверждений.
 - Не править runtime вне update (update — только planning artifacts).
 - Не пропускать sync перед archive, если есть delta.

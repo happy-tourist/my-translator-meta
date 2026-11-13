@@ -72,6 +72,10 @@ Prepare-Mock Progress:
 
 Кратко: mock path, change, что записано в Visual Spec, Open Questions, next: propose/update/apply.
 
+## Субагенты / Task
+
+Если делегируют через Task: parent **MUST omit `model`**. Канон: [`../../SUBAGENT-MODEL.md`](../../SUBAGENT-MODEL.md).
+
 ## Не делать
 
 - Не выдумывать пиксели без макета.

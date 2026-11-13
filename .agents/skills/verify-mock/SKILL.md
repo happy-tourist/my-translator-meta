@@ -69,6 +69,10 @@ Flutter specifics: `ThemeData`/`TextTheme` vs hardcoded; `EdgeInsets` vs Spec pa
 - `lib/...` L…
 ```
 
+## Субагенты / Task
+
+Если запускают через Task из `implement-change`: parent **MUST omit `model`**. Канон: [`../../SUBAGENT-MODEL.md`](../../SUBAGENT-MODEL.md).
+
 ## Не делать
 
 - Не править код в standalone без просьбы.

@@ -84,6 +84,8 @@ Align-Change Progress:
 
 Каждый субагент: (1) выполнить дочерний скилл; (2) затем дословно **«Добавь и поправь что считаешь нужным»** — правки только **meta**; не runtime; не ждать подтверждения. Вернуть verdict + что поправлено или `HUMAN_BLOCKER`.
 
+**HARD — модель:** Task/субагент — **omit `model` always** (наследовать родителя). `model` только если пользователь в этом ходе явно назвал модель. Канон: [`../../SUBAGENT-MODEL.md`](../../SUBAGENT-MODEL.md).
+
 Порядок **фиксирован**: back → front → meta.
 
 ### Финальный отчёт
@@ -102,6 +104,7 @@ Align-Change Progress:
 
 ## Не делать
 
+- Не передавать `model` при Task (см. `SUBAGENT-MODEL.md`).
 - Не пропускать фазы «чтобы быстрее».
 - Не запускать propose / apply / implement-change / commit / archive.
 - Не править runtime `lib/` / `rust/`.

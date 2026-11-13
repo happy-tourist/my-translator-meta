@@ -80,9 +80,14 @@ Demo `process_text` / `add_numbers` are unrelated — do not grow them into MT.
   `generation_config.json` / `tokenizer_config.json` for Transformers.js local
   load). Worker: `web/translate_worker.js`; bridge: `web/translate_bridge.js`
   (script in `web/index.html`); lib pin under `web/transformers/`.
-- Native load: Flutter `AssetBundle` bytes → FRB
-  `init_offline_translate(Vec<OfflineModelAsset { name, bytes }>)`.
-  Public API MUST NOT take OS model paths.
+- Native **product** load (design D8 revised / D13): Flutter extracts required
+  **flat** basenames from `AssetBundle` →
+  `getApplicationSupportDirectory()/opus-mt-en-ru` (reuse by size heuristic;
+  chunked write + yields; `path_provider`) → FRB
+  `init_offline_translate_from_dir(model_dir)` → ORT `Session` from files.
+  Bytes `init_offline_translate(Vec<OfflineModelAsset { name, bytes }>)` MAY
+  remain for unit tests / compat — MUST NOT be the product cold path
+  (avoids ~200MB Dart→FRB encode stall; TO-11 / TO-14).
 - Cargo: ORT/tokenizer deps under
   `[target.'cfg(not(target_arch = "wasm32"))'.dependencies]`
   (`ort` 2.0.0-rc.14; `tokenizers` with `fancy-regex`, no default `onig`;
@@ -130,7 +135,7 @@ Rules:
 
 ```text
 my_translator_app/rust/src/
-  api/translate.rs     # thin FRB: init_offline_translate, translate_text, kinds
+  api/translate.rs     # thin FRB: init_offline_translate_from_dir (+ bytes), translate_text, kinds
   translate/           # OfflineTranslator impl(s), ORT session, errors
   tokenize/ lemmatize/ # peers — not owned here
   frb_generated.rs     # GENERATED — never edit
@@ -140,10 +145,10 @@ my_translator_app/rust/src/
 api (FRB) → translate → (ORT session; no dict writes)
 Flutter facade (lib/data/translate/):
   offline_translate_platform → createPlatform + ensure/warmUpOfflineTranslate
-  offline_translate_native.dart       # process-wide ensure + chunked AssetBundle
+  offline_translate_native.dart       # process-wide ensure + extract→path init
   offline_translate_web.dart          # js_interop; awaits ensure before translate
   offline_translate_web_ensure.dart   # VM-testable shared Future (no js_interop)
-  warm-up: AppShell post-frame → warmUpOfflineTranslate (see warmup.md)
+  warm-up: AppShell fullscreen gate → warmUpOfflineTranslate (see warmup.md)
 UI: Vocab + Reader sheets inject OfflineTranslateFn
     (archive add-offline-opus-translate design D4; not warm-up D4)
 ```
@@ -156,23 +161,26 @@ UI: Vocab + Reader sheets inject OfflineTranslateFn
 Summary: **fullscreen loading gate** in `AppShell` blocks Library/Vocab until
 `warmUpOfflineTranslate` resolves (success or fail — no SnackBar from the gate
 either way; design D1); `ensureOfflineTranslateReady` is process-wide and
-shared with Translate; native cold path uses chunked AssetBundle own-copy +
-yields (no `Isolate.run` on bundle views); Web uses bridge `warmup` + one
-worker `translatorPromise`. Widget-test escape hatch skips the gate entirely.
-Public FRB stays bytes→`init_offline_translate`.
-Canon: OpenSpec `translate/offline` (TO-09…TO-13).
+shared with Translate; native cold path **extract → app-local dir →
+`init_offline_translate_from_dir`** with chunked disk write + yields (no
+`Isolate.run` on bundle views; bytes FRB not the product path); Web uses
+bridge `warmup` + one worker `translatorPromise`. Widget-test escape hatch
+skips the gate entirely.
+Canon: OpenSpec `translate/offline` (TO-09…TO-14).
 
 ## Thin FRB API (native — locked shapes)
 
 | Export | Responsibility |
 |--------|----------------|
-| `init_offline_translate` | `Vec<OfflineModelAsset>` → `Result<(), TranslateErrorKind>` |
+| `init_offline_translate_from_dir` | `model_dir: String` → `Result<(), TranslateErrorKind>` — **product** cold path |
+| `init_offline_translate` | `Vec<OfflineModelAsset>` → `Result<(), TranslateErrorKind>` — tests / compat |
 | `translate_text` | `text, source_lang, target_lang` → `Result<TranslationResult, TranslateErrorKind>` |
 | `is_offline_translate_ready` | `() -> bool` — skip re-init when session already live |
 
 `TranslationResult { primary_gloss: String }` — non-empty on `Ok`.
 
-Keep `api/` free of file-path I/O; only named bytes.
+Thin `api/` maps `model_dir` / named bytes into `translate/`; ORT file I/O
+lives in the domain module (`from_model_dir` / `from_assets`).
 
 ## Errors
 
@@ -221,9 +229,9 @@ not `cargo check` alone. Web UX covered by Flutter injectable facade tests.
 |-------|--------|
 | Cloud/AI as default gloss | Offline OPUS path; AI later, separate |
 | ORT linked into wasm32 FRB | target-conditional deps + stubs |
-| Model OS paths on FRB | Flutter bytes → `init_offline_translate` |
+| Product cold path = full ONNX bytes→FRB | Extract → `init_offline_translate_from_dir`; bytes init MAY for tests |
 | Heavy load in `init_app` | Session warm-up after first UI frame + shared ensure ([warmup.md](warmup.md)); lazy init on Translate as fallback (still not in `init_app`) |
-| `Isolate.run` on AssetBundle model bytes | Chunked own-copy + yields on UI isolate ([warmup.md](warmup.md)) |
+| `Isolate.run` on AssetBundle model bytes | Chunked disk write + yields on UI isolate ([warmup.md](warmup.md)) |
 | Gloss logic in `api/` or Dart (native) | `translate/` + thin export |
 | Auto-save every lookup | Explicit dict Add/Save |
 | Phrase = join of word glosses | One `translate_text` |
@@ -234,7 +242,7 @@ not `cargo check` alone. Web UX covered by Flutter injectable facade tests.
 
 - [ ] Offline-only path; no required API keys
 - [ ] Native = Rust ORT; Web = Transformers.js exception documented
-- [ ] `init_offline_translate` + `translate_text`; wasm stubs
+- [ ] `init_offline_translate_from_dir` (product) + bytes `init_offline_translate` (tests) + `translate_text`; wasm stubs
 - [ ] Pair args explicit; en→ru only in v1
 - [ ] Surface query; dict save separate
 - [ ] Typed errors including `InferenceFailed`

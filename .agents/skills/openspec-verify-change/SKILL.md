@@ -201,3 +201,5 @@ Use clear markdown with:
 **WARNING:** нет тестов на новые SC из tasks; нет `flutter analyze` / `cargo test` прогона из tasks или явного skip.
 
 Ссылки на файлы в отчёте: `lib/...` / `rust/...` (Flutter UI и Rust core).
+
+**Task/субагенты:** omit `model` (наследовать родителя). Канон: [`../../SUBAGENT-MODEL.md`](../../SUBAGENT-MODEL.md).

@@ -382,6 +382,7 @@ But this summary is optional. Sometimes the thinking IS the value.
 
 ## Guardrails
 
+- If this skill (or a parent) launches Task/subagents: **omit `model` always** (inherit parent). Canon: [`../../SUBAGENT-MODEL.md`](../../SUBAGENT-MODEL.md)
 - **Don't implement** - Never write code or implement features. Workflow configuration counts too: creating or editing schemas, templates, or `openspec/config.yaml` is a change, not thinking. Creating or updating OpenSpec change artifacts within the confirmed scope is fine, writing anything else is not.
 - **Don't fake understanding** - If something is unclear, dig deeper
 - **Don't rush** - Discovery is thinking time, not task time

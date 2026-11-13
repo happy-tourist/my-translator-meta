@@ -84,6 +84,7 @@ After each invocation, show:
 - Where the change stands and the recommended next command
 
 **Guardrails**
+- If launched via Task/subagent (or launching further Tasks): **omit `model`** (inherit parent). Canon: [`../../SUBAGENT-MODEL.md`](../../SUBAGENT-MODEL.md)
 - Planning artifacts only - NEVER edit implementation code. If the revised plan implies code changes, stop and point to `/openspec-apply-change`.
 - Use the artifact ids and paths reported by `openspec status`; never branch on hardcoded artifact names.
 - Edit only the concrete files in `existingOutputPaths`; never write to a glob `resolvedOutputPath`.

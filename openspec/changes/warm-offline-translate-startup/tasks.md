@@ -7,7 +7,7 @@
 
 - [x] 2.1 В `offline_translate_native.dart` вынести module-level ensure для warm-up+translate; при уже `isOfflineTranslateReady` — no-op — verify: повторный warm-up не зовёт повторный `initOfflineTranslate` зря
 - [x] 2.2 Смягчить UI-block на cold load (design D3: yield кадра → sequential asset `await` → chunked copy + yields; FRB init остаётся async) — verify: widget/facade тест или pump-тест TO-11 показывает кадры/interaction во время fake slow init
-- [x] 2.3 **Rust verify-only (design D8):** не менять публичный FRB `init_offline_translate` / `translate_text` / `is_offline_translate_ready` и не класть ORT в `init_app`; из `{app}/rust` прогнать `cargo test` (модуль translate / релевантные) — verify: тесты зелёные; API surface без нового bytes/OS-path контракта
+- [x] 2.3 **Rust verify-only (design D8 v1):** на момент v1 не менять публичный FRB bytes-контракт и не класть ORT в `init_app`; `cargo test` translate зелёные — **superseded for product path by §11 / D8 revised + D13** (bytes MAY remain for tests)
 
 ## 3. Web worker warm-up
 
@@ -48,3 +48,11 @@
 
 - [x] 10.1 Flutter-тесты: TO-09/13 gate; RS no-sync + bottom restore; RC linked pager; LD translation anchor; обновить/удалить тесты, ожидавшие one-shot — verify: релевантный `flutter test` green
 - [x] 10.2 `flutter analyze` (+ `cargo test` translate smoke если трогали rust) по затронутым путям — verify: clean
+
+## 11. Native responsive cold path (path/dir; keep gate)
+
+- [x] 11.1 Rust/FRB: path/dir init для offline translate (design D8 revised / D13); не класть ORT в `init_app`; bytes-init MAY оставить для тестов — verify: `cargo test` TO-14 success + missing file → EngineUnavailable; codegen сгенерирован
+- [x] 11.2 Flutter native facade: extract/copy required model assets → app-local dir с yields (reuse если уже на месте); product `ensure`/`warmUp` зовёт path init, не полный bytes→FRB — verify: unit/facade тест; ensure не стартует второй тяжёлый extract при ready
+- [x] 11.3 Сохранить fullscreen gate (D1); не возвращать тихий-only default — verify: shell_test TO-09/13 по-прежнему green
+- [x] 11.4 TO-11: живой loader на native cold path (не fake-only) — verify: тест/набл. что UI isolate не блокируется полным ONNX bytes encode; анимация/кадры во время extract+path init
+- [x] 11.5 Регрессия: `flutter test` (shell + translate + reader), `flutter analyze`, `cargo test` translate; Web smoke не обязателен для path-only, но ensure web warmup не сломан — verify: green / analyze clean

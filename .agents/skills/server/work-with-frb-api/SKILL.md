@@ -107,7 +107,7 @@ they specify):
 | **tokenize** | Batch `tokenize_cues` → word tokens + char spans + morph fields | Shipped (`api/tokenize.rs`) |
 | **dictionary** | (not FRB persist) | User CRUD = Drift; do not add Rust SQLite dict API unless OpenSpec says so |
 | **lemmatize / mark** | `lemma_key` fill + `mark_vocab_tokens` (morph + phrase) + `lemma_keys_for_surfaces` | Shipped (`lemmatize/` + thin exports on `api/tokenize.rs`) |
-| **translate** | Offline gloss: `init_offline_translate` + `translate_text` (OPUS native; see `work-with-translate`) | Web uses JS facade — not these FRB calls; wasm stubs OK |
+| **translate** | Offline gloss: `init_offline_translate_from_dir` (product) + bytes `init_offline_translate` (tests) + `translate_text` (OPUS native; see `work-with-translate`) | Web uses JS facade — not these FRB calls; wasm stubs OK |
 | **(later) AI** | Optional explain/translate | Only when product opts in; still thin `api/` |
 
 Register each new file in `api/mod.rs` (`pub mod parse;`, …).

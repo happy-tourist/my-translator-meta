@@ -42,6 +42,10 @@
 
 Детали и перечень: [`.agents/AGENTS.md`](.agents/AGENTS.md).
 
+## Субагенты / Task (модель)
+
+**HARD:** при Task/субагенте **не** передавать `model` — наследовать родителя. Полный канон: [`.agents/SUBAGENT-MODEL.md`](.agents/SUBAGENT-MODEL.md).
+
 ## Сборка и команды
 
 Команды `flutter` / `cargo` / FRB codegen запускает **агент** из каталога sibling `my_translator_app` (для Rust — из `rust/` или с `-C rust`). Не ждать подтверждения пользователя; при падении — починить до завершения задачи.

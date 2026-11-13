@@ -111,8 +111,13 @@ Check-Changes Progress:
 ## Вне scope / заметки
 ```
 
+## Субагенты / Task
+
+Если скилл запускают через Task из `implement-change`: parent **MUST omit `model`**. Канон: [`../../SUBAGENT-MODEL.md`](../../SUBAGENT-MODEL.md).
+
 ## Не делать
 
+- Не передавать `model` при Task (если сам кого-то делегирует).
 - Не редактировать skills в этом прогоне без отдельной просьбы.
 - Не анализировать staged/branch commits как основной scope.
 - Не сканировать два sibling-репо client/server — только **app**.

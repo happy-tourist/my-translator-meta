@@ -117,8 +117,13 @@ Scope: flutter + rust | flutter-only | rust-only
 - выполненные flutter/cargo команды и результаты
 ```
 
+## Субагенты / Task
+
+Если проход Flutter/Rust делегируется через Task: **omit `model` always** (наследовать родителя). Канон: [`../../SUBAGENT-MODEL.md`](../../SUBAGENT-MODEL.md).
+
 ## Не делать
 
+- Не передавать `model` при Task.
 - Не подтягивать skills из чужих продуктов/репо — только `.agents/skills/client/` и `.agents/skills/server/` этого meta.
 - Не смешивать findings слоёв без меток Flutter/Rust.
 - Не запускать `commit` из этого скилла.

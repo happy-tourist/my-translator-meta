@@ -253,6 +253,7 @@ Prepare **не** заменяет explore (мышление) и **не** зам�
 
 ## Guardrails
 
+- Если запускаете Task/субагентов: **omit `model` always** (наследовать родителя). Канон: [`../../SUBAGENT-MODEL.md`](../../SUBAGENT-MODEL.md)
 - Не создавать каталоги в `openspec/changes/` и не писать proposal/specs/design/tasks из этого скилла
 - Не дробить «по репозиторию» или «по skill-файлу»
 - Не предлагать срез без проверяемого результата

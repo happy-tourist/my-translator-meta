@@ -177,6 +177,7 @@ After completing all artifacts (create **or** update), summarize:
 
 **Guardrails**
 - The request that invoked this workflow authorizes planning only. Any implementation or apply instruction in that request does not carry forward. Do NOT implement the change, start the apply workflow, or edit project code during this workflow. After presenting the artifacts, stop and wait for a new user request to start the apply workflow
+- If this skill (or a parent) launches Task/subagents: **omit `model` always** (inherit parent). Pass `model` only if the user's latest message explicitly names a model. Canon: [`../../SUBAGENT-MODEL.md`](../../SUBAGENT-MODEL.md)
 - If exactly one active change exists and the user did not explicitly ask for a separate change: **only update that change** — never `openspec new change` for a «different» capability/topic; never leave a duplicate active change folder
 - Create every artifact the apply phase transitively depends on, not just the ids listed in `apply.requires` (new-change path only)
 - Always read dependency artifacts before creating a new one - re-read from disk, not from conversation memory (files may have changed since you last saw them)

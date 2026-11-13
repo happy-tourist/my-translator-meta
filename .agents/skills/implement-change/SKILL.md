@@ -149,8 +149,11 @@ flutter run -d chrome --web-port=5555 \
 
 Новый субагент на фазу; `run_in_background: false` (кроме финального web-smoke, который MAY оставить `flutter run` в фоне для пользователя); контекст: change, пути meta/app (`lib/`, `rust/`).
 
+**HARD — модель:** Task/субагент — **omit `model` always** (наследовать родителя). Не ставить Claude/GPT/… «для качества». Передавать `model` только если пользователь **в этом ходе** явно назвал модель. Канон: [`../../SUBAGENT-MODEL.md`](../../SUBAGENT-MODEL.md).
+
 ## Не делать
 
+- Не передавать `model` при Task (см. выше / `SUBAGENT-MODEL.md`).
 - Не сливать align и verify в один субагент внутри этого оркестратора.
 - Не пропускать align / verify / check / commit / web-smoke.
 - Не verify-mock без gate.

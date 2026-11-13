@@ -46,6 +46,7 @@ context: |
   align-meta, align-change, prepare-mock, verify-mock, check-changes, prepare-changes,
   implement-change, end-implement-change, commit).
   AGENTS.md — индекс docs/, OpenSpec и .agents/skills/.
+  Task/subagent model HARD: omit `model` (inherit parent) — see .agents/SUBAGENT-MODEL.md.
   Пакетный контекст: ../my_translator_app/AGENTS.md.
   При /opsx-apply: читать applyContextFiles из этого config.yaml помимо contextFiles из CLI.
   При /opsx-verify: читать verifyContextFiles и следовать rules.verify из этого config.yaml.

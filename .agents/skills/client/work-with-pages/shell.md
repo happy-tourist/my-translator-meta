@@ -61,8 +61,10 @@ not the Drift-open spinner in `TranslationReaderApp`, not inside
   `await warmUpOfflineTranslate()` and keep a fullscreen `Scaffold` +
   `CircularProgressIndicator` on screen until it resolves. **Library/Vocab and
   the bottom `NavigationBar` are not built** while the gate is up (TO-09) —
-  this is stronger than "quiet background": the shell is genuinely blocked,
-  because cold init already freezes interaction either way.
+  this is stronger than "quiet background": the shell is genuinely blocked
+  until ready/fail. Native cold path is extract→path init (not full
+  ONNX bytes→FRB); still yield so the gate spinner can paint — see
+  [warmup.md](../../server/work-with-translate/warmup.md).
 - Success **or** failure both dismiss the gate (`setState` flips a `_gateDone`
   flag) and show the product shell; failure MUST NOT show a SnackBar from the
   gate itself (TO-13) — Translate reports the kind later.

@@ -164,6 +164,7 @@ What would you like to do?
 ```
 
 **Guardrails**
+- When a parent orchestrator launches this skill via Task/subagent: that parent **MUST omit `model`** (inherit). Canon: [`../../SUBAGENT-MODEL.md`](../../SUBAGENT-MODEL.md). If *this* run launches further Task calls, omit `model` the same way.
 - Keep going through tasks until done or blocked
 - Always read context files before starting (from the apply instructions output)
 - If task is ambiguous, pause and ask before implementing

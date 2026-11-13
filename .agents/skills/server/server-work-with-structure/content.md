@@ -105,9 +105,10 @@ malformed files; no UI string tables.
 **tokenize_lemmatize** — language-aware split; lemma for each token;
 stable ids for highlight paint; morphology match for vocab keys.
 
-**translate** — native ORT OPUS-MT EN→RU (`init_offline_translate` /
-`translate_text`); Web MT is Flutter/JS behind `lib/data/translate/` (not
-this crate). Optional AI later as a separate adapter — do not fold into ORT.
+**translate** — native ORT OPUS-MT EN→RU (`init_offline_translate_from_dir`
+product / bytes `init_offline_translate` tests / `translate_text`); Web MT is
+Flutter/JS behind `lib/data/translate/` (not this crate). Optional AI later as
+a separate adapter — do not fold into ORT.
 
 **api** — mirror the compute table above; keep functions short; map domain
 errors to FRB-friendly messages/codes (error-handling skill when present).
