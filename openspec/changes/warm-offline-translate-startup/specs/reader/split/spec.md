@@ -1,17 +1,18 @@
 # Delta: reader/split
 
-Базовый контракт: `openspec/specs/reader/split/spec.md`. Убрать one-shot sync; preserve/persist низ **и** mid-chapter верх (EPUB); text-only bottom; Delete у split в AppBar.
+Базовый контракт: `openspec/specs/reader/split/spec.md`. Убрать one-shot sync; preserve/persist низ **и** mid-chapter верх (EPUB); text-only bottom; Delete у split в AppBar. **D16:** Show/open/reopen MUST NOT rewind к началу главы при известном якоре.
 
 ## Traceability
 
 | SC-ID | Scenario | Test intent |
 |-------|----------|-------------|
 | RS-04…RS-24 | see scenarios below | Flutter widget + Drift as noted |
+| RS-25 | Show/open remount keeps mid-chapter (no false jump to 0) | Flutter widget: mid → Show → still mid (wheel or drag); not para 0 |
 
 ## MODIFIED Requirements
 
 ### Requirement: Toggle horizontal split on Reader
-Система SHALL позволять включать/выключать горизонтальный split (верх — оригинал, низ — перевод). По умолчанию — одна панель. При выключении split перевод остаётся в сессии до delete/exit. При **включении и выключении** split система MUST сохранять позицию прокрутки **верхней** панели оригинала и, если перевод загружен, позицию **нижней** панели (без sync низа к верху). Persist split on/off между сессиями не требуется.
+Система SHALL позволять включать/выключать горизонтальный split (верх — оригинал, низ — перевод). По умолчанию — одна панель. При выключении split перевод остаётся в сессии до delete/exit. При **включении и выключении** split система MUST сохранять позицию прокрутки **верхней** панели оригинала и, если перевод загружен, позицию **нижней** панели (без sync низа к верху). Remount панелей (смена list key single↔split) MUST NOT сбрасывать видимую область к **началу текущей главы**, если session/Drift якорь (или только что захваченный top-visible) указывает mid-chapter; MUST NOT выполнять one-shot sync низа к верху. Persist split on/off между сессиями не требуется.
 
 #### Scenario [RS-01]: Toggle split shows empty bottom pane
 - **GIVEN** Reader открыт для оригинального документа без привязанного перевода
@@ -24,14 +25,19 @@
 - **THEN** показывается только одна панель с оригиналом; при повторном включении split перевод снова доступен без повторной загрузки в той же сессии
 
 #### Scenario [RS-10]: Show split preserves original scroll
-- **GIVEN** Reader в режиме одной панели, оригинал прокручен не к началу
+- **GIVEN** Reader в режиме одной панели, оригинал (EPUB или subtitle) прокручен не к началу главы/файла
 - **WHEN** пользователь включает режим split
-- **THEN** верхняя панель продолжает показывать ту же область оригинала, а не сбрасывается к началу; низ не one-shot sync к верху
+- **THEN** верхняя панель продолжает показывать ту же область оригинала, а не сбрасывается к началу главы; низ не one-shot sync к верху; нет обязательного программного rewind к paragraph/cue 0
 
 #### Scenario [RS-11]: Hide split preserves original scroll
 - **GIVEN** Reader в режиме split, верх и (при наличии перевода) низ прокручены не к началу
 - **WHEN** пользователь выключает режим split, затем включает снова
 - **THEN** единственная/верхняя панель оригинала сохраняет область; при повторном Show низ восстанавливает **свою** сохранённую позицию, не sync к верху
+
+#### Scenario [RS-25]: EPUB Show remount does not jump to chapter start
+- **GIVEN** EPUB book-режим, оригинал mid-chapter (не paragraph 0), в сессии есть или нет перевода
+- **WHEN** пользователь включает split (remount верхней панели)
+- **THEN** верх остаётся mid-chapter (не paragraph 0); при наличии перевода низ восстанавливает **свой** якорь, не начало главы и не якорь верха
 
 ### Requirement: Load translation into bottom pane
 В пустой нижней панели система SHALL предоставлять действие загрузки файла перевода с устройства. Для **subtitle**-оригинала допустимы те же subtitle-типы, что при import в Library; при успехе система SHALL показать cues перевода и сохранить linked translation (`library/documents`) **без** one-shot sync к верху. Для **EPUB**-оригинала система SHALL принимать **только** `.epub`; при успехе SHALL показать book-режим перевода и сохранить linked EPUB translation **без** one-shot align к верху. Несовместимый формат MUST дать заметную ошибку без привязки. Пока перевод загружен/linked, система SHALL предоставлять удаление **в AppBar рядом со split**, MUST NOT в верхней зоне нижней панели. Когда перевод показан, нижняя панель MUST быть text-only вплотную к divider (без title/pager/delete bar). При ошибке загрузки/парсинга — заметная ошибка без содержимого перевода; верх остаётся доступным.
@@ -75,7 +81,7 @@
 - **THEN** нижняя панель **не** выравнивается к якорю верха; при наличии сохранённой позиции низа она восстанавливается; последующий скролл любой панели не двигает другую
 
 ### Requirement: Resume reading position when reopening original
-Если у оригинального документа сохранён якорь чтения (persist — `library/documents`), система SHALL восстановить позицию **оригинала** по формату (subtitle time+alignment; EPUB **chapter + mid-chapter paragraph (+ alignment)** — LD-28 / LD-33). Open MUST показать сохранённую область сразу (seed / initial position), MUST NOT «подскролливать» к началу главы и MUST NOT sync к другой панели. При наличии linked translation система SHALL также восстановить якорь **нижней** панели из persist перевода **без** one-shot sync низа к верху. Show/Hide split MUST сохранять позиции оригинала и низа независимо. Persist режима split и divider не требуется. Сбой якоря MUST NOT блокировать open.
+Если у оригинального документа сохранён якорь чтения (persist — `library/documents`), система SHALL восстановить позицию **оригинала** по формату (subtitle time+alignment; EPUB **chapter + mid-chapter paragraph (+ alignment)** — LD-28 / LD-33). Open MUST показать сохранённую область сразу (seed / initial position), MUST NOT «подскролливать» к началу главы и MUST NOT sync к другой панели. Session seed MUST обновляться при завершении пользовательской прокрутки (включая wheel/trackpad, не только drag), чтобы dispose/pop не сохранял stale paragraph 0 для верха. При наличии linked translation система SHALL также восстановить якорь **нижней** панели из persist перевода **без** one-shot sync низа к верху. Show/Hide split MUST сохранять позиции оригинала и низа независимо. Persist режима split и divider не требуется. Сбой якоря MUST NOT блокировать open.
 
 #### Scenario [RS-12]: Reopen resumes at saved original anchor
 - **GIVEN** пользователь ранее читал оригинал не с начала, якорь сохранён, приложение снова открывает этот оригинал в Reader

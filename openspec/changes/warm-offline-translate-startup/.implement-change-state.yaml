@@ -1,5 +1,5 @@
 change: warm-offline-translate-startup
-phase: commit
+phase: check
 apply_block: null
 blocker: null
-updated: "2026-11-13T22:00:00+05:00"
+updated: "2026-11-16T14:15:00+05:00"

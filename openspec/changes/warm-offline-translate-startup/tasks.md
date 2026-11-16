@@ -65,3 +65,10 @@
 - [x] 12.2 Reader book original: capture mid-chapter на settle/pop; seed `_bookOriginalInitialScrollIndex` / alignment на open; **не** rewind к началу главы на reopen (RS-12 / LD-33); pager `_goToChapter` по-прежнему к 0 (RC-12) — verify: widget reopen mid-chapter; Hide→Show без регрессии
 - [x] 12.3 Убрать fixed `chapter.title` chrome у панели оригинала; оставить текст + pager стрелки/`n / N` (D15; RC-01/13) — verify: widget — нет title chrome key; pager keys на месте
 - [x] 12.4 Тесты + `flutter analyze` по затронутым путям (LD-33, RS-12, RC-13; регрессия bottom LD-31/32) — verify: green / analyze clean
+
+## 13. Bugfix: Show/open preserve + pager rewind (D16)
+
+- [x] 13.1 Show/Hide/open remount: не подставлять paragraph 0 при пустом capture — держать session seed; после attach восстановить mid-chapter без rewind к началу главы (RS-10/11/25; design D16 A) — verify: widget mid → Show → still mid
+- [x] 13.2 Pager `_goToChapter`: гарантировать paragraph 0 при смене/повторном визите главы (убрать/обойти PageStorage или generation key + jumpTo(0)) (RC-12/14; D16 B) — verify: mid → next → back → para 0
+- [x] 13.3 Обновлять session seed (и persist) на scroll-end без требования dragDetails — wheel/trackpad не теряет верх при pop (RS-12 / LD-33; D16 C) — verify: wheel mid → dispose/reopen top mid (или unit seed update)
+- [x] 13.4 Тесты RS-25 / RC-14 + регрессия RS-10/11, LD-33, zero-sync; `flutter analyze` — verify: green

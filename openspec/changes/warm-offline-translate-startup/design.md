@@ -6,6 +6,8 @@ Explore (до path-fix): на **native** gate-spinner был «мёртвый» 
 
 Explore (Reader, 2026-11-13): при reopen низ EPUB помнит mid-chapter, верх — глава с абзаца 0 (LD-28 only). Решение: persist верха **как низа** (абзац + alignment); убрать fixed `chapter.title` chrome; pager оставить. Не sync и не «подскролл» на open — только запомнить и открыть на месте.
 
+Explore (Reader, 2026-11-16): после §12 в UI всё ещё Show/open → начало главы; reopen часто только низ; pager возвращает mid-chapter главы (PageStorage перебивает `initialScrollIndex: 0`). D16 — багфикс restore/remount.
+
 Платформы: Web (Chrome), Windows, Android. Фокус freeze-fix: **native**. Reader delta: Flutter/Drift.
 
 ## Goals / Non-Goals
@@ -15,7 +17,7 @@ Explore (Reader, 2026-11-13): при reopen низ EPUB помнит mid-chapter
 - Fullscreen loading после Drift open до ready/fail; затем shell (**gate остаётся**).
 - Shared process-wide ensure; Translate wait + spinner.
 - **Native:** во время gate `CircularProgressIndicator` остаётся живым (кадры) — не блокировать UI isolate полным bytes transfer модели.
-- Reader: zero sync; bottom persist; **original EPUB mid-chapter persist/restore**; top-only linked pager; text-only bottom; **original без fixed title chrome**; Delete у split.
+- Reader: zero sync; bottom persist; **original EPUB mid-chapter persist/restore**; top-only linked pager; text-only bottom; **original без fixed title chrome**; Delete у split; **D16** — Show/open не rewind к 0; pager всегда к 0.
 
 **Non-Goals:**
 
@@ -54,8 +56,8 @@ Explore (Reader, 2026-11-13): при reopen низ EPUB помнит mid-chapter
 | Native facade | `lib/data/translate/offline_translate_native.dart` (+ helpers): extract assets → app support/cache dir с yield; вызвать path/dir FRB init |
 | FRB / Rust | `rust/src/api/translate.rs` + `translate/`: init from OS paths / model dir; ORT `Session` from files; codegen |
 | Web | без обязательных правок worker |
-| Reader / Drift | D9–D12 (уже) + **D14 mid-chapter original** + **D15 title chrome** |
-| Tests | TO-11; Rust path-init; shell gate; LD-33 / RS-12 / RC-13 |
+| Reader / Drift | D9–D12 (уже) + **D14 mid-chapter original** + **D15 title chrome** + **D16 restore/remount** |
+| Tests | TO-11; Rust path-init; shell gate; LD-33 / RS-10/12 / RC-12/13 + D16 |
 
 ### D6 — Warm-up / gate errors
 
@@ -63,7 +65,7 @@ Explore (Reader, 2026-11-13): при reopen низ EPUB помнит mid-chapter
 
 ### D7 — Тесты
 
-- TO-09/13 gate; TO-10; **TO-11 живой индикатор на native cold path**; TO-14 path init; RS/RC/LD + **LD-33 / RS-12 mid-chapter original / RC-13**.
+- TO-09/13 gate; TO-10; **TO-11 живой индикатор на native cold path**; TO-14 path init; RS/RC/LD + **LD-33 / RS-10/12 / RC-12–13 / D16**.
 
 ### D8 — Rust / FRB (**REVISED**)
 
@@ -112,6 +114,31 @@ Zero one-shot sync; top-linked chapter; translation reading anchor; bottom text-
 
 Точки: `lib/features/reader/reader_screen.dart`; виджет-тесты RC-01/RC-13 (нет key `readerBookChapterTitle_*` / аналог).
 
+### D16 — Надёжный preserve на Show/open + pager rewind (NEW, bugfix)
+
+**Симптомы (ручной UI после §12):**
+
+1. Show / open панели EPUB → глава уезжает к **началу** (хотя intent — оставить место).
+2. Exit→reopen → часто помнит только **низ**; верх снова с paragraph 0.
+3. Pager next/prev → не с начала главы, а к **ранее запомненному** mid-chapter этой главы.
+
+**Корни (гипотезы, закрыть в коде):**
+
+| # | Механизм | Эффект |
+|---|----------|--------|
+| A | Show remount меняет list key (`readerBookParagraphList` ↔ `readerOriginalBookParagraphList`); restore = `_topVisible ?? 0` + `jumpTo` | пустой/ложный capture → **jump к 0** (выглядит как «скролл к началу») |
+| B | `PageStorageKey('…_$chapterIndex')` переживает визит главы | `_goToChapter` ставит seed 0, но PageStorage **перебивает** `initialScrollIndex` |
+| C | Settle-persist только при `dragDetails != null` | wheel/trackpad не обновляет seed; dispose force пишет stale 0 для верха |
+
+**Выбор фикса:**
+
+1. **Show/Hide/open:** перед remount всегда иметь актуальный session seed (capture когда list attached; не подставлять 0 при неизвестной позиции — сохранять предыдущий seed). Restore после attach MUST восстановить seed (initialScrollIndex и/или jumpTo); MUST NOT оставлять визуальный rewind к началу главы при ненулевом seed. Не sync между панелями.
+2. **Pager (RC-12):** гарантировать paragraph 0 после смены главы: убрать/обойти PageStorage для book lists **или** ключ с generation на каждый `_goToChapter`, **и/или** post-frame `jumpTo(0)` после remount (не полагаться только на `initialScrollIndex: 0`).
+3. **Seed freshness:** обновлять session seed (и MAY persist) на любом user scroll-end, не только drag — чтобы wheel не терял верх при pop.
+4. Тесты: RS-10/11 с mid-chapter после remount; RC-12 повторный визит главы → снова 0; LD-33 reopen верх+низ; регрессия zero-sync.
+
+**Не менять:** no one-shot sync низа к верху; linked pager chapter clamp; title chrome снят (D15).
+
 ## Risks / Trade-offs
 
 | Risk | Mitigation |
@@ -123,6 +150,9 @@ Zero one-shot sync; top-linked chapter; translation reading anchor; bottom text-
 | Web регрессия | Не трогать worker без нужды; smoke `:5555`+COOP/COEP |
 | Drift migration | Nullable column; old anchors degrade gracefully |
 | Title was only chapter cue | Pager `n / N` остаётся; content may include heading paragraphs |
+| PageStorage vs initialScrollIndex | D16: generation key / drop PageStorage / jumpTo(0) on pager |
+| Wheel без drag settle | D16: seed на любом scroll-end |
+| jumpTo race с tokenize | Уже известен; pager jumpTo(0) — короткий post-frame, тесты без hang |
 
 ## Migration Plan
 
@@ -132,7 +162,8 @@ Zero one-shot sync; top-linked chapter; translation reading anchor; bottom text-
 - Reader zero-sync / bottom — уже в коде.
 - **D14:** Drift migrate + Reader seed; старые EPUB якоря без paragraph → paragraph 0.
 - **D15:** UI-only; без data migration.
+- **D16:** только Reader remount/seed/PageStorage; schema без изменений.
 
 ## Open Questions
 
-Нет — gate оставлен; path init выбран; mid-chapter original = как низ (D14); title chrome снят, pager оставлен (D15).
+Нет — gate оставлен; path init выбран; mid-chapter original = как низ (D14); title chrome снят (D15); D16 bugfix restore подтверждён explore 2026-11-16.

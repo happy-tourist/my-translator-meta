@@ -12,7 +12,8 @@
 | RC-06 | Restore chapter (+ mid-chapter via LD-33) | Flutter: reopen → chapter; paragraph via reader/split / library |
 | RC-10 | Top arrows move bottom | Flutter |
 | RC-11 | No pager on translation pane | Flutter |
-| RC-12 | Rewind both lists on chapter change | Flutter |
+| RC-12 | Rewind both lists on chapter change | Flutter: next→0; revisit chapter → still 0 (not PageStorage mid) |
+| RC-14 | Revisit chapter starts at paragraph 0 | Flutter widget: scroll mid → other chapter → back → para 0 |
 | RC-13 | Original has no fixed chapter title | Flutter widget: title chrome absent; pager arrows remain |
 
 ## MODIFIED Requirements
@@ -62,12 +63,17 @@
 - **THEN** prev/next и `n / N` на низу отсутствуют
 
 ### Requirement: Chapter change rewinds paragraph lists to top
-При смене главы через верхний pager в split система MUST показать начало главы на верхе и на низу (index 0), не сохраняя mid-chapter scroll offset для этого переключения.
+При смене главы через верхний pager (single или split) система MUST показать начало **новой** главы на верхе и, если перевод загружен в split, на низу (paragraph index 0). Система MUST NOT восстанавливать прежний mid-chapter offset этой главы из PageStorage / session cache при этом переключении (отдельно от Drift resume при **open** документа).
 
 #### Scenario [RC-12]: Chapter change rewinds both lists to top
 - **GIVEN** split EPUB, прокрутка абзацев не в начале наверху и/или внизу
 - **WHEN** пользователь переключает главу стрелками сверху
 - **THEN** списки абзацев верха и низа показывают начало новой главы
+
+#### Scenario [RC-14]: Revisit chapter still starts at paragraph 0
+- **GIVEN** EPUB book-режим, пользователь на главе 1 прокрутил mid-chapter, затем перешёл на главу 2
+- **WHEN** пользователь возвращается на главу 1 стрелками pager
+- **THEN** список абзацев главы 1 показывает начало главы (paragraph 0), а не прежний mid-chapter offset
 
 ### Requirement: Original book pane has no fixed chapter title chrome
 Панель оригинала в book-режиме (single и split top) MUST NOT показывать закреплённый заголовок главы над списком абзацев. Система SHALL сохранять chapter pager (стрелки и `n / N`) у низа этой панели.

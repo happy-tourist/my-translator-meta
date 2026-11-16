@@ -45,9 +45,10 @@ and passes chapter payloads — do **not** push EPUB as empty `originalCues`.
    chapter cannot bind onto the next. Show/Hide split remount (without a
    chapter change) MUST **preserve** each pane's **own** mid-chapter
    paragraph scroll (RS-10/11/24) — capture/restore + distinct single/split
-   list Keys / `PageStorageKey` (`readerBookParagraphList` vs
-   `readerOriginalBookParagraphList` vs `readerTranslationBookParagraphList`),
-   not leave at para 0.
+   list Keys (`readerBookParagraphList` vs
+   `readerOriginalBookParagraphList` vs `readerTranslationBookParagraphList`)
+   and book `ValueKey` + generation (not `PageStorageKey`; D16 B / RC-14);
+   empty capture keeps the prior session seed (D16 A / RS-25), not para 0.
 4. **No align on Show split / Load EPUB translation** (design D9, RS-19 /
    RS-20): the bottom pane never jumps to clamp(original chapter) +
    original's paragraph on Show or on a fresh Load — it keeps/seeds its
@@ -84,7 +85,7 @@ in book mode; subtitle CueRow path stays WidgetSpan.
 |-------|----------------|
 | Drift columns | `lastReadStartMs` = chapter; `lastReadParagraphIndex` = mid-chapter paragraph (schema 8 / LD-33); `lastReadAlignment` = list leading edge |
 | Meaning | 0-based **chapter index** in `startMs` (not milliseconds) + optional paragraph |
-| Save | Settle / dispose: capture top-visible original paragraph + alignment with chapter (`_persistReadingAnchor`; `force: true` → session seed if list unmounted). Pager change: `_persistBookChapterAnchor(chapter, paragraph: 0)` — do **not** re-capture the old list mid-chapter (RC-12) |
+| Save | Settle / dispose: capture top-visible original paragraph + alignment with chapter (`_persistReadingAnchor`; `force: true` → session seed if list unmounted). Arm settle via `UserScrollNotification` + refresh session seed on scroll-end (wheel/trackpad, D16 C). Pager change: bump `_bookParagraphListGeneration` + `_persistBookChapterAnchor(chapter, paragraph: 0)` — do **not** re-capture the old list mid-chapter and do **not** post-frame `jumpTo(0)` (RC-12/14) |
 | Restore | Clamp chapter; seed `_bookOriginalInitialScrollIndex` / alignment from `paragraphIndex` (null → 0); open via `initialScrollIndex` (no jumpTo race). Translation chapter clamps to original (D10); bottom paragraph restores from the translation's **own** anchor — no scroll sync (RS-12 / LD-32) |
 
 Subtitle documents keep cue `startMs` semantics. Call sites must be

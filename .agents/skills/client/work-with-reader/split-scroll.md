@@ -106,9 +106,10 @@ original-pane capture — and seed that pane's own
 (`_restoreTranslationCueScroll`, retries like the original). **Hide** also
 persists the bottom's anchor immediately (`_persistTranslationReadingAnchor(force:
 true)`) since its list is about to dispose. Use **distinct list Keys** for
-single vs split original (`readerCueList` vs `readerOriginalCueList`) plus
-matching `PageStorageKey` slots so PageStorage from one mode does not override
-the other's `initialScrollIndex`.
+single vs split original (`readerCueList` vs `readerOriginalCueList`) so one
+mode does not override the other's `initialScrollIndex`. When capture is
+empty, **keep the prior session seed** — never collapse to cue 0 (D16 A /
+RS-25).
 
 **EPUB book-mode:** Show/Hide remounts `_buildBookPane` ↔ `_buildBookSplitBody`
 and disposes the original paragraph list — capture top-visible **paragraph**
@@ -117,8 +118,12 @@ for the bottom), seed each pane's own `initialScrollIndex`/`initialAlignment`,
 post-frame `jumpTo` on remount (RS-10/11, `_restoreTranslationBookScroll` for
 the bottom). Distinct Keys: `readerBookParagraphList` (single) vs
 `readerOriginalBookParagraphList` (split top) vs
-`readerTranslationBookParagraphList` (split bottom), with
-`PageStorageKey('${listKeyPrefix}_$chapterIndex')`. **Neither** direction
+`readerTranslationBookParagraphList` (split bottom). Book
+`ScrollablePositionedList` keys are `ValueKey('${listKeyPrefix}_${chapter}_$generation')`
+(**not** `PageStorageKey`) so revisiting a chapter cannot restore a prior
+mid-chapter offset (D16 B / RC-14); bump `_bookParagraphListGeneration` on
+every top-pager `_goToChapter`. Empty capture MUST NOT overwrite a mid
+session seed with paragraph 0 (D16 A / RS-25). **Neither** direction
 aligns the bottom's chapter or paragraph to the top (D9) — Show restores the
 bottom's own seed; Hide persists it. Changing chapter via the top pager still
 remounts both panes' lists → rewind to start of chapter (RC-02/RC-12) and
@@ -150,8 +155,8 @@ translation document row's `lastReadStartMs`/`lastReadAlignment` (D11 — no
 | Restore (original, EPUB) | Clamp chapter; seed `_bookOriginalInitialScrollIndex` / alignment from `paragraphIndex` (null → 0) via list `initialScrollIndex` (RS-12 / LD-33) |
 | Restore (translation, subtitles) | `_seedTranslationAnchor()` from translation cue `startMs` — not derived from original |
 | Restore (translation, EPUB) | Clamp paragraph into `clamp(_originalChapterIndex)` chapter (D10 link at reopen only) |
-| Save (subtitles) | Each pane on settle + Hide/dispose (`force: true`); if list already unmounted, fall back to that pane's session seed (RS-24) |
-| Save (EPUB) | Original: settle/dispose capture paragraph+alignment with chapter (**force** → session seed if unmounted); pager → `_persistBookChapterAnchor(…, paragraph: 0)` (RC-12). Translation: settle / Hide / dispose with the same **force fallback** (LD-32) |
+| Save (subtitles) | Each pane on settle + Hide/dispose (`force: true`); if list already unmounted, fall back to that pane's session seed (RS-24). Arm settle via per-pane `UserScrollNotification` flags (drag/wheel/trackpad), not `dragDetails` alone (D16 C) |
+| Save (EPUB) | Original: settle/dispose capture paragraph+alignment with chapter (**force** → session seed if unmounted); `_refreshSessionSeedFromCapture` on scroll-end before persist (D16 C); pager → bump `_bookParagraphListGeneration` + `_persistBookChapterAnchor(…, paragraph: 0)` — **no** post-frame `jumpTo(0)` (RC-12/14). Translation: settle / Hide / dispose with the same **force fallback** (LD-32) |
 
 Do **not** derive one pane's save/restore value from the other's.
 
@@ -230,6 +235,11 @@ Subtitle split MAY keep the older setState divider path.
 | `translationController.jumpTo(original.offset)` or any cross-pane jump | Jump each pane only from its own captured/persisted anchor |
 | Bare `ListView` for EPUB paragraphs under split | Book `ScrollablePositionedList` + per-pane capture/restore (RS-10/11/24) |
 | Same Key / PageStorage slot for single↔split lists | Distinct Keys (`readerCueList`/`readerOriginalCueList`; book `readerBookParagraphList`/`readerOriginalBookParagraphList`/`readerTranslationBookParagraphList`) |
+| Book `PageStorageKey` by chapter only | `ValueKey` + `_bookParagraphListGeneration` so pager revisit starts at para 0 (D16 B / RC-14) |
+| Post-frame `jumpTo(0)` on `_goToChapter` | Generation key + `initialScrollIndex: 0` only — `jumpTo(0)` races tokenize / hangs tests |
+| Shared `_userInitiatedScroll` for both panes | Per-pane flags (`_originalUserInitiatedScroll` / `_translationUserInitiatedScroll`) so dual-pane scroll-end does not drop the second settle |
+| Empty capture → seed index 0 on Show/Hide | Keep prior session seed (D16 A / RS-25) |
+| Settle-persist only when `dragDetails != null` | `UserScrollNotification` so wheel/trackpad updates seed (D16 C) |
 | Inventing a Rust pairing API for split | Two `parseSubtitles` / `parse_epub` + Flutter-only index/time clamp |
 | Delete translation in bottom-pane chrome | AppBar, next to split toggle (D12) |
 | Fixed `chapter.title` chrome on original, or title/pager on bottom | Original: pager only (D15 / RC-13); bottom: text-only (RC-11) |

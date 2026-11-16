@@ -128,14 +128,19 @@ Engine details: meta `work-with-translate`.
 - **Show / Hide split:** each pane preserves/restores **its own** scroll
   (capture top-visible → post-frame `jumpTo`) for subtitle cues **and** EPUB
   mid-chapter paragraphs — top **and** bottom, independently; do not reset
-  either to cue/para 0 (RS-10, RS-11); Hide also persists the bottom's own
-  anchor immediately (RS-24). Book panes use `ScrollablePositionedList`
-  (same package as cues), not bare `ListView`. Distinct single vs split list
-  Keys + `PageStorageKey` (cues: `readerCueList` / `readerOriginalCueList`;
-  book: `readerBookParagraphList` / `readerOriginalBookParagraphList` /
-  `readerTranslationBookParagraphList`) so PageStorage does not clobber
-  `initialScrollIndex`. With video pages, keep `VideoFramePages` / key
-  outside the remount branch so page state survives Show/Hide.
+  either to cue/para 0 (RS-10, RS-11); empty capture keeps the prior session
+  seed (D16 A / RS-25). Hide also persists the bottom's own anchor
+  immediately (RS-24). Book panes use `ScrollablePositionedList` (same
+  package as cues), not bare `ListView`. Distinct single vs split list Keys
+  (cues: `readerCueList` / `readerOriginalCueList`; book:
+  `readerBookParagraphList` / `readerOriginalBookParagraphList` /
+  `readerTranslationBookParagraphList`). Book lists use `ValueKey` +
+  `_bookParagraphListGeneration` (**not** `PageStorageKey`) so pager
+  revisit starts at para 0 (D16 B / RC-14). Settle-persist arms on
+  `UserScrollNotification` (wheel/trackpad included, D16 C). With video
+  pages, keep `VideoFramePages` / key outside the remount branch so page
+  state survives Show/Hide. Details: `work-with-reader` /
+  [split-scroll.md](../work-with-reader/split-scroll.md).
 - **Reading resume:** `initialReadingAnchor` (original) **and**
   `initialTranslationReadingAnchor` (translation, if linked) from Library;
   each restores its own pane after layout; each pane saves its own anchor on
