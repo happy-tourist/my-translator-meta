@@ -115,8 +115,8 @@ RS-25).
 and disposes the original paragraph list — capture top-visible **paragraph**
 index + leading edge **per pane** before `setState` (`_captureBookTranslationAnchor()`
 for the bottom), seed each pane's own `initialScrollIndex`/`initialAlignment`,
-post-frame `jumpTo` on remount (RS-10/11, `_restoreTranslationBookScroll` for
-the bottom). Distinct Keys: `readerBookParagraphList` (single) vs
+then restore via `_scheduleBookPaneRemountRestore` / `_restoreTranslationBookScroll`
+(RS-10/11 / **D17**). Distinct Keys: `readerBookParagraphList` (single) vs
 `readerOriginalBookParagraphList` (split top) vs
 `readerTranslationBookParagraphList` (split bottom). Book
 `ScrollablePositionedList` keys are `ValueKey('${listKeyPrefix}_${chapter}_$generation')`
@@ -129,6 +129,35 @@ bottom's own seed; Hide persists it. Changing chapter via the top pager still
 remounts both panes' lists → rewind to start of chapter (RC-02/RC-12) and
 MUST clear the Show/Hide preserve seed for both panes so the new chapter does
 not reopen mid-list.
+
+### EPUB Show/Hide remount restore harden (D17)
+
+Do **not** stop after ~8 attach retries. Android remount can attach/layout
+much later; tokenize/`CueRow` rebuild can wipe scroll after the first
+`jumpTo`. Pattern in `ReaderScreen`:
+
+1. **Epoch + pending window:** bump `_bookRemountRestoreEpoch`, set
+   `_bookRemountRestorePending`, clear per-pane
+   `_bookRemountUserScrolledOriginal` / `_bookRemountUserScrolledTranslation`.
+2. **Attach + layout wait:** `_scheduleBookPaneRemountRestore` retries until
+   `ItemScrollController.isAttached` **and**
+   `ItemPositionsListener.itemPositions` is non-empty (or
+   `_kBookRemountRestoreMaxAttempts`, ~48). Last resort: `jumpTo` if
+   attached without positions, then still double post-frame.
+3. **Double post-frame re-apply:** after a successful `jumpTo`, re-run the
+   same seed on the next two frames (sheet-style) so split resize cannot
+   leave paragraph 0.
+4. **Tokenize re-seed:** after chapter tokenize/mark `setState`, call
+   `_reapplyBookSeedsAfterTokenizeIfRemounting` while pending — each pane
+   jumps **its own** session seed if attached.
+5. **Hold pending past attach:** clear pending only after
+   `maxAttempts + _kBookRemountTokenizeHoldFrames` so late tokenize still
+   re-applies.
+6. **User gesture wins per pane:** `UserScrollNotification` during pending
+   sets that pane's scrolled flag only; programmatic restore MUST stop on
+   **that** pane and never fight the sibling (expectation 4 / RS-26).
+7. **Tests:** extra `_pumpFrames` (not `pumpAndSettle`) for slow attach;
+   RS-26 covers Hide→Show keeping **both** EPUB panes mid-chapter.
 
 When implementing `reader/video-frames` (**subtitle docs only**), original
 pane is either the cue list **or** `VideoFramePages` (not both). Keep the
@@ -211,8 +240,9 @@ Subtitle split MAY keep the older setState divider path.
 | Empty translation pane (MVP) | Show empty + load CTA; top pane scrolls alone |
 | Show split after scroll (subtitles) | Restore original top-visible cue (RS-10); restore bottom's **own** saved/seeded anchor if translation present (RS-18/24) — no sync |
 | Hide split after scroll (subtitles) | Same capture+`jumpTo` per pane (RS-11); persist bottom's own anchor; do not reset either to 0 |
-| Show split after scroll (EPUB mid-chapter) | Restore original paragraph index (RS-10); restore bottom's **own** anchor at its (linked-on-reopen) chapter (RS-19/24) — no chapter/paragraph align to top |
-| Hide split after scroll (EPUB mid-chapter) | Same capture+`jumpTo` per pane (RS-11); persist bottom's own anchor; do not reset either to para 0 |
+| Show split after scroll (EPUB mid-chapter) | Restore original paragraph index (RS-10 / D17 attach+layout+double post-frame); restore bottom's **own** seed (RS-19/24) — no chapter/paragraph align to top |
+| Hide split after scroll (EPUB mid-chapter) | Same capture+hardened remount restore per pane (RS-11 / D17); persist bottom's own anchor; do not reset either to para 0 |
+| Hide→Show both EPUB panes mid (RS-26) | Both keep own mid after remount; bottom not synced to top; user scroll aborts restore on that pane only (D17) |
 | Unequal EPUB paragraph counts on restore | Silent clamp to last available (RS-22); no error chrome |
 | Reopen from Library | Subtitles: each pane's own cue `startMs`; EPUB: original chapter **+ mid-chapter paragraph** + bottom paragraph at clamp(original chapter); fail on either → open at top / empty bottom; no sync |
 | Delete translation | AppBar, next to split toggle (D12) — never bottom-pane chrome |
@@ -239,6 +269,8 @@ Subtitle split MAY keep the older setState divider path.
 | Post-frame `jumpTo(0)` on `_goToChapter` | Generation key + `initialScrollIndex: 0` only — `jumpTo(0)` races tokenize / hangs tests |
 | Shared `_userInitiatedScroll` for both panes | Per-pane flags (`_originalUserInitiatedScroll` / `_translationUserInitiatedScroll`) so dual-pane scroll-end does not drop the second settle |
 | Empty capture → seed index 0 on Show/Hide | Keep prior session seed (D16 A / RS-25) |
+| EPUB remount restore giving up after ~8 frames | Attach+layout wait (~48) + double post-frame + tokenize re-seed while pending (D17) |
+| Cross-pane abort of remount restore on any scroll | Per-pane `_bookRemountUserScrolled*` — only the scrolled pane stops (D17) |
 | Settle-persist only when `dragDetails != null` | `UserScrollNotification` so wheel/trackpad updates seed (D16 C) |
 | Inventing a Rust pairing API for split | Two `parseSubtitles` / `parse_epub` + Flutter-only index/time clamp |
 | Delete translation in bottom-pane chrome | AppBar, next to split toggle (D12) |

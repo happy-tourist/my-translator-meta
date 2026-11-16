@@ -8,6 +8,8 @@ Explore (Reader, 2026-11-13): при reopen низ EPUB помнит mid-chapter
 
 Explore (Reader, 2026-11-16): после §12 в UI всё ещё Show/open → начало главы; reopen часто только низ; pager возвращает mid-chapter главы (PageStorage перебивает `initialScrollIndex: 0`). D16 — багфикс restore/remount.
 
+Explore (Android, 2026-11-16): после D16 на устройстве mid верх+низ → Show → **оба** к началу главы. Продуктовые ожидания подтверждены (keep mid; скролл верха не двигает низ; низ помнит своё; автоскролл только pager). D17 — harden remount/`jumpTo` restore.
+
 Платформы: Web (Chrome), Windows, Android. Фокус freeze-fix: **native**. Reader delta: Flutter/Drift.
 
 ## Goals / Non-Goals
@@ -56,8 +58,8 @@ Explore (Reader, 2026-11-16): после §12 в UI всё ещё Show/open → 
 | Native facade | `lib/data/translate/offline_translate_native.dart` (+ helpers): extract assets → app support/cache dir с yield; вызвать path/dir FRB init |
 | FRB / Rust | `rust/src/api/translate.rs` + `translate/`: init from OS paths / model dir; ORT `Session` from files; codegen |
 | Web | без обязательных правок worker |
-| Reader / Drift | D9–D12 (уже) + **D14 mid-chapter original** + **D15 title chrome** + **D16 restore/remount** |
-| Tests | TO-11; Rust path-init; shell gate; LD-33 / RS-10/12 / RC-12/13 + D16 |
+| Reader / Drift | D9–D12 + D14–D16 + **D17 Android remount restore** |
+| Tests | TO-11; Rust path-init; shell gate; LD-33 / RS-10/12/25/26 / RC-12–14 + D16/D17 |
 
 ### D6 — Warm-up / gate errors
 
@@ -65,7 +67,7 @@ Explore (Reader, 2026-11-16): после §12 в UI всё ещё Show/open → 
 
 ### D7 — Тесты
 
-- TO-09/13 gate; TO-10; **TO-11 живой индикатор на native cold path**; TO-14 path init; RS/RC/LD + **LD-33 / RS-10/12 / RC-12–13 / D16**.
+- TO-09/13 gate; TO-10; **TO-11 живой индикатор на native cold path**; TO-14 path init; RS/RC/LD + **LD-33 / RS-10/12/25/26 / RC-12–14 / D16–D17**.
 
 ### D8 — Rust / FRB (**REVISED**)
 
@@ -139,6 +141,36 @@ Zero one-shot sync; top-linked chapter; translation reading anchor; bottom text-
 
 **Не менять:** no one-shot sync низа к верху; linked pager chapter clamp; title chrome снят (D15).
 
+### D17 — Android remount restore harden (NEW)
+
+**Канон ожиданий (подтверждено разработчиком):**
+
+1. Верх mid → Show нижней панели → верх **остаётся** mid.
+2. Скролл верха **не** двигает низ (и наоборот) — zero sync.
+3. Низ mid → Hide→Show (или повторное открытие панели) → низ **на том же** mid.
+4. Скролл меняется только от жеста пользователя — **кроме** п.5.
+5. Pager: глава сверху и снизу + rewind к началу главы — единственный автоскролл.
+
+**Симптом после D16:** на Android (1)+(3)+(4) ломаются: оба mid → Show → оба paragraph 0. Intent D16 верный; **реализация restore после remount** на устройстве недостаточна.
+
+**Корни:**
+
+| # | Механизм | Эффект на Android |
+|---|----------|-------------------|
+| D | Show/Hide remount меняет list keys; один post-frame + **≤8** retry `jumpTo` пока `!isAttached` | attach/layout/tokenize медленнее → give up → визуально paragraph 0 |
+| E | `jumpTo` сразу после attach, до стабильных размеров split pane | SPL может сесть не на seed |
+| F | Поздний `setState` tokenize после Show | rebuild может перебить уже восстановленную позицию |
+
+**Выбор фикса (Flutter `reader_screen.dart` only):**
+
+1. Harden `_toggleSplit` book restore (верх и низ): ждать attach **и** готовность layout; увеличить/заменить фиксированный лимит 8 кадров на условие (attached + optional size) или больше попыток + двойной post-frame (как sheet restore).
+2. После успешного attach: `jumpTo(seed)` для original и translation независимо; seed не затирать нулём.
+3. Если tokenize/`setState` после Show может сбросить scroll — повторно применить seed (лёгкий re-restore), **без** sync между панелями.
+4. Не менять zero-sync и pager rewind (D16 B / RC-12).
+5. Тесты: RS-26 Hide→Show **оба** mid; усилить RS-10/25; по возможности задержка/много `pump` имитирует медленный attach; ручной smoke Android.
+
+**Acceptance (ручной Android):** mid верх → Show → верх mid; scroll верх → низ стоит; mid низ → Hide→Show → низ mid; pager → оба к 0 новой главы.
+
 ## Risks / Trade-offs
 
 | Risk | Mitigation |
@@ -152,7 +184,8 @@ Zero one-shot sync; top-linked chapter; translation reading anchor; bottom text-
 | Title was only chapter cue | Pager `n / N` остаётся; content may include heading paragraphs |
 | PageStorage vs initialScrollIndex | D16: generation key / drop PageStorage / jumpTo(0) on pager |
 | Wheel без drag settle | D16: seed на любом scroll-end |
-| jumpTo race с tokenize | Уже известен; pager jumpTo(0) — короткий post-frame, тесты без hang |
+| jumpTo race с tokenize | D16/D17: generation без jumpTo(0) на pager; Show — retry + optional re-restore |
+| Android remount timing | D17: longer/conditional retry; double post-frame; test with extra pumps |
 
 ## Migration Plan
 
@@ -163,7 +196,8 @@ Zero one-shot sync; top-linked chapter; translation reading anchor; bottom text-
 - **D14:** Drift migrate + Reader seed; старые EPUB якоря без paragraph → paragraph 0.
 - **D15:** UI-only; без data migration.
 - **D16:** только Reader remount/seed/PageStorage; schema без изменений.
+- **D17:** только harden Show/Hide restore timing; schema без изменений.
 
 ## Open Questions
 
-Нет — gate оставлен; path init выбран; mid-chapter original = как низ (D14); title chrome снят (D15); D16 bugfix restore подтверждён explore 2026-11-16.
+Нет — ожидания пользователя = канон; D17 = Android remount restore bugfix.

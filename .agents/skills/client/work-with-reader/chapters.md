@@ -122,7 +122,8 @@ format-gated.
 - [ ] Paragraph list; top-pane-only chapter pager in split (no fixed title on
       original, RC-13; no pager/title on bottom, RC-11); chapter change
       remounts + rewinds **both** lists to para 0 (RC-10/12); Show/Hide
-      preserves **each pane's own** mid-chapter scroll
+      preserves **each pane's own** mid-chapter scroll (D17 harden —
+      [split-scroll.md](split-scroll.md))
 - [ ] Dual chapter indices; **no** align to original on Show / Load (D9);
       bottom chapter clamps to original only at reopen (D10)
 - [ ] Tokenize/mark current chapter; invalidate on chapter switch

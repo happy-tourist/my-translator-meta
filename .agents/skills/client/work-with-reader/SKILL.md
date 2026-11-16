@@ -155,8 +155,11 @@ Details: [tap.md](tap.md).
 - **Show / Hide split:** remounting a list resets its scroll — capture that
   pane's own top-visible anchor and `jumpTo` on remount (RS-10/11) for
   **both top and bottom**, subtitles and EPUB book alike; Hide also persists
-  the bottom's own anchor immediately. With video, keep `VideoFramePages` /
-  key outside remount ([video-frames.md](video-frames.md)).
+  the bottom's own anchor immediately. EPUB book remount uses D17 harden
+  (attach+layout wait, double post-frame, tokenize re-seed while pending,
+  per-pane user-scroll abort) — [split-scroll.md](split-scroll.md). With
+  video, keep `VideoFramePages` / key outside remount
+  ([video-frames.md](video-frames.md)).
 - **Reading resume (RS-24 / LD-31…33):** Library loads `ReadingAnchor` for
   **both** original and (if linked) translation document ids →
   `initialReadingAnchor` **and** `initialTranslationReadingAnchor`; subtitles
@@ -180,7 +183,7 @@ Details: [split-scroll.md](split-scroll.md).
 | Long lines | Wrap; token hit-test still correct |
 | No translation yet (MVP) | Single-pane OK; split shows empty + load CTA; top scrolls alone |
 | Toggle split Show/Hide (subtitles) | Each pane preserves/restores its own top-visible cue across remount; no sync (RS-10/11/18/24) |
-| Toggle split Show/Hide (EPUB book) | Each pane preserves/restores its own mid-chapter paragraph scroll; empty capture keeps session seed (D16 A / RS-25); no align to the other (RS-10/11/19/24) |
+| Toggle split Show/Hide (EPUB book) | Each pane preserves/restores its own mid-chapter paragraph scroll; empty capture keeps session seed (D16 A / RS-25); D17 hardened remount (attach+layout wait, double post-frame, tokenize re-seed, per-pane user-scroll abort); no align to the other (RS-10/11/19/24 / RS-26) |
 | Revisit EPUB chapter via pager | Both panes at paragraph 0 — `ValueKey` + generation, not PageStorage mid (D16 B / RC-14) |
 | Reopen document | Subtitles: each pane's own cue `startMs` + alignment; EPUB: original chapter + mid-chapter paragraph + bottom paragraph at clamp(original); fail on either must not block open (RS-12/24 / LD-31…33); wheel/trackpad settle updates seed (D16 C) |
 | EPUB unequal chapter counts | Clamp; show `mismatchedEpubChapterCountMessage` |

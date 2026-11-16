@@ -1,6 +1,6 @@
 # Delta: reader/split
 
-Базовый контракт: `openspec/specs/reader/split/spec.md`. Убрать one-shot sync; preserve/persist низ **и** mid-chapter верх (EPUB); text-only bottom; Delete у split в AppBar. **D16:** Show/open/reopen MUST NOT rewind к началу главы при известном якоре.
+Базовый контракт: `openspec/specs/reader/split/spec.md`. Убрать one-shot sync; preserve/persist низ **и** mid-chapter верх (EPUB); text-only bottom; Delete у split в AppBar. **D16/D17:** Show/Hide/open MUST NOT rewind к началу главы при известном якоре (в т.ч. медленный remount / Android).
 
 ## Traceability
 
@@ -8,11 +8,12 @@
 |-------|----------|-------------|
 | RS-04…RS-24 | see scenarios below | Flutter widget + Drift as noted |
 | RS-25 | Show/open remount keeps mid-chapter (no false jump to 0) | Flutter widget: mid → Show → still mid (wheel or drag); not para 0 |
+| RS-26 | Hide→Show keeps both panes mid-chapter | Flutter widget: both mid → Hide → Show → both still mid (extra pumps OK) |
 
 ## MODIFIED Requirements
 
 ### Requirement: Toggle horizontal split on Reader
-Система SHALL позволять включать/выключать горизонтальный split (верх — оригинал, низ — перевод). По умолчанию — одна панель. При выключении split перевод остаётся в сессии до delete/exit. При **включении и выключении** split система MUST сохранять позицию прокрутки **верхней** панели оригинала и, если перевод загружен, позицию **нижней** панели (без sync низа к верху). Remount панелей (смена list key single↔split) MUST NOT сбрасывать видимую область к **началу текущей главы**, если session/Drift якорь (или только что захваченный top-visible) указывает mid-chapter; MUST NOT выполнять one-shot sync низа к верху. Persist split on/off между сессиями не требуется.
+Система SHALL позволять включать/выключать горизонтальный split (верх — оригинал, низ — перевод). По умолчанию — одна панель. При выключении split перевод остаётся в сессии до delete/exit. При **включении и выключении** split система MUST сохранять позицию прокрутки **верхней** панели оригинала и, если перевод загружен, позицию **нижней** панели (без sync низа к верху). Remount панелей (смена list key single↔split) MUST NOT сбрасывать видимую область к **началу текущей главы**, если session/Drift якорь (или только что захваченный top-visible) указывает mid-chapter — включая медленный attach/layout после remount (типично Android); restore MUST применяться надёжно после того, как scroll controller attached (не «сдал» после малого числа кадров). MUST NOT выполнять one-shot sync низа к верху. Программный rewind к началу главы при Show/Hide/open **запрещён**, кроме смены главы через pager (`reader/chapters`). Persist split on/off между сессиями не требуется.
 
 #### Scenario [RS-01]: Toggle split shows empty bottom pane
 - **GIVEN** Reader открыт для оригинального документа без привязанного перевода
@@ -38,6 +39,11 @@
 - **GIVEN** EPUB book-режим, оригинал mid-chapter (не paragraph 0), в сессии есть или нет перевода
 - **WHEN** пользователь включает split (remount верхней панели)
 - **THEN** верх остаётся mid-chapter (не paragraph 0); при наличии перевода низ восстанавливает **свой** якорь, не начало главы и не якорь верха
+
+#### Scenario [RS-26]: Hide then Show keeps both EPUB panes mid-chapter
+- **GIVEN** EPUB split, перевод загружен, верх mid-chapter и низ mid-chapter (разные или одинаковые индексы абзацев — неважно), не paragraph 0
+- **WHEN** пользователь выключает split и снова включает (Hide→Show)
+- **THEN** верх снова mid-chapter (не paragraph 0) и низ снова на **своём** mid (не paragraph 0 и не sync к верху)
 
 ### Requirement: Load translation into bottom pane
 В пустой нижней панели система SHALL предоставлять действие загрузки файла перевода с устройства. Для **subtitle**-оригинала допустимы те же subtitle-типы, что при import в Library; при успехе система SHALL показать cues перевода и сохранить linked translation (`library/documents`) **без** one-shot sync к верху. Для **EPUB**-оригинала система SHALL принимать **только** `.epub`; при успехе SHALL показать book-режим перевода и сохранить linked EPUB translation **без** one-shot align к верху. Несовместимый формат MUST дать заметную ошибку без привязки. Пока перевод загружен/linked, система SHALL предоставлять удаление **в AppBar рядом со split**, MUST NOT в верхней зоне нижней панели. Когда перевод показан, нижняя панель MUST быть text-only вплотную к divider (без title/pager/delete bar). При ошибке загрузки/парсинга — заметная ошибка без содержимого перевода; верх остаётся доступным.

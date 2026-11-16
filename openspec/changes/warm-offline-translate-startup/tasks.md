@@ -72,3 +72,9 @@
 - [x] 13.2 Pager `_goToChapter`: гарантировать paragraph 0 при смене/повторном визите главы (убрать/обойти PageStorage или generation key + jumpTo(0)) (RC-12/14; D16 B) — verify: mid → next → back → para 0
 - [x] 13.3 Обновлять session seed (и persist) на scroll-end без требования dragDetails — wheel/trackpad не теряет верх при pop (RS-12 / LD-33; D16 C) — verify: wheel mid → dispose/reopen top mid (или unit seed update)
 - [x] 13.4 Тесты RS-25 / RC-14 + регрессия RS-10/11, LD-33, zero-sync; `flutter analyze` — verify: green
+
+## 14. Android remount restore harden (D17)
+
+- [x] 14.1 Harden Show/Hide book restore для **верха и низа**: ждать attach (+ layout при необходимости); не сдаваться после ~8 кадров; double post-frame / re-restore после tokenize если сбрасывает scroll (design D17 D/E/F) — verify: mid верх → Show → верх mid; mid низ → Hide→Show → низ mid
+- [x] 14.2 Сохранить zero-sync и pager-only autorescroll (ожидания 2/5); не вводить sync низа к верху при Show — verify: scroll верх не двигает низ; pager → оба к 0
+- [x] 14.3 Тест RS-26 (+ усиление RS-10/25 с extra pumps); `flutter analyze`; ручной smoke Android по acceptance D17 — verify: RS-26 green; analyze clean
