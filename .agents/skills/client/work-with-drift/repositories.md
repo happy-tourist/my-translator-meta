@@ -46,7 +46,8 @@ UI maps these to short copy (SnackBar / inline) — see
 - **Reading resume (LD-17 / LD-28 / LD-31…33 / RS-12):** `ReadingAnchor`
   (`startMs`, optional `alignment`, optional `paragraphIndex`);
   `saveReadingAnchor` / `loadReadingAnchor` on **any** document id (original
-  **or** hidden translation row). Clamp alignment to `0.0…1.0`.
+  **or** hidden translation row). Store **raw** SPL `itemLeadingEdge` as
+  alignment (may be &lt;0 / &gt;1 — D18); do **not** clamp to `0.0…1.0`.
   **Format-gated `startMs`:** subtitles = cue start ms; EPUB **original** =
   **0-based chapter index** (LD-28); EPUB **translation** = **0-based
   paragraph index** within the linked chapter (LD-32). **EPUB original

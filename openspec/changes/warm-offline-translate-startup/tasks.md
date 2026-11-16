@@ -78,3 +78,10 @@
 - [x] 14.1 Harden Show/Hide book restore для **верха и низа**: ждать attach (+ layout при необходимости); не сдаваться после ~8 кадров; double post-frame / re-restore после tokenize если сбрасывает scroll (design D17 D/E/F) — verify: mid верх → Show → верх mid; mid низ → Hide→Show → низ mid
 - [x] 14.2 Сохранить zero-sync и pager-only autorescroll (ожидания 2/5); не вводить sync низа к верху при Show — verify: scroll верх не двигает низ; pager → оба к 0
 - [x] 14.3 Тест RS-26 (+ усиление RS-10/25 с extra pumps); `flutter analyze`; ручной smoke Android по acceptance D17 — verify: RS-26 green; analyze clean
+
+## 15. Within-paragraph alignment (D18)
+
+- [x] 15.1 Не clamp SPL `itemLeadingEdge` / session alignment в `[0,1]` при capture, Show/Hide restore, `initialAlignment`, persist/load (design D18) — verify: negative leadingEdge переживает Show
+- [x] 15.2 Тест RS-27 (tall para, mid-within → Show → leadingEdge &lt; 0); `flutter analyze` — verify: green
+- [x] 15.3 D18b: стабильный GlobalKey на original SPL + skip jumpTo если attached — без визуального сдвига при Show/Hide (pixel-invariant) — verify: RS-27 pixel check; ручной web smoke
+- [x] 15.4 D18c: `saveReadingAnchor` без clamp alignment — persist/load raw leadingEdge для original **и** translation (exit→reopen mid-within) — verify: repo test negative alignment round-trip

@@ -83,10 +83,10 @@ in book mode; subtitle CueRow path stays WidgetSpan.
 
 | Piece | EPUB semantics |
 |-------|----------------|
-| Drift columns | `lastReadStartMs` = chapter; `lastReadParagraphIndex` = mid-chapter paragraph (schema 8 / LD-33); `lastReadAlignment` = list leading edge |
+| Drift columns | `lastReadStartMs` = chapter; `lastReadParagraphIndex` = mid-chapter paragraph (schema 8 / LD-33); `lastReadAlignment` = raw SPL `itemLeadingEdge` (may be &lt;0 / &gt;1 — D18; no `[0,1]` clamp) |
 | Meaning | 0-based **chapter index** in `startMs` (not milliseconds) + optional paragraph |
-| Save | Settle / dispose: capture top-visible original paragraph + alignment with chapter (`_persistReadingAnchor`; `force: true` → session seed if list unmounted). Arm settle via `UserScrollNotification` + refresh session seed on scroll-end (wheel/trackpad, D16 C). Pager change: bump `_bookParagraphListGeneration` + `_persistBookChapterAnchor(chapter, paragraph: 0)` — do **not** re-capture the old list mid-chapter and do **not** post-frame `jumpTo(0)` (RC-12/14) |
-| Restore | Clamp chapter; seed `_bookOriginalInitialScrollIndex` / alignment from `paragraphIndex` (null → 0); open via `initialScrollIndex` (no jumpTo race). Translation chapter clamps to original (D10); bottom paragraph restores from the translation's **own** anchor — no scroll sync (RS-12 / LD-32) |
+| Save | Settle / dispose: capture top-visible original paragraph + **raw** alignment with chapter (`_persistReadingAnchor`; `force: true` → session seed if list unmounted). Arm settle via `UserScrollNotification` + refresh session seed on scroll-end (wheel/trackpad, D16 C). Pager change: bump `_bookParagraphListGeneration` + `_persistBookChapterAnchor(chapter, paragraph: 0)` — do **not** re-capture the old list mid-chapter and do **not** post-frame `jumpTo(0)` (RC-12/14) |
+| Restore | Clamp chapter; seed `_bookOriginalInitialScrollIndex` / **raw** alignment from `paragraphIndex` (null → 0); open via `initialScrollIndex` (no jumpTo race; do **not** clamp alignment to `[0,1]` — D18). Translation chapter clamps to original (D10); bottom paragraph restores from the translation's **own** anchor — no scroll sync (RS-12 / LD-32) |
 
 Subtitle documents keep cue `startMs` semantics. Call sites must be
 format-gated.

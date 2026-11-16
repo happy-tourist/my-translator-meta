@@ -130,6 +130,29 @@ remounts both panes' lists → rewind to start of chapter (RC-02/RC-12) and
 MUST clear the Show/Hide preserve seed for both panes so the new chapter does
 not reopen mid-list.
 
+### Within-paragraph alignment (D18 / RS-27)
+
+Tall EPUB paragraphs often fill the viewport; mid-within-item scroll yields
+SPL `itemLeadingEdge < 0` (leading edge above the pane). Capture / session
+seed / `initialAlignment` / `jumpTo` MUST keep that **raw** edge — **never**
+`.clamp(0.0, 1.0)`. Clamping forces `0` → remount shows the **start of the
+same paragraph** (index mid looks fine; reading position is wrong).
+`scrollable_positioned_list`'s unbounded viewport accepts anchor outside
+`[0,1]`.
+
+**D18b — zero visual shift on Show/Hide:** restoring the same *fraction* on a
+shorter split pane still nudges content. Prefer a cached `GlobalKey` on the
+**original** book SPL (id = chapter + generation only) so State/pixel scroll
+reparents into the split Column; if still attached after toggle, **skip**
+original `jumpTo` / tokenize re-apply, then **refresh session seed** from
+live `itemLeadingEdge` (post-resize fraction ≠ pre-Show seed) so force
+persist / Hide fallback stays accurate. Pager bumps generation → new key →
+rewind to 0 (RC-14).
+
+**D18c — exit/reopen:** `DocumentRepository.saveReadingAnchor` must persist
+raw alignment (no `[0,1]` clamp) for **both** original and translation rows;
+otherwise mid-within becomes `0` and Library reopen starts at paragraph top.
+
 ### EPUB Show/Hide remount restore harden (D17)
 
 Do **not** stop after ~8 attach retries. Android remount can attach/layout
@@ -175,13 +198,13 @@ translation document row's `lastReadStartMs`/`lastReadAlignment` (D11 — no
 
 | Piece | Contract |
 |-------|----------|
-| Columns | `lastReadStartMs`, `lastReadAlignment`, and (original EPUB) `lastReadParagraphIndex` — read/written per `documentId` |
-| Repo | `ReadingAnchor` (`startMs`, `alignment?`, `paragraphIndex?`) + `saveReadingAnchor` / `loadReadingAnchor` |
-| Semantics (original) | **Subtitles:** cue `startMs` (ms). **EPUB:** chapter in `startMs` + mid-chapter `paragraphIndex` + alignment (LD-28/33) |
+| Columns | `lastReadStartMs`, `lastReadAlignment` (raw SPL edge — D18), and (original EPUB) `lastReadParagraphIndex` — read/written per `documentId` |
+| Repo | `ReadingAnchor` (`startMs`, `alignment?`, `paragraphIndex?`) + `saveReadingAnchor` / `loadReadingAnchor` (no `[0,1]` clamp on alignment — D18c) |
+| Semantics (original) | **Subtitles:** cue `startMs` (ms). **EPUB:** chapter in `startMs` + mid-chapter `paragraphIndex` + raw alignment (LD-28/33 / D18) |
 | Semantics (translation) | **Subtitles:** cue `startMs`. **EPUB:** paragraph index in `startMs` within the linked chapter (LD-32) — not a chapter index; `paragraphIndex` column unused / cleared |
 | Open | Library best-effort load for **both** ids → `initialReadingAnchor` + `initialTranslationReadingAnchor` |
-| Restore (original, subtitles) | After layout: `nearestCueIndex` → `jumpTo` **original only** |
-| Restore (original, EPUB) | Clamp chapter; seed `_bookOriginalInitialScrollIndex` / alignment from `paragraphIndex` (null → 0) via list `initialScrollIndex` (RS-12 / LD-33) |
+| Restore (original, subtitles) | After layout: `nearestCueIndex` → `jumpTo` **original only** (raw alignment) |
+| Restore (original, EPUB) | Clamp chapter; seed `_bookOriginalInitialScrollIndex` / **raw** alignment from `paragraphIndex` (null → 0) via list `initialScrollIndex` (RS-12 / LD-33 / D18) |
 | Restore (translation, subtitles) | `_seedTranslationAnchor()` from translation cue `startMs` — not derived from original |
 | Restore (translation, EPUB) | Clamp paragraph into `clamp(_originalChapterIndex)` chapter (D10 link at reopen only) |
 | Save (subtitles) | Each pane on settle + Hide/dispose (`force: true`); if list already unmounted, fall back to that pane's session seed (RS-24). Arm settle via per-pane `UserScrollNotification` flags (drag/wheel/trackpad), not `dragDetails` alone (D16 C) |
@@ -271,6 +294,7 @@ Subtitle split MAY keep the older setState divider path.
 | Empty capture → seed index 0 on Show/Hide | Keep prior session seed (D16 A / RS-25) |
 | EPUB remount restore giving up after ~8 frames | Attach+layout wait (~48) + double post-frame + tokenize re-seed while pending (D17) |
 | Cross-pane abort of remount restore on any scroll | Per-pane `_bookRemountUserScrolled*` — only the scrolled pane stops (D17) |
+| `itemLeadingEdge.clamp(0,1)` on capture/seed | Keep raw leadingEdge (D18 / RS-27) — negative = mid-within tall para |
 | Settle-persist only when `dragDetails != null` | `UserScrollNotification` so wheel/trackpad updates seed (D16 C) |
 | Inventing a Rust pairing API for split | Two `parseSubtitles` / `parse_epub` + Flutter-only index/time clamp |
 | Delete translation in bottom-pane chrome | AppBar, next to split toggle (D12) |

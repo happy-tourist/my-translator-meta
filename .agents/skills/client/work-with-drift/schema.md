@@ -6,7 +6,7 @@ Read with [SKILL.md](SKILL.md).
 
 | Piece | Path | Role |
 |-------|------|------|
-| Tables | `lib/data/database/tables.dart` | `Folders`, `Documents` (nullable `folderId` = root; nullable `translationDocumentId`; `lastReadStartMs` / `lastReadAlignment` / nullable `lastReadParagraphIndex` for EPUB original mid-chapter LD-33; video attach cols), `DocumentVideoFrames` (JPEG BLOB cache), `DictionaryEntries` (`lemma` UNIQUE morph + nullable `surfaceKey`) |
+| Tables | `lib/data/database/tables.dart` | `Folders`, `Documents` (nullable `folderId` = root; nullable `translationDocumentId`; `lastReadStartMs` / `lastReadAlignment` (raw SPL `itemLeadingEdge`, may be outside `0…1` — D18) / nullable `lastReadParagraphIndex` for EPUB original mid-chapter LD-33; video attach cols), `DocumentVideoFrames` (JPEG BLOB cache), `DictionaryEntries` (`lemma` UNIQUE morph + nullable `surfaceKey`) |
 | DB class | `lib/data/database/app_database.dart` | `@DriftDatabase`, `schemaVersion`, `driftDatabase(...)` |
 | Generated | `lib/data/database/app_database.g.dart` | **GENERATED** — never hand-edit |
 | Open helper | `lib/data/database/database_provider.dart` | `openAppDatabase()` + readiness `SELECT 1` |

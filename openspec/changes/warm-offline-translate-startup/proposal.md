@@ -12,6 +12,7 @@
 - **`reader/chapters` (delta):** убрать закреплённый chapter title chrome у панели оригинала; оставить текст абзацев и pager (стрелки + `n / N`).
 - **Bugfix (`reader/split` + `reader/chapters`):** Show/Hide/open/reopen EPUB **MUST NOT** сбрасывать панель(и) к началу главы, если есть session/Drift якорь; pager **MUST** всегда открывать новую главу с paragraph 0 (не PageStorage mid-chapter); seed обновлять и при non-drag scroll (wheel), чтобы верх тоже переживал exit.
 - **Bugfix Android remount (D17):** mid верх → Show → верх остаётся mid; mid низ → Hide→Show → низ остаётся mid; скролл верха не двигает низ; автоскролл **только** при pager (к началу главы). Harden restore после remount (retry/layout/tokenize), особенно Android.
+- **Bugfix within-paragraph alignment (D18):** Show/Hide/open MUST NOT rewind к **началу того же абзаца** — сохранять сырой SPL `itemLeadingEdge` (в т.ч. &lt; 0 / &gt; 1), без `.clamp(0,1)`.
 
 ## Scope
 

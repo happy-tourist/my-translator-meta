@@ -101,12 +101,12 @@ Zero one-shot sync; top-linked chapter; translation reading anchor; bottom text-
 **Выбор (как низ по данным скролла):**
 
 1. На settle / pop оригинала book-pane: capture top-visible paragraph index + `itemLeadingEdge` (зеркало `_captureBookTranslationAnchor`).
-2. Persist на **оригинальном** документе: **chapter** остаётся в `lastReadStartMs` (LD-28); **paragraph index** — в новой nullable Drift-колонке (например `lastReadParagraphIndex`); **alignment** — в существующем `lastReadAlignment` (0…1), как у низа.
+2. Persist на **оригинальном** документе: **chapter** остаётся в `lastReadStartMs` (LD-28); **paragraph index** — в новой nullable Drift-колонке (например `lastReadParagraphIndex`); **alignment** — в существующем `lastReadAlignment` как сырой SPL `itemLeadingEdge` (D18: может быть &lt;0 / &gt;1; без clamp), как у низа.
 3. `ReadingAnchor` / `DocumentRepository` save/load расширить optional paragraph index; Library open передаёт полный якорь в `ReaderScreen.initialReadingAnchor`.
-4. `initState` book-mode: besides chapter restore, seed `_bookOriginalInitialScrollIndex` / `_bookOriginalInitialAlignment` из якоря (clamp); список открывается на месте через `initialScrollIndex` / `initialAlignment` (и jump-retry только если уже есть паттерн для remount — **не** отдельный «scroll to start» на open).
+4. `initState` book-mode: besides chapter restore, seed `_bookOriginalInitialScrollIndex` / `_bookOriginalInitialAlignment` из якоря (**index** clamp; **alignment** raw — D18); список открывается на месте через `initialScrollIndex` / `initialAlignment` (и jump-retry только если уже есть паттерн для remount — **не** отдельный «scroll to start» на open).
 5. Смена главы через pager (`_goToChapter`) по-прежнему rewind к 0 (RC-12) и пишет новый chapter (+ paragraph 0).
 
-**Отклонено:** pack chapter+paragraph в один `lastReadStartMs` (хрупко); класть paragraph в `lastReadAlignment` (ломает 0…1 leading edge).
+**Отклонено:** pack chapter+paragraph в один `lastReadStartMs` (хрупко); класть paragraph в `lastReadAlignment` (ломает leading-edge semantics).
 
 **Миграция:** schema bump + nullable column; старые ряды без paragraph → open глава с начала списка (как сейчас).
 
@@ -171,6 +171,24 @@ Zero one-shot sync; top-linked chapter; translation reading anchor; bottom text-
 
 **Acceptance (ручной Android):** mid верх → Show → верх mid; scroll верх → низ стоит; mid низ → Hide→Show → низ mid; pager → оба к 0 новой главы.
 
+### D18 — Preserve within-paragraph alignment (NEW)
+
+**Уточнение симптома (web smoke + разработчик, 2026-11-16):** после Show панель часто **остаётся на том же абзаце** (не chapter 0), но вьюпорт встаёт на **начало этого абзаца**. Длинные EPUB-абзацы (Достоевский и т.п.) заполняют экран → mid-within-item даёт `itemLeadingEdge < 0`.
+
+**Корень:** capture/restore/seed везде делают `.clamp(0.0, 1.0)` на `itemLeadingEdge` / session alignment. Отрицательный edge → `0` → `jumpTo` / `initialAlignment` ставят leading edge абзаца к верху панели = начало абзаца. Индекс mid при этом может быть верным (D17 «не глава 0» выглядит ок, но reading position потеряна).
+
+**Фикс (Flutter only):**
+
+1. Не clamp alignment в `[0,1]` при capture, session seed, Show/Hide restore, `initialAlignment`, persist/load — хранить **сырой** `itemLeadingEdge` (SPL UnboundedCustomScrollView допускает anchor вне `[0,1]`).
+2. Index clamp оставить; zero-sync / pager rewind к 0 не трогать.
+3. Тест RS-27: tall paragraph, mid-within (`leadingEdge < 0`) → Show → leadingEdge остаётся отрицательным (не ~0).
+
+**Acceptance:** mid внутри длинного абзаца → Show → тот же абзац **и** не rewind к его началу (видимый текст не «прыгает» к первым строкам абзаца).
+
+**D18b (дожим):** даже с сырым leadingEdge Show всё ещё **чуть** сдвигает текст: remount + `jumpTo(same fraction)` на **вдвое меньшей** высоте панели даёт другой pixel offset внутри абзаца. Фикс: стабильный `GlobalKey` на original SPL (без single↔split в id) — State/pixel scroll **переезжает** в Column; если controller всё ещё attached после setState — **не** вызывать `jumpTo`/tokenize re-apply для верха. Цель: визуально **не двигать** верх при Show/Hide.
+
+**D18c (reopen):** `DocumentRepository.saveReadingAnchor` тоже clamp’ил alignment в `[0,1]` → на exit mid-within сохранялся как `0` → reopen с начала абзаца (верх и низ). Убрать clamp в repo; round-trip отрицательного alignment (LD-33 + D18).
+
 ## Risks / Trade-offs
 
 | Risk | Mitigation |
@@ -186,6 +204,7 @@ Zero one-shot sync; top-linked chapter; translation reading anchor; bottom text-
 | Wheel без drag settle | D16: seed на любом scroll-end |
 | jumpTo race с tokenize | D16/D17: generation без jumpTo(0) на pager; Show — retry + optional re-restore |
 | Android remount timing | D17: longer/conditional retry; double post-frame; test with extra pumps |
+| Within-paragraph edge &lt; 0 | D18: stop clamp(0,1); persist raw leadingEdge |
 
 ## Migration Plan
 
@@ -197,7 +216,8 @@ Zero one-shot sync; top-linked chapter; translation reading anchor; bottom text-
 - **D15:** UI-only; без data migration.
 - **D16:** только Reader remount/seed/PageStorage; schema без изменений.
 - **D17:** только harden Show/Hide restore timing; schema без изменений.
+- **D18:** только alignment seed/restore (raw leadingEdge); schema без изменений (REAL уже хранит любое double).
 
 ## Open Questions
 
-Нет — ожидания пользователя = канон; D17 = Android remount restore bugfix.
+Нет — D18 = within-paragraph alignment clamp bugfix.

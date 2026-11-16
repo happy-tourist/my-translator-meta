@@ -183,9 +183,9 @@ Details: [split-scroll.md](split-scroll.md).
 | Long lines | Wrap; token hit-test still correct |
 | No translation yet (MVP) | Single-pane OK; split shows empty + load CTA; top scrolls alone |
 | Toggle split Show/Hide (subtitles) | Each pane preserves/restores its own top-visible cue across remount; no sync (RS-10/11/18/24) |
-| Toggle split Show/Hide (EPUB book) | Each pane preserves/restores its own mid-chapter paragraph scroll; empty capture keeps session seed (D16 A / RS-25); D17 hardened remount (attach+layout wait, double post-frame, tokenize re-seed, per-pane user-scroll abort); no align to the other (RS-10/11/19/24 / RS-26) |
-| Revisit EPUB chapter via pager | Both panes at paragraph 0 — `ValueKey` + generation, not PageStorage mid (D16 B / RC-14) |
-| Reopen document | Subtitles: each pane's own cue `startMs` + alignment; EPUB: original chapter + mid-chapter paragraph + bottom paragraph at clamp(original); fail on either must not block open (RS-12/24 / LD-31…33); wheel/trackpad settle updates seed (D16 C) |
+| Toggle split Show/Hide (EPUB book) | Each pane preserves/restores its own mid-chapter paragraph scroll (raw within-para `itemLeadingEdge` — D18/RS-27; original book SPL cached `GlobalKey` D18b); empty capture keeps session seed (D16 A / RS-25); D17 hardened remount (attach+layout wait, double post-frame, tokenize re-seed, per-pane user-scroll abort); no align to the other (RS-10/11/19/24 / RS-26) |
+| Revisit EPUB chapter via pager | Both panes at paragraph 0 — original book SPL new `GlobalKey` on generation bump + translation `ValueKey` + generation, not PageStorage mid (D16 B / RC-14 / D18b) |
+| Reopen document | Subtitles: each pane's own cue `startMs` + raw alignment; EPUB: original chapter + mid-chapter paragraph + raw alignment (D18c) + bottom paragraph at clamp(original); fail on either must not block open (RS-12/24 / LD-31…33); wheel/trackpad settle updates seed (D16 C) |
 | EPUB unequal chapter counts | Clamp; show `mismatchedEpubChapterCountMessage` |
 | EPUB unequal paragraph counts | Silent clamp on restore (RS-22); no error chrome |
 | Delete translation | AppBar, next to split toggle (D12) — never bottom-pane chrome |
